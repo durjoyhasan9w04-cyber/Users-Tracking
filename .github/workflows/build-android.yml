@@ -24,6 +24,58 @@ jobs:
       - name: Generate Android project files
         run: flutter create --platforms=android --project-name user_hub .
 
+      - name: Enable Android core library desugaring
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          candidates = [
+              Path("android/app/build.gradle.kts"),
+              Path("android/app/build.gradle"),
+          ]
+          gradle_file = next((p for p in candidates if p.exists()), None)
+          if gradle_file is None:
+              raise SystemExit("Could not find android/app/build.gradle(.kts)")
+
+          text = gradle_file.read_text()
+          if "isCoreLibraryDesugaringEnabled" not in text and "coreLibraryDesugaringEnabled" not in text:
+              if gradle_file.suffix == ".kts":
+                  text = text.replace(
+                      "compileOptions {",
+                      "compileOptions {\\n        isCoreLibraryDesugaringEnabled = true",
+                      1,
+                  )
+              else:
+                  text = text.replace(
+                      "compileOptions {",
+                      "compileOptions {\\n        coreLibraryDesugaringEnabled true",
+                      1,
+                  )
+
+          if "desugar_jdk_libs" not in text:
+              if gradle_file.suffix == ".kts":
+                  text = text.replace(
+                      "dependencies {",
+                      'dependencies {\\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")',
+                      1,
+                  )
+              else:
+                  text = text.replace(
+                      "dependencies {",
+                      "dependencies {\\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'",
+                      1,
+                  )
+
+          if "isCoreLibraryDesugaringEnabled" not in text and "coreLibraryDesugaringEnabled" not in text:
+              raise SystemExit("Failed to enable core library desugaring in Android Gradle config")
+          if "desugar_jdk_libs" not in text:
+              raise SystemExit("Failed to add desugar_jdk_libs dependency")
+
+          gradle_file.write_text(text)
+          print(f"Enabled core library desugaring in {gradle_file}")
+          PY
+
       - name: Install dependencies
         run: flutter pub get
 
