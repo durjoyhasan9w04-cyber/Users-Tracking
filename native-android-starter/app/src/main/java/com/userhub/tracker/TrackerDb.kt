@@ -168,7 +168,7 @@ class TrackerDb(context: Context) : SQLiteOpenHelper(context, "tracker.db", null
     private fun scalar(sql:String,args:Array<String> = emptyArray()):Double=readableDatabase.rawQuery(sql,args).use{if(it.moveToFirst())it.getDouble(0)else 0.0}
     private fun count(sql:String,args:Array<String> = emptyArray()):Int=readableDatabase.rawQuery(sql,args).use{if(it.moveToFirst())it.getInt(0)else 0}
     private fun today()=LocalDate.now().toString()
-    private fun csv(s:String)=s.replace("\"","""\""")
+    private fun csv(s:String)=s.replace("\"","\"\"")
     private fun dpStatus(days:Int?)=when{days==null->"NEVER DP";days<=3->"ACTIVE";days<=7->"FOLLOW-UP";days<=14->"INACTIVE";days<=29->"LONG INACTIVE";else->"VERY LONG INACTIVE"}
 }
 data class User(val id:Long,val name:String,val number:String,val firstAdded:String,val notes:String,val doNotContact:Boolean=false,val onboardingType:String="previous",val lastDp:String?=null,val daysSince:Int?=null,val activityStatus:String="NEVER DP",val lifecycleStatus:String="ACTIVE",val totalDp:Double=0.0,val totalBonus:Double=0.0)
