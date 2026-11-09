@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,9 +43,9 @@ import java.util.Locale
 
 private val Ink=Color(0xFFF5F8F6)
 private val Panel=Color(0xFFFFFFFF)
-private val PanelLight=Color(0xFFEAF2ED)
-private val Cyan=Color(0xFF138A5B)
-private val Violet=Color(0xFF4C8068)
+private val PanelLight=Color(0xFFE7F3EC)
+private val Cyan=Color(0xFF087F5B)
+private val Violet=Color(0xFF668B78)
 private val Muted=Color(0xFF718078)
 
 class MainActivity:ComponentActivity(){
@@ -108,7 +109,7 @@ fun UserHubApp(db:TrackerDb){
     }
 }
 @Composable fun GlassCard(modifier:Modifier=Modifier,content:@Composable ColumnScope.()->Unit){
-    Column(modifier.shadow(3.dp,RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Color.White).border(1.dp,Color(0xFFE5ECE7),RoundedCornerShape(18.dp)).padding(16.dp),content=content)
+    Column(modifier.animateContentSize().shadow(2.dp,RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Color.White).border(1.dp,Color(0xFFE5ECE7),RoundedCornerShape(18.dp)).padding(16.dp),content=content)
 }
 @Composable fun PageTitle(title:String,subtitle:String){Column(verticalArrangement=Arrangement.spacedBy(4.dp)){Text(title,fontSize=25.sp,fontWeight=FontWeight.Bold);Text(subtitle,fontSize=12.sp,color=Muted)}}
 @Composable fun MetricTile(label:String,value:String,icon:androidx.compose.ui.graphics.vector.ImageVector,accent:Color,modifier:Modifier=Modifier){
@@ -423,5 +424,5 @@ fun UserHubApp(db:TrackerDb){
     }
 }
 
-@Composable fun fieldColors()=OutlinedTextFieldDefaults.colors(focusedBorderColor=Cyan,unfocusedBorderColor=Color(0xFFD6E1DA),focusedLabelColor=Cyan,cursorColor=Cyan,focusedTextColor=Color(0xFF17251D),unfocusedTextColor=Color(0xFF17251D),focusedContainerColor=Color(0xFF17251D),unfocusedContainerColor=Color(0xFF17251D))
+@Composable fun fieldColors()=OutlinedTextFieldDefaults.colors(focusedBorderColor=Cyan,unfocusedBorderColor=Color(0xFFD6E1DA),focusedLabelColor=Cyan,cursorColor=Cyan,focusedTextColor=Color(0xFF17251D),unfocusedTextColor=Color(0xFF17251D),focusedContainerColor=Color.White,unfocusedContainerColor=Color.White)
 fun money(v:Double)="${String.format(Locale.US,"%.2f",v)} coins"
