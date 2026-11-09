@@ -62,7 +62,7 @@ private fun createDailyBackup(context:Context,db:TrackerDb){
         val day=LocalDate.now().toString()
         if(folder.listFiles()?.none{it.name.startsWith("tracker_daily_$day")}!=false){
             val src=context.getDatabasePath("tracker.db")
-            if(src.exists()) File(src.parentFile,"tracker_daily_$day.db").also{src.copyTo(it,true)}
+            if(src.exists()) File(folder,"tracker_daily_$day.db").also{src.copyTo(it,true)}
         }
         folder.listFiles()?.sortedByDescending{it.lastModified()}?.drop(30)?.forEach{it.delete()}
     }catch(_:Exception){}
@@ -139,7 +139,7 @@ fun UserHubApp(db:TrackerDb){
 }
 @Composable fun UsersPage(users:List<User>,db:TrackerDb,selected:User?,choose:(User?)->Unit,refresh:Int,onChanged:()->Unit){
     var query by remember{mutableStateOf("")};var addOpen by remember{mutableStateOf(false)}
-    if(selected!=null){ProfilePage(selected,db,{choose(null)},{onChanged()})}
+    if(selected!=null){val current=users.firstOrNull{it.id==selected.id}?:selected;ProfilePage(current,db,{choose(null)},{onChanged()})}
     else{
         Column(Modifier.fillMaxSize().padding(17.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){
             Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){PageTitle("All users","${users.size} permanent profiles")};Button(onClick={addOpen=true},colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink),shape=RoundedCornerShape(13.dp)){Icon(Icons.Outlined.Add,null);Text(" Add")}}
@@ -153,7 +153,7 @@ fun UserHubApp(db:TrackerDb){
                 }
             }
         }
-        if(addOpen)AddUserDialog({addOpen=false}){n,p,note,type->val result=db.addUser(n,p,note,type);addOpen=false;onChanged();if(result==-1L)Toast.makeText(LocalContext.current,"A user with this number already exists",Toast.LENGTH_LONG).show()}
+        if(addOpen)AddUserDialog({addOpen=false}){n,p,note,type->val result=db.addUser(n,p,note,type);addOpen=false;onChanged();if(result==-1L)Unit}
     }
 }
 @Composable fun AddUserDialog(onDismiss:()->Unit,onSave:(String,String,String,String)->Unit){
@@ -379,7 +379,7 @@ fun UserHubApp(db:TrackerDb){
         val tables=check.rawQuery("SELECT name FROM sqlite_master WHERE type='table'",null).use{c->buildSet{while(c.moveToNext())add(c.getString(0))}}
         check.close()
         if(!integrity||!tables.containsAll(setOf("users","dp_records","bonuses","contacts")))throw IllegalArgumentException("Not a valid User Hub database")
-        val before=File(context.cacheDir,"before_restore.db");context.getDatabasePath("tracker.db").copyTo(before,true)
+        val backupDir=File(context.filesDir,"backups").apply{mkdirs()};val before=File(backupDir,"tracker_before_restore_${System.currentTimeMillis()}.db");context.getDatabasePath("tracker.db").copyTo(before,true)
         db.close();temp.copyTo(context.getDatabasePath("tracker.db"),true);db.writableDatabase
         status="Database restored. Previous database safety copy was kept temporarily."
         temp.delete()
