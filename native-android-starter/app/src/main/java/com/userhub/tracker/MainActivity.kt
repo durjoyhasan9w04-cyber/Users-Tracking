@@ -230,7 +230,7 @@ fun UserHubApp(db:TrackerDb){
             Text(message,color=Cyan,fontSize=12.sp)
         }
         SectionLabel("RECENT BONUS HISTORY")
-        db.bonusHistory().take(30).forEach{b->GlassCard(Modifier.fillMaxWidth()){Row(horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){Text(b.userName,fontWeight=FontWeight.SemiBold);Text(money(b.amount),color:Cyan)};Text("${b.date} · ${b.reason}",color=Muted,fontSize=10.sp)}}
+        db.bonusHistory().take(30).forEach{b->GlassCard(Modifier.fillMaxWidth()){Row(horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){Text(b.userName,fontWeight=FontWeight.SemiBold);Text(money(b.amount),color=Cyan)};Text("${b.date} · ${b.reason}",color=Muted,fontSize=10.sp)}}
     }
 }
 @OptIn(ExperimentalMaterial3Api::class)
