@@ -1,8 +1,0 @@
-.gradle/
-.idea/
-local.properties
-**/build/
-*.iml
-*.db
-*.sqlite
-*.sqlite3
