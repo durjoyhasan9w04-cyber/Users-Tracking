@@ -1,6 +1,7 @@
 package com.userhub.tracker
 
-import android.content.Context\nimport android.content.Intent
+import android.content.Context
+import android.content.Intent
 import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
 import android.os.Bundle
@@ -123,7 +124,8 @@ fun UserHubApp(db:TrackerDb){
         Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricTile("Total users",users.size.toString(),Icons.Outlined.Groups,Cyan,Modifier.weight(1f));MetricTile("Today's bonus",money(db.todayBonus()),Icons.Outlined.CardGiftcard,Violet,Modifier.weight(1f))}
         Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricTile("Contacted today",db.contactedToday().toString(),Icons.Outlined.Phone,Cyan,Modifier.weight(1f));MetricTile("Not contacted",(users.size-db.contactedToday()).coerceAtLeast(0).toString(),Icons.Outlined.Notifications,Violet,Modifier.weight(1f))}
         Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricTile("Monthly DP",money(db.monthDp()),Icons.Outlined.TrendingUp,Color(0xFF77D6A5),Modifier.weight(1f));MetricTile("Monthly bonus",money(db.monthBonus()),Icons.Outlined.Stars,Color(0xFFFFC778),Modifier.weight(1f))}
-        Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricTile("Active DP users",db.activeMonthUsers().toString(),Icons.Outlined.CheckCircle,Cyan,Modifier.weight(1f));MetricTile("Never DP",users.count{it.activityStatus=="NEVER DP"}.toString(),Icons.Outlined.PersonOff,Violet,Modifier.weight(1f))}\n        Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricTile("No DP this month",db.noDpThisMonth().toString(),Icons.Outlined.EventBusy,Cyan,Modifier.weight(1f));MetricTile("Follow-up queue",db.followUpUsers().count{!it.first.doNotContact}.toString(),Icons.Outlined.NotificationsActive,Violet,Modifier.weight(1f))}
+        Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricTile("Active DP users",db.activeMonthUsers().toString(),Icons.Outlined.CheckCircle,Cyan,Modifier.weight(1f));MetricTile("Never DP",users.count{it.activityStatus=="NEVER DP"}.toString(),Icons.Outlined.PersonOff,Violet,Modifier.weight(1f))}
+        Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricTile("No DP this month",db.noDpThisMonth().toString(),Icons.Outlined.EventBusy,Cyan,Modifier.weight(1f));MetricTile("Follow-up queue",db.followUpUsers().count{!it.first.doNotContact}.toString(),Icons.Outlined.NotificationsActive,Violet,Modifier.weight(1f))}
         Text("QUICK ACTIONS",color=Muted,fontSize=10.sp,letterSpacing=1.5.sp,fontWeight=FontWeight.Bold)
         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){QuickAction("Add user",Icons.Outlined.PersonAdd,Cyan){onGo("Users")};QuickAction("Daily DP",Icons.Outlined.AddCircle,Violet){onGo("DP")};QuickAction("Add bonus",Icons.Outlined.CardGiftcard,Color(0xFFFFC778)){onGo("Bonus")}}
         GlassCard(Modifier.fillMaxWidth()){
@@ -355,7 +357,8 @@ fun UserHubApp(db:TrackerDb){
         Text("Bangladesh time (BST, UTC+6). Free providers have uneven coverage and rate limits; not every league or fixture is guaranteed.",color=Muted,fontSize=10.sp)
         Text("Status: $syncStatus · $syncMessage",color=Cyan,fontSize=10.sp)
         Button(onClick={FixtureSync.start(db,force=true){s,m->syncStatus=s;syncMessage=m;refresh++}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink)){Icon(Icons.Outlined.Refresh,null);Text(" Refresh worldwide fixtures")}
-        val context=LocalContext.current\n        Text("Powered by SportScore · TheSportsDB · OpenLigaDB",modifier=Modifier.clickable{context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://sportscore.com/developers/")))},color=Cyan,fontSize=9.sp)
+        val context=LocalContext.current
+        Text("Powered by SportScore · TheSportsDB · OpenLigaDB",modifier=Modifier.clickable{context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://sportscore.com/developers/")))},color=Cyan,fontSize=9.sp)
     }
     GlassCard(Modifier.fillMaxWidth()){
         SectionLabel("ADD FIXTURE MANUALLY")
