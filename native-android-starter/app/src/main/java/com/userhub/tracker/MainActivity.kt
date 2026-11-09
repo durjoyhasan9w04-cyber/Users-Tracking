@@ -182,7 +182,7 @@ fun UserHubApp(db:TrackerDb){
         }
         SportsPreferencesEditor(u,db){refresh++}
         SectionLabel("DP HISTORY · ${db.dpHistory(u.id).size} records")
-        db.dpHistory(u.id).take(100).forEach{r->GlassCard(Modifier.fillMaxWidth()){Text(r.date,fontWeight=FontWeight.SemiBold);Text(r.amounts.mapIndexedNotNull{i,v->v?.let{"DP${i+1}: ${money(it)}"}}.joinToString("  · ").ifBlank{"No amounts"},color=Muted,fontSize=11.sp)}}
+        db.dpHistory(u.id).forEach{r->GlassCard(Modifier.fillMaxWidth()){Text(r.date,fontWeight=FontWeight.SemiBold);Text(r.amounts.mapIndexedNotNull{i,v->v?.let{"DP${i+1}: ${money(it)}"}}.joinToString("  · ").ifBlank{"No amounts"},color=Muted,fontSize=11.sp)}}
         SectionLabel("BONUS HISTORY")
         db.bonusHistory(u.id).forEach{b->GlassCard(Modifier.fillMaxWidth()){Row(horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){Text(b.date,fontWeight=FontWeight.SemiBold);Text(money(b.amount),color=Cyan)};Text("${b.reason} · Related DP: ${b.relatedDp?.let{money(it)}?:"—"}",color=Muted,fontSize=10.sp);if(b.notes.isNotBlank())Text(b.notes,color=Muted,fontSize=10.sp)}}
         SectionLabel("CONTACT HISTORY")
