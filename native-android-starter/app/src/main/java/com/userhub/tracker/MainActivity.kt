@@ -79,7 +79,7 @@ fun UserHubApp(db:TrackerDb){
     var users by remember{mutableStateOf(db.users())}
     var selectedUser by remember{mutableStateOf<User?>(null)}
     fun reload(){users=db.users();refresh++}
-    MaterialTheme(colorScheme=lightColorScheme(primary=Cyan,secondary=Violet,background=Ink,surface=Panel,onBackground=Color(0xFF17251D),onSurface=Color(0xFF17251D),onPrimary=Color(0xFF17251D))){
+    MaterialTheme(colorScheme=lightColorScheme(primary=Cyan,secondary=Violet,background=Ink,surface=Panel,onBackground=Color(0xFF17251D),onSurface=Color(0xFF17251D),onPrimary=Color.White)){
         Scaffold(containerColor=Ink,topBar={
             Row(Modifier.fillMaxWidth().background(Ink).padding(horizontal=20.dp,vertical=14.dp),verticalAlignment=Alignment.CenterVertically){
                 Box(Modifier.size(38.dp).clip(RoundedCornerShape(13.dp)).background(Brush.linearGradient(listOf(Cyan,Violet))),contentAlignment=Alignment.Center){Icon(Icons.Outlined.Hub,null,tint=Ink)}
@@ -88,7 +88,7 @@ fun UserHubApp(db:TrackerDb){
                 Box(Modifier.size(36.dp).clip(CircleShape).background(PanelLight),contentAlignment=Alignment.Center){Icon(Icons.Outlined.Person,null,tint=Cyan)}
             }
         },bottomBar={
-            NavigationBar(containerColor=Color(0xFF17251D),contentColor=Color(0xFF17251D)){
+            NavigationBar(containerColor=Color.White,contentColor=Color(0xFF17251D)){
                 listOf("Home","Users","DP","Bonus","More").forEach{label->
                     val icon=when(label){"Home"->Icons.Outlined.SpaceDashboard;"Users"->Icons.Outlined.Groups;"DP"->Icons.Outlined.AddCircle;"Bonus"->Icons.Outlined.CardGiftcard;else->Icons.Outlined.GridView}
                     NavigationBarItem(selected=tab==label,onClick={tab=label;selectedUser=null},icon={Icon(icon,null)},label={Text(label,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=Cyan,selectedTextColor=Cyan,indicatorColor=Color(0xFFE5F2EA),unselectedIconColor=Muted,unselectedTextColor=Muted))
@@ -108,7 +108,7 @@ fun UserHubApp(db:TrackerDb){
     }
 }
 @Composable fun GlassCard(modifier:Modifier=Modifier,content:@Composable ColumnScope.()->Unit){
-    Column(modifier.shadow(3.dp,RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Color(0xFF17251D)).border(1.dp,Color(0xFFE5ECE7),RoundedCornerShape(18.dp)).padding(16.dp),content=content)
+    Column(modifier.shadow(3.dp,RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Color.White).border(1.dp,Color(0xFFE5ECE7),RoundedCornerShape(18.dp)).padding(16.dp),content=content)
 }
 @Composable fun PageTitle(title:String,subtitle:String){Column(verticalArrangement=Arrangement.spacedBy(4.dp)){Text(title,fontSize=25.sp,fontWeight=FontWeight.Bold);Text(subtitle,fontSize=12.sp,color=Muted)}}
 @Composable fun MetricTile(label:String,value:String,icon:androidx.compose.ui.graphics.vector.ImageVector,accent:Color,modifier:Modifier=Modifier){
@@ -148,7 +148,7 @@ fun UserHubApp(db:TrackerDb){
     if(selected!=null){val current=users.firstOrNull{it.id==selected.id}?:selected;ProfilePage(current,db,{choose(null)},{onChanged()})}
     else{
         Column(Modifier.fillMaxSize().padding(17.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){
-            Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){PageTitle("All users","${users.size} permanent profiles")};Button(onClick={addOpen=true},colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink),shape=RoundedCornerShape(13.dp)){Icon(Icons.Outlined.Add,null);Text(" Add")}}
+            Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){PageTitle("All users","${users.size} permanent profiles")};Button(onClick={addOpen=true},colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Color.White),shape=RoundedCornerShape(13.dp)){Icon(Icons.Outlined.Add,null);Text(" Add")}}
             OutlinedTextField(query,{query=it},modifier=Modifier.fillMaxWidth(),placeholder={Text("Search name or phone")},leadingIcon={Icon(Icons.Outlined.Search,null)},singleLine=true,shape=RoundedCornerShape(15.dp),colors=fieldColors())
             LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){
                 items(users.filter{it.name.contains(query,true)||it.number.contains(query,true)}){u->
@@ -229,7 +229,7 @@ fun UserHubApp(db:TrackerDb){
                 Column{listOf("Deposit Bonus","Special Bonus","Promotional Bonus","Other").forEach{FilterChip(reason==it,{reason=it},label={Text(it)})}}
                 OutlinedTextField(notes,{notes=it},modifier=Modifier.fillMaxWidth().padding(top=8.dp),label={Text("Notes")},colors=fieldColors())
             }
-            Button(onClick={val a=amount.toDoubleOrNull();val r=related.toDoubleOrNull();if(a==null||a<=0||related.isNotBlank()&&(r==null||r<0))message="Enter a valid bonus and related DP amount"else{db.addBonus(user.id,a,r,reason,notes);amount="";related="";notes="";message="Bonus saved";onSaved()}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Violet,contentColor=Ink)){Text("Save bonus")}
+            Button(onClick={val a=amount.toDoubleOrNull();val r=related.toDoubleOrNull();if(a==null||a<=0||related.isNotBlank()&&(r==null||r<0))message="Enter a valid bonus and related DP amount"else{db.addBonus(user.id,a,r,reason,notes);amount="";related="";notes="";message="Bonus saved";onSaved()}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Violet,contentColor=Color.White)){Text("Save bonus")}
             Text(message,color=Cyan,fontSize=12.sp)
         }
         SectionLabel("RECENT BONUS HISTORY")
