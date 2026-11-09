@@ -9,7 +9,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
-import java.time.ZoneOffset
+import java.time.ZoneOffset\nimport android.os.Handler\nimport android.os.Looper
 import java.time.format.DateTimeFormatter
 
 object FixtureSync {
@@ -57,10 +57,10 @@ object FixtureSync {
                 total+=importOpenLiga(db,today)
                 total+=importTeamEvents(db,today)
                 db.saveSyncState("done","Refresh finished · $total fixtures added or updated. Provider coverage is best-effort; verify important fixtures.")
-                onFinished("done","Refresh finished · $total fixtures added or updated")
+                Handler(Looper.getMainLooper()).post{onFinished("done","Refresh finished · $total fixtures added or updated")}
             }catch(e:Exception){
                 val msg="Fixture refresh stopped: ${e.message?.take(180)?: "network error"}"
-                db.saveSyncState("error",msg);onFinished("error",msg)
+                db.saveSyncState("error",msg);Handler(Looper.getMainLooper()).post{onFinished("error",msg)}
             }finally{synchronized(lock){running=false}}
         }.start()
     }
@@ -77,7 +77,7 @@ object FixtureSync {
                     if(dt.toLocalDate()<today||dt.toLocalDate()>today.plusDays(7))continue
                     val home=f.optJSONObject("team1")?.optString("teamName").orEmpty().ifBlank{"TBA"}
                     val away=f.optJSONObject("team2")?.optString("teamName").orEmpty().ifBlank{"TBA"}
-                    val id=f.optString("matchID").ifBlank{continue}
+                    val id=f.optString("matchID");if(id.isBlank())continue
                     db.addMatch("Football",f.optString("leagueName",league),home,away,dt.toLocalDate().toString(),dt.format(DateTimeFormatter.ofPattern("HH:mm")),"Fixture from OpenLigaDB · Bangladesh time","openligadb","openligadb:$id")
                     total++
                 }
@@ -110,7 +110,7 @@ object FixtureSync {
                     if(dt.toLocalDate()<today)continue
                     val home=f.optString("strHomeTeam").ifBlank{"TBA"}
                     val away=f.optString("strAwayTeam")
-                    val id=f.optString("idEvent").ifBlank{continue}
+                    val id=f.optString("idEvent");if(id.isBlank())continue
                     db.addMatch(sport,f.optString("strLeague"),home,away,dt.toLocalDate().toString(),dt.format(DateTimeFormatter.ofPattern("HH:mm")),"Fixture from TheSportsDB · Bangladesh time","thesportsdb","thesportsdb:$id")
                     total++
                 }
