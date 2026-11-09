@@ -165,7 +165,7 @@ fun DashboardScreen(db: TrackerDb, count: Int, refresh: Int, onGo: (String) -> U
 fun MiniStat(label: String, value: String) { Column { Text(value, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp); Text(label, color = Muted, fontSize = 10.sp) } }
 @Composable
 fun QuickAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, click: () -> Unit) {
-    Column(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(Panel).border(1.dp, Color(0xFF34425B), RoundedCornerShape(18.dp)).clickable { click() }.padding(vertical=15.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.width(100.dp).clip(RoundedCornerShape(18.dp)).background(Panel).border(1.dp, Color(0xFF34425B), RoundedCornerShape(18.dp)).clickable { click() }.padding(vertical=15.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(icon, null, tint = color, modifier = Modifier.size(22.dp)); Spacer(Modifier.height(7.dp)); Text(label, fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Medium)
     }
 }
@@ -249,7 +249,7 @@ fun DpPage(users: List<User>, db: TrackerDb, onSaved: () -> Unit) {
             Button(onClick={
                 val parsed=amounts.map{it.trim().takeIf{v->v.isNotEmpty()}?.toDoubleOrNull()}
                 when {
-                    parsed.any{it==null && amounts[parsed.indexOf(it)].isNotBlank()} -> message="Check the amount format"
+                    amounts.any{it.isNotBlank() && it.toDoubleOrNull()==null} -> message="Check the amount format"
                     parsed.any{it!=null && it<0} -> message="Amounts cannot be negative"
                     parsed.all{it==null} -> message="Enter at least one DP amount"
                     else -> { db.addDp(chosen.id,parsed,contacted,notes); message="DP entry saved"; amounts=List(5){""}; notes=""; contacted=false; onSaved() }
