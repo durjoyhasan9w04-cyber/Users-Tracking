@@ -27,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -39,19 +40,21 @@ import java.io.FileOutputStream
 import java.time.LocalDate
 import java.util.Locale
 
-private val Ink=Color(0xFF080D1B)
-private val Panel=Color(0xFF151D31)
-private val PanelLight=Color(0xFF202B45)
-private val Cyan=Color(0xFF68E1E8)
-private val Violet=Color(0xFF9B8CFF)
-private val Muted=Color(0xFF9AA8C2)
+private val Ink=Color(0xFFF5F8F6)
+private val Panel=Color(0xFFFFFFFF)
+private val PanelLight=Color(0xFFEAF2ED)
+private val Cyan=Color(0xFF138A5B)
+private val Violet=Color(0xFF4C8068)
+private val Muted=Color(0xFF718078)
 
 class MainActivity:ComponentActivity(){
     override fun onCreate(savedInstanceState:Bundle?){
         super.onCreate(savedInstanceState)
         val db=TrackerDb(this)
-        window.statusBarColor=android.graphics.Color.rgb(8,13,27)
-        window.navigationBarColor=android.graphics.Color.rgb(8,13,27)
+        window.statusBarColor=android.graphics.Color.rgb(245,248,246)
+        window.navigationBarColor=android.graphics.Color.rgb(245,248,246)
+        androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).isAppearanceLightStatusBars=true
+        androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).isAppearanceLightNavigationBars=true
         createDailyBackup(this,db)
         setContent{UserHubApp(db)}
     }
@@ -76,7 +79,7 @@ fun UserHubApp(db:TrackerDb){
     var users by remember{mutableStateOf(db.users())}
     var selectedUser by remember{mutableStateOf<User?>(null)}
     fun reload(){users=db.users();refresh++}
-    MaterialTheme(colorScheme=darkColorScheme(primary=Cyan,secondary=Violet,background=Ink,surface=Panel,onBackground=Color.White,onSurface=Color.White,onPrimary=Ink)){
+    MaterialTheme(colorScheme=lightColorScheme(primary=Cyan,secondary=Violet,background=Ink,surface=Panel,onBackground=Color(0xFF17251D),onSurface=Color(0xFF17251D),onPrimary=Color(0xFF17251D))){
         Scaffold(containerColor=Ink,topBar={
             Row(Modifier.fillMaxWidth().background(Ink).padding(horizontal=20.dp,vertical=14.dp),verticalAlignment=Alignment.CenterVertically){
                 Box(Modifier.size(38.dp).clip(RoundedCornerShape(13.dp)).background(Brush.linearGradient(listOf(Cyan,Violet))),contentAlignment=Alignment.Center){Icon(Icons.Outlined.Hub,null,tint=Ink)}
@@ -85,10 +88,10 @@ fun UserHubApp(db:TrackerDb){
                 Box(Modifier.size(36.dp).clip(CircleShape).background(PanelLight),contentAlignment=Alignment.Center){Icon(Icons.Outlined.Person,null,tint=Cyan)}
             }
         },bottomBar={
-            NavigationBar(containerColor=Color(0xFF10182A)){
+            NavigationBar(containerColor=Color(0xFF17251D),contentColor=Color(0xFF17251D)){
                 listOf("Home","Users","DP","Bonus","More").forEach{label->
                     val icon=when(label){"Home"->Icons.Outlined.SpaceDashboard;"Users"->Icons.Outlined.Groups;"DP"->Icons.Outlined.AddCircle;"Bonus"->Icons.Outlined.CardGiftcard;else->Icons.Outlined.GridView}
-                    NavigationBarItem(selected=tab==label,onClick={tab=label;selectedUser=null},icon={Icon(icon,null)},label={Text(label,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=Cyan,selectedTextColor=Cyan,indicatorColor=Color(0xFF26364B),unselectedIconColor=Muted,unselectedTextColor=Muted))
+                    NavigationBarItem(selected=tab==label,onClick={tab=label;selectedUser=null},icon={Icon(icon,null)},label={Text(label,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=Cyan,selectedTextColor=Cyan,indicatorColor=Color(0xFFE5F2EA),unselectedIconColor=Muted,unselectedTextColor=Muted))
                 }
             }
         }){padding->
@@ -105,7 +108,7 @@ fun UserHubApp(db:TrackerDb){
     }
 }
 @Composable fun GlassCard(modifier:Modifier=Modifier,content:@Composable ColumnScope.()->Unit){
-    Column(modifier.clip(RoundedCornerShape(22.dp)).background(Brush.linearGradient(listOf(Color(0xFF1B2941),Color(0xFF111A2D)))).border(1.dp,Color(0xFF34425B).copy(alpha=.7f),RoundedCornerShape(22.dp)).padding(16.dp),content=content)
+    Column(modifier.shadow(3.dp,RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Color(0xFF17251D)).border(1.dp,Color(0xFFE5ECE7),RoundedCornerShape(18.dp)).padding(16.dp),content=content)
 }
 @Composable fun PageTitle(title:String,subtitle:String){Column(verticalArrangement=Arrangement.spacedBy(4.dp)){Text(title,fontSize=25.sp,fontWeight=FontWeight.Bold);Text(subtitle,fontSize=12.sp,color=Muted)}}
 @Composable fun MetricTile(label:String,value:String,icon:androidx.compose.ui.graphics.vector.ImageVector,accent:Color,modifier:Modifier=Modifier){
@@ -123,11 +126,11 @@ fun UserHubApp(db:TrackerDb){
         }
         Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricTile("Total users",users.size.toString(),Icons.Outlined.Groups,Cyan,Modifier.weight(1f));MetricTile("Today's bonus",money(db.todayBonus()),Icons.Outlined.CardGiftcard,Violet,Modifier.weight(1f))}
         Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricTile("Contacted today",db.contactedToday().toString(),Icons.Outlined.Phone,Cyan,Modifier.weight(1f));MetricTile("Not contacted",(users.size-db.contactedToday()).coerceAtLeast(0).toString(),Icons.Outlined.Notifications,Violet,Modifier.weight(1f))}
-        Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricTile("Monthly DP",money(db.monthDp()),Icons.Outlined.TrendingUp,Color(0xFF77D6A5),Modifier.weight(1f));MetricTile("Monthly bonus",money(db.monthBonus()),Icons.Outlined.Stars,Color(0xFFFFC778),Modifier.weight(1f))}
+        Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricTile("Monthly DP",money(db.monthDp()),Icons.Outlined.TrendingUp,Color(0xFF77D6A5),Modifier.weight(1f));MetricTile("Monthly bonus",money(db.monthBonus()),Icons.Outlined.Stars,Color(0xFFB7791F),Modifier.weight(1f))}
         Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricTile("Active DP users",db.activeMonthUsers().toString(),Icons.Outlined.CheckCircle,Cyan,Modifier.weight(1f));MetricTile("Never DP",users.count{it.activityStatus=="NEVER DP"}.toString(),Icons.Outlined.PersonOff,Violet,Modifier.weight(1f))}
         Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){MetricTile("No DP this month",db.noDpThisMonth().toString(),Icons.Outlined.EventBusy,Cyan,Modifier.weight(1f));MetricTile("Follow-up queue",db.followUpUsers().count{!it.first.doNotContact}.toString(),Icons.Outlined.NotificationsActive,Violet,Modifier.weight(1f))}
         Text("QUICK ACTIONS",color=Muted,fontSize=10.sp,letterSpacing=1.5.sp,fontWeight=FontWeight.Bold)
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){QuickAction("Add user",Icons.Outlined.PersonAdd,Cyan){onGo("Users")};QuickAction("Daily DP",Icons.Outlined.AddCircle,Violet){onGo("DP")};QuickAction("Add bonus",Icons.Outlined.CardGiftcard,Color(0xFFFFC778)){onGo("Bonus")}}
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){QuickAction("Add user",Icons.Outlined.PersonAdd,Cyan){onGo("Users")};QuickAction("Daily DP",Icons.Outlined.AddCircle,Violet){onGo("DP")};QuickAction("Add bonus",Icons.Outlined.CardGiftcard,Color(0xFFB7791F)){onGo("Bonus")}}
         GlassCard(Modifier.fillMaxWidth()){
             Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("Activity overview",fontWeight=FontWeight.SemiBold);Text("Based on the latest positive DP date",color=Muted,fontSize=10.sp)};TextButton(onClick={onGo("Follow-ups")}){Text("View all",color=Cyan)}}
             db.followUpUsers().take(6).forEach{(u,status)->Row(Modifier.fillMaxWidth().padding(vertical=5.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(u.name,fontSize=12.sp);Text(u.lastDp?: "No DP record",color=Muted,fontSize=10.sp)};Text(status,color=Violet,fontSize=10.sp)}}
@@ -135,9 +138,9 @@ fun UserHubApp(db:TrackerDb){
         Text("Private on-device SQLite storage · No Telegram · No paid cloud",color=Muted,fontSize=10.sp)
     }
 }
-@Composable fun MiniStat(label:String,value:String){Column{Text(value,color=Color.White,fontWeight=FontWeight.Bold,fontSize=16.sp);Text(label,color=Muted,fontSize=10.sp)}}
+@Composable fun MiniStat(label:String,value:String){Column{Text(value,color=Color(0xFF17251D),fontWeight=FontWeight.Bold,fontSize=16.sp);Text(label,color=Muted,fontSize=10.sp)}}
 @Composable fun QuickAction(label:String,icon:androidx.compose.ui.graphics.vector.ImageVector,color:Color,click:()->Unit){
-    Column(Modifier.width(104.dp).clip(RoundedCornerShape(17.dp)).background(Panel).border(1.dp,Color(0xFF34425B),RoundedCornerShape(17.dp)).clickable{click()}.padding(vertical=14.dp),horizontalAlignment=Alignment.CenterHorizontally){Icon(icon,null,tint=color,modifier=Modifier.size(22.dp));Spacer(Modifier.height(7.dp));Text(label,fontSize=10.sp,color=Color.White,fontWeight=FontWeight.Medium)}
+    Column(Modifier.width(104.dp).clip(RoundedCornerShape(17.dp)).background(Panel).border(1.dp,Color(0xFFE5ECE7),RoundedCornerShape(17.dp)).clickable{click()}.padding(vertical=14.dp),horizontalAlignment=Alignment.CenterHorizontally){Icon(icon,null,tint=color,modifier=Modifier.size(22.dp));Spacer(Modifier.height(7.dp));Text(label,fontSize=10.sp,color=Color(0xFF17251D),fontWeight=FontWeight.Medium)}
 }
 @Composable fun UsersPage(users:List<User>,db:TrackerDb,selected:User?,choose:(User?)->Unit,refresh:Int,onChanged:()->Unit){
     val context=LocalContext.current
@@ -150,8 +153,8 @@ fun UserHubApp(db:TrackerDb){
             LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){
                 items(users.filter{it.name.contains(query,true)||it.number.contains(query,true)}){u->
                     GlassCard(Modifier.fillMaxWidth().clickable{choose(u)}){
-                        Row(verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(39.dp).clip(CircleShape).background(Color(0xFF283953)),contentAlignment=Alignment.Center){Text(u.name.take(1).uppercase(),color=Cyan,fontWeight=FontWeight.Bold)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(u.name,fontWeight=FontWeight.SemiBold);Text(u.number.ifBlank{"No number"},color=Muted,fontSize=10.sp);Text("${u.lifecycleStatus} · ${u.activityStatus}",color=Violet,fontSize=10.sp)};Icon(Icons.Outlined.ChevronRight,null,tint=Muted)}
-                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("DP ${money(u.totalDp)}",fontSize=10.sp,color=Muted);Text("Bonus ${money(u.totalBonus)}",fontSize=10.sp,color=Muted);if(u.doNotContact)Text("DO NOT CONTACT",fontSize=9.sp,color=Color(0xFFFFC778))}
+                        Row(verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(39.dp).clip(CircleShape).background(Color(0xFFE5F2EA)),contentAlignment=Alignment.Center){Text(u.name.take(1).uppercase(),color=Cyan,fontWeight=FontWeight.Bold)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(u.name,fontWeight=FontWeight.SemiBold);Text(u.number.ifBlank{"No number"},color=Muted,fontSize=10.sp);Text("${u.lifecycleStatus} · ${u.activityStatus}",color=Violet,fontSize=10.sp)};Icon(Icons.Outlined.ChevronRight,null,tint=Muted)}
+                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("DP ${money(u.totalDp)}",fontSize=10.sp,color=Muted);Text("Bonus ${money(u.totalBonus)}",fontSize=10.sp,color=Muted);if(u.doNotContact)Text("DO NOT CONTACT",fontSize=9.sp,color=Color(0xFFB7791F))}
                     }
                 }
             }
@@ -189,7 +192,7 @@ fun UserHubApp(db:TrackerDb){
         db.contactHistory(u.id).forEach{c->GlassCard(Modifier.fillMaxWidth()){Row(horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){Text(c.date,fontWeight=FontWeight.SemiBold);Text(c.status,color=Violet,fontSize=11.sp)};Text("${c.reason} · ${c.channel}",color=Muted,fontSize=10.sp);if(c.followUp.isNotBlank())Text("Follow-up: ${c.followUp}",color=Muted,fontSize=10.sp);if(c.notes.isNotBlank())Text(c.notes,color=Muted,fontSize=10.sp)}}
     }
 }
-@Composable fun ProfileLine(label:String,value:String){Row(Modifier.fillMaxWidth().padding(top=8.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(label,color=Muted,fontSize=11.sp);Text(value,color=Color.White,fontSize=11.sp)}}
+@Composable fun ProfileLine(label:String,value:String){Row(Modifier.fillMaxWidth().padding(top=8.dp),horizontalArrangement=Arrangement.SpaceBetween){Text(label,color=Muted,fontSize=11.sp);Text(value,color=Color(0xFF17251D),fontSize=11.sp)}}
 @Composable fun SectionLabel(s:String){Text(s,color=Cyan,fontWeight=FontWeight.Bold,fontSize=10.sp,letterSpacing=1.2.sp)}
 @Composable fun DpPage(users:List<User>,db:TrackerDb,onSaved:()->Unit){
     var uid by remember{mutableStateOf(users.firstOrNull()?.id?.toString()?:"")};var amounts by remember{mutableStateOf(List(5){""})};var message by remember{mutableStateOf("")}
@@ -307,7 +310,7 @@ fun UserHubApp(db:TrackerDb){
             rows.forEach{r->GlassCard(Modifier.fillMaxWidth()){Text(r.user.name,fontWeight=FontWeight.SemiBold);Text("DP ${money(r.dp)} · ${r.count} entries · Bonus ${money(r.bonus)}",color=Muted,fontSize=11.sp);Text(if(r.dp>0)"DP recorded" else if(r.everDp)"No DP this month · Previously active" else "Never DP",color=Violet,fontSize=10.sp)}}
             SectionLabel("BONUS TRANSACTIONS")
             db.bonusHistory(month=month).forEach{b->Text("${b.date} · ${b.userName} · ${money(b.amount)} · ${b.reason}",color=Muted,fontSize=11.sp)}
-        }else Text("Enter a valid month such as 2026-11.",color=Color(0xFFFFC778))
+        }else Text("Enter a valid month such as 2026-11.",color=Color(0xFFB7791F))
     }
 }
 @Composable fun DpCalendarPage(db:TrackerDb){
@@ -407,7 +410,7 @@ fun UserHubApp(db:TrackerDb){
             Button(onClick={try{db.writableDatabase.rawQuery("PRAGMA wal_checkpoint(FULL)",null).use{};val dir=File(context.filesDir,"backups").apply{mkdirs()};val target=File(dir,"tracker_manual_${System.currentTimeMillis()}.db");context.getDatabasePath("tracker.db").copyTo(target,true);status="Local backup created: ${target.name}"}catch(e:Exception){status="Backup failed: ${e.message}"}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Violet,contentColor=Ink)){Icon(Icons.Outlined.Backup,null);Text(" Create local backup now")}
             Button(onClick={exportBackup.launch("userhub_backup_${LocalDate.now()}.db")},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink)){Icon(Icons.Outlined.Download,null);Text(" Export database backup")}
             OutlinedButton(onClick={restoreBackup.launch(arrayOf("application/octet-stream","application/x-sqlite3","application/vnd.sqlite3","*/*"))},modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.Restore,null);Text(" Restore database backup")}
-            Text("You can also import your v5.5 Termux database here. Stop the Flask app first, copy data/tracker.db into Downloads, then select it. Restore replaces current data; a safety copy is created first. Only restore trusted backups.",color=Color(0xFFFFC778),fontSize=10.sp)
+            Text("You can also import your v5.5 Termux database here. Stop the Flask app first, copy data/tracker.db into Downloads, then select it. Restore replaces current data; a safety copy is created first. Only restore trusted backups.",color=Color(0xFFB7791F),fontSize=10.sp)
         }
         GlassCard(Modifier.fillMaxWidth()){
             SectionLabel("EXPORT CSV")
@@ -420,5 +423,5 @@ fun UserHubApp(db:TrackerDb){
     }
 }
 
-@Composable fun fieldColors()=OutlinedTextFieldDefaults.colors(focusedBorderColor=Cyan,unfocusedBorderColor=Color(0xFF39465F),focusedLabelColor=Cyan,cursorColor=Cyan,focusedTextColor=Color.White,unfocusedTextColor=Color.White,focusedContainerColor=Color(0xFF0F182A),unfocusedContainerColor=Color(0xFF0F182A))
+@Composable fun fieldColors()=OutlinedTextFieldDefaults.colors(focusedBorderColor=Cyan,unfocusedBorderColor=Color(0xFFD6E1DA),focusedLabelColor=Cyan,cursorColor=Cyan,focusedTextColor=Color(0xFF17251D),unfocusedTextColor=Color(0xFF17251D),focusedContainerColor=Color(0xFF17251D),unfocusedContainerColor=Color(0xFF17251D))
 fun money(v:Double)="${String.format(Locale.US,"%.2f",v)} coins"
