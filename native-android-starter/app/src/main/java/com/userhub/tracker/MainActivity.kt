@@ -57,7 +57,7 @@ class MainActivity:ComponentActivity(){
 }
 private fun createDailyBackup(context:Context,db:TrackerDb){
     try{
-        db.writableDatabase.execSQL("PRAGMA wal_checkpoint(FULL)")
+        db.writableDatabase.rawQuery("PRAGMA wal_checkpoint(FULL)",null).use{}
         val folder=File(context.filesDir,"backups").apply{mkdirs()}
         val day=LocalDate.now().toString()
         if(folder.listFiles()?.none{it.name.startsWith("tracker_daily_$day")}!=false){
@@ -138,6 +138,7 @@ fun UserHubApp(db:TrackerDb){
     Column(Modifier.width(104.dp).clip(RoundedCornerShape(17.dp)).background(Panel).border(1.dp,Color(0xFF34425B),RoundedCornerShape(17.dp)).clickable{click()}.padding(vertical=14.dp),horizontalAlignment=Alignment.CenterHorizontally){Icon(icon,null,tint=color,modifier=Modifier.size(22.dp));Spacer(Modifier.height(7.dp));Text(label,fontSize=10.sp,color=Color.White,fontWeight=FontWeight.Medium)}
 }
 @Composable fun UsersPage(users:List<User>,db:TrackerDb,selected:User?,choose:(User?)->Unit,refresh:Int,onChanged:()->Unit){
+    val context=LocalContext.current
     var query by remember{mutableStateOf("")};var addOpen by remember{mutableStateOf(false)}
     if(selected!=null){val current=users.firstOrNull{it.id==selected.id}?:selected;ProfilePage(current,db,{choose(null)},{onChanged()})}
     else{
@@ -153,7 +154,7 @@ fun UserHubApp(db:TrackerDb){
                 }
             }
         }
-        if(addOpen)AddUserDialog({addOpen=false}){n,p,note,type->val result=db.addUser(n,p,note,type);addOpen=false;onChanged();if(result==-1L)Unit}
+        if(addOpen)AddUserDialog({addOpen=false}){n,p,note,type->val result=db.addUser(n,p,note,type);addOpen=false;onChanged();if(result==-1L)Toast.makeText(context,"A user with this number already exists",Toast.LENGTH_LONG).show()}
     }
 }
 @Composable fun AddUserDialog(onDismiss:()->Unit,onSave:(String,String,String,String)->Unit){
@@ -398,6 +399,7 @@ fun UserHubApp(db:TrackerDb){
         GlassCard(Modifier.fillMaxWidth()){
             SectionLabel("DATABASE BACKUP")
             Text("Automatic daily backup is made when the app starts. Keep a separate copy outside this phone.",color=Muted,fontSize=11.sp)
+            Button(onClick={try{db.writableDatabase.rawQuery("PRAGMA wal_checkpoint(FULL)",null).use{};val dir=File(context.filesDir,"backups").apply{mkdirs()};val target=File(dir,"tracker_manual_${System.currentTimeMillis()}.db");context.getDatabasePath("tracker.db").copyTo(target,true);status="Local backup created: ${target.name}"}catch(e:Exception){status="Backup failed: ${e.message}"}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Violet,contentColor=Ink)){Icon(Icons.Outlined.Backup,null);Text(" Create local backup now")}
             Button(onClick={exportBackup.launch("userhub_backup_${LocalDate.now()}.db")},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink)){Icon(Icons.Outlined.Download,null);Text(" Export database backup")}
             OutlinedButton(onClick={restoreBackup.launch(arrayOf("application/octet-stream","application/x-sqlite3","application/vnd.sqlite3","*/*"))},modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.Restore,null);Text(" Restore database backup")}
             Text("Restore replaces current data. A temporary safety copy is created first. Only restore trusted backups.",color=Color(0xFFFFC778),fontSize=10.sp)
