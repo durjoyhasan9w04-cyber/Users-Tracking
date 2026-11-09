@@ -395,7 +395,7 @@ fun UserHubApp(db:TrackerDb){
         check.close()
         if(!integrity||!tables.containsAll(setOf("users","dp_records","bonuses","contacts")))throw IllegalArgumentException("Not a valid User Hub database")
         db.writableDatabase.rawQuery("PRAGMA wal_checkpoint(FULL)",null).use{};val backupDir=File(context.filesDir,"backups").apply{mkdirs()};val before=File(backupDir,"tracker_before_restore_${System.currentTimeMillis()}.db");context.getDatabasePath("tracker.db").copyTo(before,true)
-        db.close();temp.copyTo(context.getDatabasePath("tracker.db"),true);db.writableDatabase
+        db.close();val databaseFile=context.getDatabasePath("tracker.db");File(databaseFile.absolutePath+"-wal").delete();File(databaseFile.absolutePath+"-shm").delete();temp.copyTo(databaseFile,true);db.writableDatabase
         status="Database restored. Previous database safety copy was kept temporarily."
         temp.delete()
     }catch(e:Exception){status="Restore failed: ${e.message}"}}
