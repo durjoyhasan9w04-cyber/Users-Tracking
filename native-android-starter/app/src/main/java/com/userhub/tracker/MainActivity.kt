@@ -276,7 +276,7 @@ fun UserHubApp(db:TrackerDb){
     SectionLabel("RECENT CONTACT HISTORY")
     db.contactHistory().take(100).forEach{c->GlassCard(Modifier.fillMaxWidth()){Row(horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){Text(c.userName,fontWeight=FontWeight.SemiBold);Text(c.status,color=Violet,fontSize=11.sp)};Text("${c.date} · ${c.reason} · ${c.channel}",color=Muted,fontSize=10.sp);if(c.followUp.isNotBlank())Text("Follow-up: ${c.followUp}",color=Muted,fontSize=10.sp);if(c.notes.isNotBlank())Text(c.notes,color=Muted,fontSize=10.sp)}}
 }
-@Composable fun ChoiceField(label:String,value:String,options:List<String>,onSelect:(String)->Unit){
+@OptIn(ExperimentalMaterial3Api::class)\n@Composable fun ChoiceField(label:String,value:String,options:List<String>,onSelect:(String)->Unit){
     var expanded by remember{mutableStateOf(false)}
     ExposedDropdownMenuBox(expanded=expanded,onExpandedChange={expanded=it}){OutlinedTextField(value,{},readOnly=true,label={Text(label)},modifier=Modifier.menuAnchor().fillMaxWidth().padding(top=7.dp),trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(expanded)},colors=fieldColors());ExposedDropdownMenu(expanded=expanded,onDismissRequest={expanded=false}){options.forEach{DropdownMenuItem(text={Text(it)},onClick={onSelect(it);expanded=false})}}}
 }
@@ -353,7 +353,7 @@ fun UserHubApp(db:TrackerDb){
         Text("Multi-source best-effort refresh · SportScore, TheSportsDB and OpenLigaDB",color=Muted,fontSize=11.sp)
         Text("Bangladesh time (BST, UTC+6). Free providers have uneven coverage and rate limits; not every league or fixture is guaranteed.",color=Muted,fontSize=10.sp)
         Text("Status: $syncStatus · $syncMessage",color=Cyan,fontSize=10.sp)
-        Button(onClick={FixtureSync.start(db){s,m->syncStatus=s;syncMessage=m;refresh++}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink)){Icon(Icons.Outlined.Refresh,null);Text(" Refresh worldwide fixtures")}
+        Button(onClick={FixtureSync.start(db,force=true){s,m->syncStatus=s;syncMessage=m;refresh++}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink)){Icon(Icons.Outlined.Refresh,null);Text(" Refresh worldwide fixtures")}
         Text("SportScore attribution: sportscore.com · TheSportsDB · OpenLigaDB",color=Muted,fontSize=9.sp)
     }
     GlassCard(Modifier.fillMaxWidth()){
@@ -402,7 +402,7 @@ fun UserHubApp(db:TrackerDb){
             Button(onClick={try{db.writableDatabase.rawQuery("PRAGMA wal_checkpoint(FULL)",null).use{};val dir=File(context.filesDir,"backups").apply{mkdirs()};val target=File(dir,"tracker_manual_${System.currentTimeMillis()}.db");context.getDatabasePath("tracker.db").copyTo(target,true);status="Local backup created: ${target.name}"}catch(e:Exception){status="Backup failed: ${e.message}"}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Violet,contentColor=Ink)){Icon(Icons.Outlined.Backup,null);Text(" Create local backup now")}
             Button(onClick={exportBackup.launch("userhub_backup_${LocalDate.now()}.db")},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink)){Icon(Icons.Outlined.Download,null);Text(" Export database backup")}
             OutlinedButton(onClick={restoreBackup.launch(arrayOf("application/octet-stream","application/x-sqlite3","application/vnd.sqlite3","*/*"))},modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.Restore,null);Text(" Restore database backup")}
-            Text("Restore replaces current data. A temporary safety copy is created first. Only restore trusted backups.",color=Color(0xFFFFC778),fontSize=10.sp)
+            Text("You can also import your v5.5 Termux database here. Stop the Flask app first, copy data/tracker.db into Downloads, then select it. Restore replaces current data; a safety copy is created first. Only restore trusted backups.",color=Color(0xFFFFC778),fontSize=10.sp)
         }
         GlassCard(Modifier.fillMaxWidth()){
             SectionLabel("EXPORT CSV")
