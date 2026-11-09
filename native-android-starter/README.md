@@ -48,6 +48,8 @@ The Android app stores its own private \`tracker.db\` and local backup snapshots
 
 ## Build
 
+The pull request is configured to run the Android build workflow automatically for validation.
+
 The GitHub Actions workflow builds a debug APK using Java 17, Gradle 8.9 and Android Gradle Plugin 8.7.3. A downloadable APK is available only after a successful workflow run as the \`user-hub-debug-apk\` artifact. This is a debug build, not a Play Store release.
 
 ## Toolchain
