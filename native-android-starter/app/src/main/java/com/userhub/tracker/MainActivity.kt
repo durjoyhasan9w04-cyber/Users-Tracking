@@ -211,7 +211,7 @@ fun UserHubApp(db:TrackerDb){
                 val invalid=amounts.any{it.isNotBlank()&&(it.toDoubleOrNull()==null||it.toDoubleOrNull()!!<0)}
                 val values=amounts.map{it.trim().takeIf{v->v.isNotEmpty()}?.toDoubleOrNull()}
                 when{invalid->message="Enter zero or positive numeric amounts";values.none{it!=null&&it>0}->message="Enter at least one amount above zero";else->{db.addDp(user.id,values);message="DP record saved";amounts=List(5){""};onSaved()}}
-            },modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink),shape=RoundedCornerShape(14.dp)){Text("Save daily DP",fontWeight=FontWeight.Bold)}
+            },modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Color.White),shape=RoundedCornerShape(14.dp)){Text("Save daily DP",fontWeight=FontWeight.Bold)}
             Text(message,color=Cyan,fontSize=12.sp)
         }
     }
@@ -274,7 +274,7 @@ fun UserHubApp(db:TrackerDb){
             ChoiceField("Channel",channel,listOf("WhatsApp","Phone call","SMS","Email","In-app","Other")){channel=it}
             OutlinedTextField(follow,{follow=it},modifier=Modifier.fillMaxWidth().padding(top=8.dp),label={Text("Agreed follow-up date · YYYY-MM-DD")},colors=fieldColors())
             OutlinedTextField(notes,{notes=it},modifier=Modifier.fillMaxWidth().padding(top=8.dp),label={Text("Contact notes")},colors=fieldColors())
-            Button(onClick={if(follow.isNotBlank()&&!follow.matches(Regex("\\d{4}-\\d{2}-\\d{2}")))message="Use YYYY-MM-DD for follow-up date"else{db.addContact(user.id,status,reason,channel,follow,notes);message="Contact record saved";notes="";onSaved()}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink)){Text("Save contact record")}
+            Button(onClick={if(follow.isNotBlank()&&!follow.matches(Regex("\\d{4}-\\d{2}-\\d{2}")))message="Use YYYY-MM-DD for follow-up date"else{db.addContact(user.id,status,reason,channel,follow,notes);message="Contact record saved";notes="";onSaved()}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Color.White)){Text("Save contact record")}
             Text(message,color=Cyan,fontSize=11.sp)
         }
     }
@@ -346,7 +346,7 @@ fun UserHubApp(db:TrackerDb){
         Row(verticalAlignment=Alignment.CenterVertically){Text("Agreed to service/support contact",Modifier.weight(1f),fontSize=11.sp);Switch(contactOpt,{contactOpt=it})}
         Row(verticalAlignment=Alignment.CenterVertically){Text("Opted in to match reminders",Modifier.weight(1f),fontSize=11.sp);Switch(eventOpt,{eventOpt=it})}
         Text("No automatic messages are sent. Only opted-in interests appear in internal reminders.",color=Muted,fontSize=10.sp)
-        Button(onClick={db.savePreferences(u.id,sports,teams,players,competitions,language,channel,window,frequency,contactOpt,eventOpt);saved="Preferences saved";onSaved()},colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink)){Text("Save preferences")}
+        Button(onClick={db.savePreferences(u.id,sports,teams,players,competitions,language,channel,window,frequency,contactOpt,eventOpt);saved="Preferences saved";onSaved()},colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Color.White)){Text("Save preferences")}
         Text(saved,color=Cyan,fontSize=10.sp)
     }
 }
@@ -360,7 +360,7 @@ fun UserHubApp(db:TrackerDb){
         Text("Multi-source best-effort refresh · SportScore, TheSportsDB and OpenLigaDB",color=Muted,fontSize=11.sp)
         Text("Bangladesh time (BST, UTC+6). Free providers have uneven coverage and rate limits; not every league or fixture is guaranteed.",color=Muted,fontSize=10.sp)
         Text("Status: $syncStatus · $syncMessage",color=Cyan,fontSize=10.sp)
-        Button(onClick={FixtureSync.start(db,force=true){s,m->syncStatus=s;syncMessage=m;refresh++}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink)){Icon(Icons.Outlined.Refresh,null);Text(" Refresh worldwide fixtures")}
+        Button(onClick={FixtureSync.start(db,force=true){s,m->syncStatus=s;syncMessage=m;refresh++}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Color.White)){Icon(Icons.Outlined.Refresh,null);Text(" Refresh worldwide fixtures")}
         val context=LocalContext.current
         Text("Powered by SportScore · TheSportsDB · OpenLigaDB",modifier=Modifier.clickable{context.startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://sportscore.com/developers/")))},color=Cyan,fontSize=9.sp)
     }
@@ -373,7 +373,7 @@ fun UserHubApp(db:TrackerDb){
         OutlinedTextField(date,{date=it},modifier=Modifier.fillMaxWidth().padding(top=7.dp),label={Text("Date · YYYY-MM-DD")},colors=fieldColors())
         OutlinedTextField(time,{time=it},modifier=Modifier.fillMaxWidth().padding(top=7.dp),label={Text("Bangladesh time · HH:MM")},colors=fieldColors())
         OutlinedTextField(notes,{notes=it},modifier=Modifier.fillMaxWidth().padding(top=7.dp),label={Text("Notes")},colors=fieldColors())
-        Button(onClick={if(home.isNotBlank()&&date.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))){db.addMatch(sport,competition,home,away,date,time,notes);home="";away="";msg="Fixture saved";refresh++}else msg="Enter team names and a valid date"},colors=ButtonDefaults.buttonColors(containerColor=Violet,contentColor=Ink)){Text("Save fixture")}
+        Button(onClick={if(home.isNotBlank()&&date.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))){db.addMatch(sport,competition,home,away,date,time,notes);home="";away="";msg="Fixture saved";refresh++}else msg="Enter team names and a valid date"},colors=ButtonDefaults.buttonColors(containerColor=Violet,contentColor=Color.White)){Text("Save fixture")}
         Text(msg,color=Cyan,fontSize=10.sp)
     }
     SectionLabel("UPCOMING FIXTURES · ${events.size}")
@@ -407,8 +407,8 @@ fun UserHubApp(db:TrackerDb){
         GlassCard(Modifier.fillMaxWidth()){
             SectionLabel("DATABASE BACKUP")
             Text("Automatic daily backup is made when the app starts. Keep a separate copy outside this phone.",color=Muted,fontSize=11.sp)
-            Button(onClick={try{db.writableDatabase.rawQuery("PRAGMA wal_checkpoint(FULL)",null).use{};val dir=File(context.filesDir,"backups").apply{mkdirs()};val target=File(dir,"tracker_manual_${System.currentTimeMillis()}.db");context.getDatabasePath("tracker.db").copyTo(target,true);status="Local backup created: ${target.name}"}catch(e:Exception){status="Backup failed: ${e.message}"}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Violet,contentColor=Ink)){Icon(Icons.Outlined.Backup,null);Text(" Create local backup now")}
-            Button(onClick={exportBackup.launch("userhub_backup_${LocalDate.now()}.db")},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink)){Icon(Icons.Outlined.Download,null);Text(" Export database backup")}
+            Button(onClick={try{db.writableDatabase.rawQuery("PRAGMA wal_checkpoint(FULL)",null).use{};val dir=File(context.filesDir,"backups").apply{mkdirs()};val target=File(dir,"tracker_manual_${System.currentTimeMillis()}.db");context.getDatabasePath("tracker.db").copyTo(target,true);status="Local backup created: ${target.name}"}catch(e:Exception){status="Backup failed: ${e.message}"}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Violet,contentColor=Color.White)){Icon(Icons.Outlined.Backup,null);Text(" Create local backup now")}
+            Button(onClick={exportBackup.launch("userhub_backup_${LocalDate.now()}.db")},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Color.White)){Icon(Icons.Outlined.Download,null);Text(" Export database backup")}
             OutlinedButton(onClick={restoreBackup.launch(arrayOf("application/octet-stream","application/x-sqlite3","application/vnd.sqlite3","*/*"))},modifier=Modifier.fillMaxWidth()){Icon(Icons.Outlined.Restore,null);Text(" Restore database backup")}
             Text("You can also import your v5.5 Termux database here. Stop the Flask app first, copy data/tracker.db into Downloads, then select it. Restore replaces current data; a safety copy is created first. Only restore trusted backups.",color=Color(0xFFB7791F),fontSize=10.sp)
         }
