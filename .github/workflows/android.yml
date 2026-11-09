@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [ main ]
   push:
-    branches: [ main, master ]
+    branches: [ main, master, rebuild/glassmorphic-v2 ]
 permissions:
   contents: read
   actions: read
