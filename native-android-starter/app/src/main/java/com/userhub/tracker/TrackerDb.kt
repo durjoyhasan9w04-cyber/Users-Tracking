@@ -114,7 +114,7 @@ class TrackerDb(context: Context) : SQLiteOpenHelper(context, "tracker.db", null
     fun bonusHistory(userId:Long?=null,month:String?=null):List<BonusRecord> {
         val out=mutableListOf<BonusRecord>();val where=mutableListOf<String>();val args=mutableListOf<String>()
         if(userId!=null){where+="user_id=?";args+=userId.toString()};if(month!=null){where+="substr(bonus_date,1,7)=?";args+=month}
-        val sql="SELECT b.id,b.user_id,u.name,b.bonus_date,b.amount,b.related_dp,b.reason,b.notes FROM bonuses b JOIN users u ON u.id=b.user_id"+if(where.isEmpty())"" else " WHERE "+where.joinToString(" AND ")+" ORDER BY b.bonus_date DESC,b.id DESC"
+        val sql="SELECT b.id,b.user_id,u.name,b.bonus_date,b.amount,b.related_dp,b.reason,b.notes FROM bonuses b JOIN users u ON u.id=b.user_id"+(if(where.isEmpty())"" else " WHERE "+where.joinToString(" AND "))+" ORDER BY b.bonus_date DESC,b.id DESC"
         readableDatabase.rawQuery(sql,args.toTypedArray()).use{c->while(c.moveToNext())out+=BonusRecord(c.getLong(0),c.getLong(1),c.getString(2),c.getString(3),c.getDouble(4),if(c.isNull(5))null else c.getDouble(5),c.getString(6),c.getString(7))}
         return out
     }
