@@ -351,6 +351,7 @@ fun UserHubApp(db:TrackerDb){
     var sport by remember{mutableStateOf("Cricket")};var competition by remember{mutableStateOf("")};var home by remember{mutableStateOf("")};var away by remember{mutableStateOf("")};var date by remember{mutableStateOf(LocalDate.now().toString())};var time by remember{mutableStateOf("")};var notes by remember{mutableStateOf("")};var msg by remember{mutableStateOf("")};var refresh by remember{mutableIntStateOf(0)}
     var syncStatus by remember{mutableStateOf(db.syncState().first)};var syncMessage by remember{mutableStateOf(db.syncState().second)}
     LaunchedEffect(Unit){FixtureSync.start(db){s,m->syncStatus=s;syncMessage=m;refresh++}}
+    val events=remember(refresh,syncMessage){db.upcomingMatches()}
     GlassCard(Modifier.fillMaxWidth()){
         SectionLabel("WORLDWIDE FIXTURE DISCOVERY")
         Text("Multi-source best-effort refresh · SportScore, TheSportsDB and OpenLigaDB",color=Muted,fontSize=11.sp)
@@ -372,8 +373,8 @@ fun UserHubApp(db:TrackerDb){
         Button(onClick={if(home.isNotBlank()&&date.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))){db.addMatch(sport,competition,home,away,date,time,notes);home="";away="";msg="Fixture saved";refresh++}else msg="Enter team names and a valid date"},colors=ButtonDefaults.buttonColors(containerColor=Violet,contentColor=Ink)){Text("Save fixture")}
         Text(msg,color=Cyan,fontSize=10.sp)
     }
-    SectionLabel("UPCOMING FIXTURES · ${db.upcomingMatches().size}")
-    db.upcomingMatches().forEach{m->GlassCard(Modifier.fillMaxWidth()){Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("${m.home}"+if(m.away.isNotBlank())" vs ${m.away}" else "",fontWeight=FontWeight.Bold);Text("${m.sport} · ${m.competition}",color=Muted,fontSize=10.sp);Text("${m.date} · ${m.time.ifBlank{"Time not set"}} · ${m.source}",color=Cyan,fontSize=10.sp)};IconButton(onClick={db.deleteMatch(m.id);refresh++}){Icon(Icons.Outlined.Delete,null,tint=Muted)}}}}
+    SectionLabel("UPCOMING FIXTURES · ${events.size}")
+    events.forEach{m->GlassCard(Modifier.fillMaxWidth()){Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("${m.home}"+if(m.away.isNotBlank())" vs ${m.away}" else "",fontWeight=FontWeight.Bold);Text("${m.sport} · ${m.competition}",color=Muted,fontSize=10.sp);Text("${m.date} · ${m.time.ifBlank{"Time not set"}} · ${m.source}",color=Cyan,fontSize=10.sp)};IconButton(onClick={db.deleteMatch(m.id);refresh++}){Icon(Icons.Outlined.Delete,null,tint=Muted)}}}}
 }
 @Composable fun RemindersPage(db:TrackerDb){
     val reminders=db.matchingReminders()
