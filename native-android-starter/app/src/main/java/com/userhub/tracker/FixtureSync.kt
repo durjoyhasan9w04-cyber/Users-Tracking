@@ -9,7 +9,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
-import java.time.ZoneOffset\nimport android.os.Handler\nimport android.os.Looper
+import java.time.ZoneOffset
+import android.os.Handler
+import android.os.Looper
 import java.time.format.DateTimeFormatter
 
 object FixtureSync {
@@ -19,7 +21,8 @@ object FixtureSync {
     private val sports=mapOf("Cricket" to "cricket","Football" to "football","Tennis" to "tennis")
     private val openLiga=listOf("bl1","pl","es1","it1","fr1","cl","el")
 
-    fun start(db:TrackerDb,force:Boolean=false,onFinished:(String,String)->Unit={}){\n        if(!force && db.syncFresh(8)){val state=db.syncState();onFinished(state.first,state.second);return}
+    fun start(db:TrackerDb,force:Boolean=false,onFinished:(String,String)->Unit={}){
+        if(!force && db.syncFresh(8)){val state=db.syncState();onFinished(state.first,state.second);return}
         synchronized(lock){if(running){onFinished("running","A fixture refresh is already running");return};running=true}
         db.saveSyncState("running","Worldwide fixture refresh started")
         Thread{
@@ -91,7 +94,8 @@ object FixtureSync {
         val teams=linkedMapOf<String,String>()
         db.users().forEach{u->val p=db.preferences(u.id)?:return@forEach
             if(p.sports.split(",").any{it.trim().equals("football",true)||it.trim().equals("cricket",true)||it.trim().equals("tennis",true)})
-                val selectedSport=p.sports.split(",").map{it.trim()}.firstOrNull{it.equals("Football",true)||it.equals("Cricket",true)||it.equals("Tennis",true)}?: "Football"\n                p.teams.split(",").map{it.trim()}.filter{it.isNotBlank()}.forEach{teams.putIfAbsent(it,selectedSport)}
+                val selectedSport=p.sports.split(",").map{it.trim()}.firstOrNull{it.equals("Football",true)||it.equals("Cricket",true)||it.equals("Tennis",true)}?: "Football"
+                p.teams.split(",").map{it.trim()}.filter{it.isNotBlank()}.forEach{teams.putIfAbsent(it,selectedSport)}
         }
         for((name,sport) in teams.entries.take(30)){
             if(db.isFixtureCached(name.lowercase(),"team","thesportsdb",12))continue
