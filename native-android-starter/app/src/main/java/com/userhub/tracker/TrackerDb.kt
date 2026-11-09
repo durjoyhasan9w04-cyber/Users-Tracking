@@ -105,7 +105,7 @@ class TrackerDb(context: Context) : SQLiteOpenHelper(context, "tracker.db", null
     fun noDpThisMonth(month:String=today().take(7)):Int=count("SELECT COUNT(*) FROM users u WHERE NOT EXISTS (SELECT 1 FROM dp_records d WHERE d.user_id=u.id AND substr(d.record_date,1,7)=? AND (COALESCE(d.dp1,0)+COALESCE(d.dp2,0)+COALESCE(d.dp3,0)+COALESCE(d.dp4,0)+COALESCE(d.dp5,0))>0)",arrayOf(month))
     fun profileTotals(id:Long):Pair<Double,Double> = scalar("SELECT COALESCE(SUM(COALESCE(dp1,0)+COALESCE(dp2,0)+COALESCE(dp3,0)+COALESCE(dp4,0)+COALESCE(dp5,0)),0) FROM dp_records WHERE user_id=?",arrayOf(id.toString())) to scalar("SELECT COALESCE(SUM(amount),0) FROM bonuses WHERE user_id=?",arrayOf(id.toString()))
     fun lastDp(id:Long):String?=readableDatabase.rawQuery("SELECT MAX(record_date) FROM dp_records WHERE user_id=? AND (COALESCE(dp1,0)+COALESCE(dp2,0)+COALESCE(dp3,0)+COALESCE(dp4,0)+COALESCE(dp5,0))>0",arrayOf(id.toString())).use{if(it.moveToFirst()&&!it.isNull(0))it.getString(0)else null}
-    fun followUpUsers():List<Pair<User,String>>=users().mapNotNull{u-> if(u.activityStatus=="ACTIVE") null else u to u.activityStatus}
+    fun followUpUsers():List<Pair<User,String>> =users().mapNotNull{u-> if(u.activityStatus=="ACTIVE") null else u to u.activityStatus}
     fun dpHistory(userId:Long):List<DpRecord> {
         val out=mutableListOf<DpRecord>()
         readableDatabase.rawQuery("SELECT id,record_date,dp1,dp2,dp3,dp4,dp5 FROM dp_records WHERE user_id=? ORDER BY record_date DESC,id DESC",arrayOf(userId.toString())).use{c->while(c.moveToNext())out+=DpRecord(c.getLong(0),c.getString(1),(1..5).map{i->if(c.isNull(i+1))null else c.getDouble(i+1)})}
