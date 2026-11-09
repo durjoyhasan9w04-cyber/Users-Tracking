@@ -276,7 +276,8 @@ fun UserHubApp(db:TrackerDb){
     SectionLabel("RECENT CONTACT HISTORY")
     db.contactHistory().take(100).forEach{c->GlassCard(Modifier.fillMaxWidth()){Row(horizontalArrangement=Arrangement.SpaceBetween,modifier=Modifier.fillMaxWidth()){Text(c.userName,fontWeight=FontWeight.SemiBold);Text(c.status,color=Violet,fontSize=11.sp)};Text("${c.date} · ${c.reason} · ${c.channel}",color=Muted,fontSize=10.sp);if(c.followUp.isNotBlank())Text("Follow-up: ${c.followUp}",color=Muted,fontSize=10.sp);if(c.notes.isNotBlank())Text(c.notes,color=Muted,fontSize=10.sp)}}
 }
-@OptIn(ExperimentalMaterial3Api::class)\n@Composable fun ChoiceField(label:String,value:String,options:List<String>,onSelect:(String)->Unit){
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable fun ChoiceField(label:String,value:String,options:List<String>,onSelect:(String)->Unit){
     var expanded by remember{mutableStateOf(false)}
     ExposedDropdownMenuBox(expanded=expanded,onExpandedChange={expanded=it}){OutlinedTextField(value,{},readOnly=true,label={Text(label)},modifier=Modifier.menuAnchor().fillMaxWidth().padding(top=7.dp),trailingIcon={ExposedDropdownMenuDefaults.TrailingIcon(expanded)},colors=fieldColors());ExposedDropdownMenu(expanded=expanded,onDismissRequest={expanded=false}){options.forEach{DropdownMenuItem(text={Text(it)},onClick={onSelect(it);expanded=false})}}}
 }
