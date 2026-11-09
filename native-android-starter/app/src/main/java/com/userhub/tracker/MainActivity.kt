@@ -344,7 +344,17 @@ fun UserHubApp(db:TrackerDb){
     }
 }
 @Composable fun MatchPage(users:List<User>,db:TrackerDb){
-    var sport by remember{mutableStateOf("Cricket")};var competition by remember{mutableStateOf("")};var home by remember{mutableStateOf("")};var away by remember{mutableStateOf("")};var date by remember{mutableStateOf(LocalDate.now().toString())};var time by remember{mutableStateOf("")};var notes by remember{mutableStateOf("")};var msg by remember{mutableStateOf("")}
+    var sport by remember{mutableStateOf("Cricket")};var competition by remember{mutableStateOf("")};var home by remember{mutableStateOf("")};var away by remember{mutableStateOf("")};var date by remember{mutableStateOf(LocalDate.now().toString())};var time by remember{mutableStateOf("")};var notes by remember{mutableStateOf("")};var msg by remember{mutableStateOf("")};var refresh by remember{mutableIntStateOf(0)}
+    var syncStatus by remember{mutableStateOf(db.syncState().first)};var syncMessage by remember{mutableStateOf(db.syncState().second)}
+    LaunchedEffect(Unit){FixtureSync.start(db){s,m->syncStatus=s;syncMessage=m;refresh++}}
+    GlassCard(Modifier.fillMaxWidth()){
+        SectionLabel("WORLDWIDE FIXTURE DISCOVERY")
+        Text("Multi-source best-effort refresh · SportScore, TheSportsDB and OpenLigaDB",color=Muted,fontSize=11.sp)
+        Text("Bangladesh time (BST, UTC+6). Free providers have uneven coverage and rate limits; not every league or fixture is guaranteed.",color=Muted,fontSize=10.sp)
+        Text("Status: $syncStatus · $syncMessage",color=Cyan,fontSize=10.sp)
+        Button(onClick={FixtureSync.start(db){s,m->syncStatus=s;syncMessage=m;refresh++}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=Cyan,contentColor=Ink)){Icon(Icons.Outlined.Refresh,null);Text(" Refresh worldwide fixtures")}
+        Text("SportScore attribution: sportscore.com · TheSportsDB · OpenLigaDB",color=Muted,fontSize=9.sp)
+    }
     GlassCard(Modifier.fillMaxWidth()){
         SectionLabel("ADD FIXTURE MANUALLY")
         ChoiceField("Sport",sport,listOf("Cricket","Football","Kabaddi","Tennis","Badminton","Esports")){sport=it}
@@ -354,12 +364,11 @@ fun UserHubApp(db:TrackerDb){
         OutlinedTextField(date,{date=it},modifier=Modifier.fillMaxWidth().padding(top=7.dp),label={Text("Date · YYYY-MM-DD")},colors=fieldColors())
         OutlinedTextField(time,{time=it},modifier=Modifier.fillMaxWidth().padding(top=7.dp),label={Text("Bangladesh time · HH:MM")},colors=fieldColors())
         OutlinedTextField(notes,{notes=it},modifier=Modifier.fillMaxWidth().padding(top=7.dp),label={Text("Notes")},colors=fieldColors())
-        Button(onClick={if(home.isNotBlank()&&date.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))){db.addMatch(sport,competition,home,away,date,time,notes);home="";away="";msg="Fixture saved"}else msg="Enter team names and a valid date"},colors=ButtonDefaults.buttonColors(containerColor=Violet,contentColor=Ink)){Text("Save fixture")}
+        Button(onClick={if(home.isNotBlank()&&date.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))){db.addMatch(sport,competition,home,away,date,time,notes);home="";away="";msg="Fixture saved";refresh++}else msg="Enter team names and a valid date"},colors=ButtonDefaults.buttonColors(containerColor=Violet,contentColor=Ink)){Text("Save fixture")}
         Text(msg,color=Cyan,fontSize=10.sp)
     }
-    SectionLabel("UPCOMING FIXTURES")
-    db.upcomingMatches().forEach{m->GlassCard(Modifier.fillMaxWidth()){Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("${m.home}"+if(m.away.isNotBlank())" vs ${m.away}" else "",fontWeight=FontWeight.Bold);Text("${m.sport} · ${m.competition}",color=Muted,fontSize=10.sp);Text("${m.date} · ${m.time.ifBlank{"Time not set"}} · ${m.source}",color=Cyan,fontSize=10.sp)};IconButton(onClick={db.deleteMatch(m.id)}){Icon(Icons.Outlined.Delete,null,tint=Muted)}}}}
-    Text("Automatic fixture refresh is being added as a separate provider sync component. Coverage is not guaranteed; manual entries remain available.",color=Muted,fontSize=10.sp)
+    SectionLabel("UPCOMING FIXTURES · ${db.upcomingMatches().size}")
+    db.upcomingMatches().forEach{m->GlassCard(Modifier.fillMaxWidth()){Row(verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("${m.home}"+if(m.away.isNotBlank())" vs ${m.away}" else "",fontWeight=FontWeight.Bold);Text("${m.sport} · ${m.competition}",color=Muted,fontSize=10.sp);Text("${m.date} · ${m.time.ifBlank{"Time not set"}} · ${m.source}",color=Cyan,fontSize=10.sp)};IconButton(onClick={db.deleteMatch(m.id);refresh++}){Icon(Icons.Outlined.Delete,null,tint=Muted)}}}}
 }
 @Composable fun RemindersPage(db:TrackerDb){
     val reminders=db.matchingReminders()
