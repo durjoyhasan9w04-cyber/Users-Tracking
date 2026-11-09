@@ -381,7 +381,7 @@ fun UserHubApp(db:TrackerDb){
     val context= LocalContext.current
     var status by remember{mutableStateOf("")}
     var pendingCsv by remember{mutableStateOf("")}
-    val exportBackup=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")){uri->if(uri!=null)try{db.writableDatabase.execSQL("PRAGMA wal_checkpoint(FULL)");context.contentResolver.openOutputStream(uri)?.use{out->context.getDatabasePath("tracker.db").inputStream().use{it.copyTo(out)}};status="Backup exported successfully"}catch(e:Exception){status="Backup export failed: ${e.message}"}}
+    val exportBackup=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")){uri->if(uri!=null)try{db.writableDatabase.rawQuery("PRAGMA wal_checkpoint(FULL)",null).use{};context.contentResolver.openOutputStream(uri)?.use{out->context.getDatabasePath("tracker.db").inputStream().use{it.copyTo(out)}};status="Backup exported successfully"}catch(e:Exception){status="Backup export failed: ${e.message}"}}
     val restoreBackup=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->if(uri!=null)try{
         val temp=File(context.cacheDir,"restore_check.db");context.contentResolver.openInputStream(uri)!!.use{input->FileOutputStream(temp).use{input.copyTo(it)}}
         val check=SQLiteDatabase.openDatabase(temp.absolutePath,null,SQLiteDatabase.OPEN_READONLY)
@@ -389,7 +389,7 @@ fun UserHubApp(db:TrackerDb){
         val tables=check.rawQuery("SELECT name FROM sqlite_master WHERE type='table'",null).use{c->buildSet{while(c.moveToNext())add(c.getString(0))}}
         check.close()
         if(!integrity||!tables.containsAll(setOf("users","dp_records","bonuses","contacts")))throw IllegalArgumentException("Not a valid User Hub database")
-        val backupDir=File(context.filesDir,"backups").apply{mkdirs()};val before=File(backupDir,"tracker_before_restore_${System.currentTimeMillis()}.db");context.getDatabasePath("tracker.db").copyTo(before,true)
+        db.writableDatabase.rawQuery("PRAGMA wal_checkpoint(FULL)",null).use{};val backupDir=File(context.filesDir,"backups").apply{mkdirs()};val before=File(backupDir,"tracker_before_restore_${System.currentTimeMillis()}.db");context.getDatabasePath("tracker.db").copyTo(before,true)
         db.close();temp.copyTo(context.getDatabasePath("tracker.db"),true);db.writableDatabase
         status="Database restored. Previous database safety copy was kept temporarily."
         temp.delete()
