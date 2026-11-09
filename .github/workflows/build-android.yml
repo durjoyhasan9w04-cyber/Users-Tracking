@@ -30,50 +30,45 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          candidates = [
-              Path("android/app/build.gradle.kts"),
-              Path("android/app/build.gradle"),
-          ]
-          gradle_file = next((p for p in candidates if p.exists()), None)
+          gradle_file = next(
+              (p for p in (Path("android/app/build.gradle.kts"), Path("android/app/build.gradle")) if p.exists()),
+              None,
+          )
           if gradle_file is None:
-              raise SystemExit("Could not find android/app/build.gradle(.kts)")
+              raise SystemExit("Android app Gradle file not found")
 
           text = gradle_file.read_text()
-          if "isCoreLibraryDesugaringEnabled" not in text and "coreLibraryDesugaringEnabled" not in text:
-              if gradle_file.suffix == ".kts":
-                  text = text.replace(
-                      "compileOptions {",
-                      "compileOptions {\\n        isCoreLibraryDesugaringEnabled = true",
-                      1,
-                  )
-              else:
-                  text = text.replace(
-                      "compileOptions {",
-                      "compileOptions {\\n        coreLibraryDesugaringEnabled true",
-                      1,
-                  )
-
-          if "desugar_jdk_libs" not in text:
-              if gradle_file.suffix == ".kts":
-                  text = text.replace(
-                      "dependencies {",
-                      'dependencies {\\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")',
-                      1,
-                  )
-              else:
-                  text = text.replace(
-                      "dependencies {",
-                      "dependencies {\\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'",
-                      1,
-                  )
+          newline = chr(10)
 
           if "isCoreLibraryDesugaringEnabled" not in text and "coreLibraryDesugaringEnabled" not in text:
-              raise SystemExit("Failed to enable core library desugaring in Android Gradle config")
+              marker = "compileOptions {"
+              if marker not in text:
+                  raise SystemExit("compileOptions block not found")
+              setting = (
+                  "        isCoreLibraryDesugaringEnabled = true"
+                  if gradle_file.suffix == ".kts"
+                  else "        coreLibraryDesugaringEnabled true"
+              )
+              text = text.replace(marker, marker + newline + setting, 1)
+
           if "desugar_jdk_libs" not in text:
-              raise SystemExit("Failed to add desugar_jdk_libs dependency")
+              dependency = (
+                  '    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")'
+                  if gradle_file.suffix == ".kts"
+                  else "    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'"
+              )
+              if "dependencies {" in text:
+                  text = text.replace("dependencies {", "dependencies {" + newline + dependency, 1)
+              else:
+                  text += newline + "dependencies {" + newline + dependency + newline + "}" + newline
+
+          if "isCoreLibraryDesugaringEnabled" not in text and "coreLibraryDesugaringEnabled" not in text:
+              raise SystemExit("Could not enable core library desugaring")
+          if "desugar_jdk_libs" not in text:
+              raise SystemExit("Could not add desugar_jdk_libs dependency")
 
           gradle_file.write_text(text)
-          print(f"Enabled core library desugaring in {gradle_file}")
+          print(f"Configured core library desugaring in {gradle_file}")
           PY
 
       - name: Install dependencies
