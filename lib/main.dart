@@ -1,124 +1,88 @@
 import 'package:flutter/material.dart';
+import 'package:sqflite/sqflite.dart';
+import 'data/app_database.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const UserHubApp());
 }
 
+const emerald = Color(0xFF27D3A2);
+const muted = Color(0xFF9AADB5);
+const panel = Color(0xFF17232B);
+const bg = Color(0xFF0D151B);
+
 class UserHubApp extends StatelessWidget {
   const UserHubApp({super.key});
-
   @override
-  Widget build(BuildContext context) {
-    const emerald = Color(0xFF27D3A2);
-    return MaterialApp(
-      title: 'User Hub',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: emerald,
-          brightness: Brightness.dark,
-          surface: const Color(0xFF17232B),
-        ),
-        scaffoldBackgroundColor: const Color(0xFF0D151B),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0D151B),
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: false,
-        ),
-        cardTheme: CardThemeData(
-          color: Colors.white,
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Color(0xFF263640)),
-          ),
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: Color(0xFF121D24),
-          indicatorColor: emerald.withValues(alpha: 0.12),
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          elevation: 0,
-        ),
+  Widget build(BuildContext context) => MaterialApp(
+    title: 'User Hub',
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(seedColor: emerald, brightness: Brightness.dark, surface: panel),
+      scaffoldBackgroundColor: bg,
+      appBarTheme: const AppBarTheme(backgroundColor: bg, surfaceTintColor: Colors.transparent),
+      cardTheme: CardThemeData(
+        color: panel, elevation: 0, margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: Color(0xFF263640))),
       ),
-      home: const MainShell(),
-    );
-  }
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true, fillColor: const Color(0xFF101B22),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: const Color(0xFF121D24), indicatorColor: emerald.withValues(alpha: .14),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+      ),
+    ),
+    home: const MainShell(),
+  );
 }
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
-
   @override
   State<MainShell> createState() => _MainShellState();
 }
-
 class _MainShellState extends State<MainShell> {
-  int _index = 0;
-
-  static const _pages = [
-    DashboardPage(),
-    UsersPage(),
-    ActivityPage(),
-    AlertsPage(),
-    MorePage(),
-  ];
-
-  static const _titles = [
-    'Good evening',
-    'Users',
-    'Activity',
-    'Smart alerts',
-    'More',
-  ];
-
+  int index = 0;
+  int revision = 0;
+  void refresh() => setState(() => revision++);
+  Future<void> addUser() async {
+    final saved = await showDialog<bool>(context: context, builder: (_) => const UserFormDialog());
+    if (saved == true) refresh();
+  }
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      DashboardPage(key: ValueKey('home-$revision')),
+      UsersPage(key: ValueKey('users-$revision'), onChanged: refresh),
+      const PlaceholderPage(icon: Icons.timeline_rounded, title: 'Activity timeline', subtitle: 'DP, bonuses, contacts and notes will appear here.'),
+      const PlaceholderPage(icon: Icons.notifications_active_outlined, title: 'Smart alerts', subtitle: 'Match reminders and follow-ups will appear here when configured.'),
+      const PlaceholderPage(icon: Icons.apps_rounded, title: 'More tools', subtitle: 'Potential users, DP & bonuses, sports, relationships, reports and settings.'),
+    ];
+    const titles = ['Good evening', 'Users', 'Activity', 'Smart alerts', 'More'];
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(_titles[_index], style: const TextStyle(fontWeight: FontWeight.w800)),
-            if (_index == 0)
-              const Text(
-                'Your customer overview',
-                style: TextStyle(fontSize: 12, color: Color(0xFF9AADB5), fontWeight: FontWeight.w400),
-              ),
-          ],
-        ),
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(titles[index], style: const TextStyle(fontWeight: FontWeight.w800)),
+          if (index == 0) const Text('Your customer overview', style: TextStyle(fontSize: 12, color: muted)),
+        ]),
         actions: [
-          IconButton(
-            tooltip: 'Search',
-            onPressed: () {},
-            icon: const Icon(Icons.search_rounded),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: const Color(0xFF183B36),
-              child: Icon(Icons.person_rounded, color: Theme.of(context).colorScheme.primary),
-            ),
-          ),
+          if (index == 1) IconButton(onPressed: addUser, icon: const Icon(Icons.person_add_alt_1_rounded)),
+          const Padding(padding: EdgeInsets.only(right: 12), child: CircleAvatar(radius: 18, backgroundColor: Color(0xFF183B36), child: Icon(Icons.person, color: emerald))),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        switchInCurve: Curves.easeOutCubic,
-        child: _pages[_index],
-      ),
+      body: AnimatedSwitcher(duration: const Duration(milliseconds: 220), child: pages[index]),
+      floatingActionButton: index == 0 ? FloatingActionButton.extended(onPressed: addUser, icon: const Icon(Icons.person_add_alt_1), label: const Text('Add user')) : null,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (value) => setState(() => _index = value),
+        selectedIndex: index, onDestinationSelected: (v) => setState(() => index = v),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.grid_view_rounded), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.people_alt_outlined), selectedIcon: Icon(Icons.people_alt_rounded), label: 'Users'),
           NavigationDestination(icon: Icon(Icons.timeline_rounded), label: 'Activity'),
-          NavigationDestination(icon: Icon(Icons.notifications_none_rounded), selectedIcon: Icon(Icons.notifications_rounded), label: 'Alerts'),
+          NavigationDestination(icon: Icon(Icons.notifications_none_rounded), label: 'Alerts'),
           NavigationDestination(icon: Icon(Icons.apps_rounded), label: 'More'),
         ],
       ),
@@ -128,248 +92,230 @@ class _MainShellState extends State<MainShell> {
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
-
   @override
-  Widget build(BuildContext context) {
-    return ListView(
-      key: const ValueKey('dashboard'),
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
-      children: [
+  Widget build(BuildContext context) => FutureBuilder<int>(
+    future: AppDatabase.instance.countUsers(),
+    builder: (context, snap) {
+      final count = snap.data ?? 0;
+      return ListView(padding: const EdgeInsets.fromLTRB(18, 8, 18, 100), children: [
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF27D3A2), Color(0xFF168F79)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            gradient: const LinearGradient(colors: [Color(0xFF27D3A2), Color(0xFF168F79)]),
             borderRadius: BorderRadius.circular(24),
           ),
-          child: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('USER HUB', style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 1.4, fontWeight: FontWeight.w700)),
-              SizedBox(height: 12),
-              Text('Your users,\none clear picture.', style: TextStyle(color: Colors.white, fontSize: 25, height: 1.15, fontWeight: FontWeight.w800)),
-              SizedBox(height: 8),
-              Text('Track activity, preferences and relationships.', style: TextStyle(color: Colors.white, fontSize: 13)),
-            ],
-          ),
+          child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('USER HUB', style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 1.4, fontWeight: FontWeight.w700)),
+            SizedBox(height: 12),
+            Text('Your users,\none clear picture.', style: TextStyle(color: Colors.white, fontSize: 25, height: 1.15, fontWeight: FontWeight.w800)),
+            SizedBox(height: 8),
+            Text('A private workspace stored on this device.', style: TextStyle(color: Colors.white, fontSize: 13)),
+          ]),
         ),
         const SizedBox(height: 22),
         const SectionHeading('Overview', trailing: 'All time'),
         const SizedBox(height: 12),
-        const Row(
-          children: [
-            Expanded(child: MetricCard(label: 'Registered users', value: '0', icon: Icons.people_alt_rounded, tint: Color(0xFF183B36))),
-            SizedBox(width: 12),
-            Expanded(child: MetricCard(label: 'Potential users', value: '0', icon: Icons.person_add_alt_1_rounded, tint: Color(0xFF202F4A))),
-          ],
-        ),
+        Row(children: [
+          Expanded(child: MetricCard(label: 'Registered users', value: snap.connectionState == ConnectionState.waiting ? '—' : '$count', icon: Icons.people_alt_rounded)),
+          const SizedBox(width: 12),
+          const Expanded(child: MetricCard(label: 'Potential users', value: '0', icon: Icons.person_add_alt_1_rounded)),
+        ]),
         const SizedBox(height: 12),
-        const Row(
-          children: [
-            Expanded(child: MetricCard(label: 'DP this month', value: '0', icon: Icons.account_balance_wallet_rounded, tint: Color(0xFF183B3B))),
-            SizedBox(width: 12),
-            Expanded(child: MetricCard(label: 'Follow-ups due', value: '0', icon: Icons.event_note_rounded, tint: Color(0xFF403324))),
-          ],
-        ),
-        const SizedBox(height: 24),
-        const SectionHeading('Quick actions'),
-        const SizedBox(height: 12),
-        const Row(
-          children: [
-            Expanded(child: QuickAction(icon: Icons.person_add_alt_1_rounded, label: 'Add user')),
-            SizedBox(width: 10),
-            Expanded(child: QuickAction(icon: Icons.add_chart_rounded, label: 'Record DP')),
-            SizedBox(width: 10),
-            Expanded(child: QuickAction(icon: Icons.group_add_rounded, label: 'Add lead')),
-          ],
-        ),
-        const SizedBox(height: 24),
-        const SectionHeading('Today’s attention'),
-        const SizedBox(height: 12),
-        const EmptyStateCard(
-          icon: Icons.notifications_active_outlined,
-          title: 'You’re all caught up',
-          subtitle: 'Match reminders and follow-ups will appear here.',
-        ),
-      ],
-    );
+        const Row(children: [
+          Expanded(child: MetricCard(label: 'DP this month', value: '—', icon: Icons.account_balance_wallet_rounded)),
+          SizedBox(width: 12),
+          Expanded(child: MetricCard(label: 'Follow-ups due', value: '—', icon: Icons.event_note_rounded)),
+        ]),
+        const SizedBox(height: 22),
+        Card(child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(children: [
+            const Icon(Icons.lock_outline, color: emerald),
+            const SizedBox(width: 12),
+            Expanded(child: Text(count == 0 ? 'Add your first user. Their profile is saved locally on this device.' : '$count user profiles saved locally on this device.', style: const TextStyle(color: muted, height: 1.4))),
+          ]),
+        )),
+      ]);
+    },
+  );
+}
+
+class UsersPage extends StatefulWidget {
+  const UsersPage({super.key, required this.onChanged});
+  final VoidCallback onChanged;
+  @override
+  State<UsersPage> createState() => _UsersPageState();
+}
+class _UsersPageState extends State<UsersPage> {
+  final search = TextEditingController();
+  late Future<List<Map<String, Object?>>> future;
+  @override
+  void initState() {
+    super.initState();
+    load();
+    search.addListener(load);
   }
+  void load() => setState(() => future = AppDatabase.instance.getUsers(search: search.text));
+  @override
+  void dispose() { search.removeListener(load); search.dispose(); super.dispose(); }
+  Future<void> edit(Map<String, Object?>? user) async {
+    final ok = await showDialog<bool>(context: context, builder: (_) => UserFormDialog(user: user));
+    if (ok == true) { load(); widget.onChanged(); }
+  }
+  Future<void> archive(Map<String, Object?> user) async {
+    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Archive user?'),
+      content: Text('Archive ' + (user['name'] as String) + '? Their profile will be hidden from this list.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Archive')),
+      ],
+    ));
+    if (ok == true) { await AppDatabase.instance.archiveUser(user['id'] as int); load(); widget.onChanged(); }
+  }
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    Padding(padding: const EdgeInsets.fromLTRB(18, 8, 18, 12), child: TextField(
+      controller: search, decoration: const InputDecoration(hintText: 'Search by name or phone', prefixIcon: Icon(Icons.search)),
+    )),
+    Expanded(child: FutureBuilder<List<Map<String, Object?>>>(
+      future: future,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        final rows = snap.data ?? [];
+        if (rows.isEmpty) return EmptyState(
+          title: search.text.isEmpty ? 'No users yet' : 'No matching users',
+          subtitle: search.text.isEmpty ? 'Tap Add user to create your first local profile.' : 'Try another name or phone number.',
+          action: search.text.isEmpty ? () => edit(null) : null,
+        );
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(18, 4, 18, 100),
+          itemCount: rows.length, separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (context, i) {
+            final user = rows[i];
+            final name = user['name'] as String;
+            return Card(child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+              leading: CircleAvatar(backgroundColor: const Color(0xFF183B36), child: Text(name[0].toUpperCase(), style: const TextStyle(color: emerald, fontWeight: FontWeight.bold))),
+              title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(user['phone'] as String, style: const TextStyle(color: muted)),
+              onTap: () => edit(user),
+              trailing: PopupMenuButton<String>(
+                onSelected: (v) { if (v == 'edit') edit(user); if (v == 'archive') archive(user); },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Edit profile')),
+                  PopupMenuItem(value: 'archive', child: Text('Archive')),
+                ],
+              ),
+            ));
+          },
+        );
+      },
+    )),
+  ]);
 }
 
-class UsersPage extends StatelessWidget {
-  const UsersPage({super.key});
-
+class UserFormDialog extends StatefulWidget {
+  const UserFormDialog({super.key, this.user});
+  final Map<String, Object?>? user;
   @override
-  Widget build(BuildContext context) => const PlaceholderPage(
-    key: ValueKey('users'),
-    icon: Icons.people_alt_outlined,
-    title: 'Your users',
-    subtitle: 'Registered users, DP levels and searchable profiles will live here.',
-  );
+  State<UserFormDialog> createState() => _UserFormDialogState();
 }
-
-class ActivityPage extends StatelessWidget {
-  const ActivityPage({super.key});
-
+class _UserFormDialogState extends State<UserFormDialog> {
+  final form = GlobalKey<FormState>();
+  late final name = TextEditingController(text: widget.user?['name'] as String? ?? '');
+  late final phone = TextEditingController(text: widget.user?['phone'] as String? ?? '');
+  late final notes = TextEditingController(text: widget.user?['notes'] as String? ?? '');
+  bool saving = false;
   @override
-  Widget build(BuildContext context) => const PlaceholderPage(
-    key: ValueKey('activity'),
-    icon: Icons.timeline_rounded,
-    title: 'Activity timeline',
-    subtitle: 'DP, bonuses, contacts, notes and other recorded events in one timeline.',
-  );
-}
-
-class AlertsPage extends StatelessWidget {
-  const AlertsPage({super.key});
-
+  void dispose() { name.dispose(); phone.dispose(); notes.dispose(); super.dispose(); }
+  Future<void> save() async {
+    if (!form.currentState!.validate()) return;
+    setState(() => saving = true);
+    try {
+      if (widget.user == null) {
+        await AppDatabase.instance.addUser(name: name.text, phone: phone.text, notes: notes.text);
+      } else {
+        await AppDatabase.instance.updateUser(id: widget.user!['id'] as int, name: name.text, phone: phone.text, notes: notes.text);
+      }
+      if (mounted) Navigator.pop(context, true);
+    } on DatabaseException catch (e) {
+      setState(() => saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+        e.isUniqueConstraintError() ? 'That phone number is already registered.' : 'Could not save this profile.',
+      )));
+    }
+  }
   @override
-  Widget build(BuildContext context) => const PlaceholderPage(
-    key: ValueKey('alerts'),
-    icon: Icons.notifications_active_outlined,
-    title: 'Smart alerts',
-    subtitle: 'Favourite-team matches, usual DP-time reminders and follow-ups.',
-  );
-}
-
-class MorePage extends StatelessWidget {
-  const MorePage({super.key});
-
-  @override
-  Widget build(BuildContext context) => const PlaceholderPage(
-    key: ValueKey('more'),
-    icon: Icons.apps_rounded,
-    title: 'More tools',
-    subtitle: 'Potential users, DP & bonuses, sports, relationships, reports and settings.',
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.user == null ? 'Add user' : 'Edit user'),
+    content: Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      TextFormField(controller: name, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Full name'), validator: (v) => v == null || v.trim().isEmpty ? 'Enter a name' : null),
+      const SizedBox(height: 12),
+      TextFormField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number'), validator: (v) => v == null || v.trim().length < 5 ? 'Enter a valid phone number' : null),
+      const SizedBox(height: 12),
+      TextFormField(controller: notes, maxLines: 3, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+    ]))),
+    actions: [
+      TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save user')),
+    ],
   );
 }
 
 class PlaceholderPage extends StatelessWidget {
   const PlaceholderPage({super.key, required this.icon, required this.title, required this.subtitle});
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
+  final IconData icon; final String title; final String subtitle;
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 42, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 16),
-            Text(title, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF9AADB5), height: 1.5)),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Center(child: Padding(
+    padding: const EdgeInsets.all(28),
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      const Icon(Icons.widgets_outlined, size: 0),
+      Icon(icon, size: 42, color: emerald),
+      const SizedBox(height: 16),
+      Text(title, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 8),
+      Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: muted, height: 1.5)),
+    ]),
+  ));
 }
-
 class SectionHeading extends StatelessWidget {
   const SectionHeading(this.title, {super.key, this.trailing});
-
-  final String title;
-  final String? trailing;
-
+  final String title; final String? trailing;
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-        if (trailing != null) Text(trailing!, style: const TextStyle(fontSize: 12, color: Color(0xFF9AADB5))),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+    Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+    if (trailing != null) Text(trailing!, style: const TextStyle(fontSize: 12, color: muted)),
+  ]);
 }
-
 class MetricCard extends StatelessWidget {
-  const MetricCard({super.key, required this.label, required this.value, required this.icon, required this.tint});
-
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color tint;
-
+  const MetricCard({super.key, required this.label, required this.value, required this.icon});
+  final String label; final String value; final IconData icon;
   @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(15),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(12)),
-              child: Icon(icon, color: const Color(0xFF27D3A2), size: 19),
-            ),
-            const SizedBox(height: 14),
-            Text(value, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 3),
-            Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF9AADB5))),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Card(child: Padding(
+    padding: const EdgeInsets.all(15),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(width: 36, height: 36, decoration: BoxDecoration(color: const Color(0xFF183B36), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: emerald, size: 19)),
+      const SizedBox(height: 14),
+      Text(value, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 3),
+      Text(label, style: const TextStyle(fontSize: 11, color: muted)),
+    ]),
+  ));
 }
-
-class QuickAction extends StatelessWidget {
-  const QuickAction({super.key, required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
+class EmptyState extends StatelessWidget {
+  const EmptyState({super.key, required this.title, required this.subtitle, this.action});
+  final String title; final String subtitle; final VoidCallback? action;
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          height: 54,
-          width: double.infinity,
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(17), border: Border.all(color: const Color(0xFFE8EFEB))),
-          child: Icon(icon, color: Theme.of(context).colorScheme.primary),
-        ),
-        const SizedBox(height: 7),
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-      ],
-    );
-  }
-}
-
-class EmptyStateCard extends StatelessWidget {
-  const EmptyStateCard({super.key, required this.icon, required this.title, required this.subtitle});
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          children: [
-            Icon(icon, size: 30, color: const Color(0xFF27D3A2)),
-            const SizedBox(height: 10),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 5),
-            Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF9AADB5), fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Center(child: Padding(
+    padding: const EdgeInsets.all(28),
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      const Icon(Icons.people_outline_rounded, size: 38, color: emerald),
+      const SizedBox(height: 14),
+      Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+      const SizedBox(height: 6),
+      Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: muted, fontSize: 12, height: 1.5)),
+      if (action != null) ...[const SizedBox(height: 16), FilledButton.icon(onPressed: action, icon: const Icon(Icons.person_add_alt_1), label: const Text('Add user'))],
+    ]),
+  ));
 }
