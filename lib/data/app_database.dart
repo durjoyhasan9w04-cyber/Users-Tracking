@@ -579,6 +579,56 @@ class AppDatabase {
     };
   }
 
+  Future<Map<String, Object?>> createBackupData() async {
+    final db = await database;
+    final tables = <String>[
+      'users', 'dp_entries', 'bonus_entries', 'potential_users',
+      'contact_history', 'customer_issues', 'audit_log',
+    ];
+    final data = <String, Object?>{
+      'app': 'User Hub',
+      'format_version': 1,
+      'created_at': DateTime.now().toIso8601String(),
+    };
+    for (final table in tables) {
+      data[table] = await db.query(table);
+    }
+    return data;
+  }
+
+  Future<void> restoreBackupData(Map<String, dynamic> data) async {
+    if (data['app'] != 'User Hub' || data['format_version'] != 1) {
+      throw const FormatException('This is not a supported User Hub backup.');
+    }
+    const tables = <String>[
+      'users', 'dp_entries', 'bonus_entries', 'potential_users',
+      'contact_history', 'customer_issues', 'audit_log',
+    ];
+    for (final table in tables) {
+      if (data[table] is! List) {
+        throw FormatException('Backup is missing the $table table.');
+      }
+      for (final row in data[table] as List) {
+        if (row is! Map) throw FormatException('Invalid row in $table.');
+      }
+    }
+    final db = await database;
+    await db.transaction((txn) async {
+      for (final table in [
+        'audit_log', 'customer_issues', 'contact_history',
+        'bonus_entries', 'dp_entries', 'potential_users', 'users',
+      ]) {
+        await txn.delete(table);
+      }
+      for (final table in tables) {
+        for (final item in data[table] as List) {
+          final row = Map<String, Object?>.from(item as Map);
+          await txn.insert(table, row, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+      }
+    });
+  }
+
   Future<void> _createAuditLog(DatabaseExecutor db) async {
     await db.execute("""
       CREATE TABLE audit_log (
