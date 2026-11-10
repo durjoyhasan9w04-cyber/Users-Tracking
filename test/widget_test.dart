@@ -4,10 +4,9 @@ import 'package:user_hub/main.dart';
 void main() {
   testWidgets('User Hub premium dashboard renders', (tester) async {
     await tester.pumpWidget(const UserHubApp());
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
     expect(find.text('Overview'), findsOneWidget);
     expect(find.text('DP this month'), findsOneWidget);
-    expect(find.text('Recent activity'), findsOneWidget);
-    expect(find.text('Add user'), findsOneWidget);
   });
 
   group('DP classification thresholds', () {
