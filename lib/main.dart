@@ -1518,6 +1518,13 @@ class MoreHubPage extends StatelessWidget {
       ),
       const SizedBox(height: 10),
       _MoreTile(
+        icon: Icons.track_changes_rounded,
+        title: 'Activity status',
+        subtitle: 'Active, follow-up, inactive and never-DP users',
+        onTap: () => open(context, const ActivityStatusPage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
         icon: Icons.support_agent_rounded,
         title: 'Customer issues',
         subtitle: 'Complaints, requests, priorities and resolutions',
@@ -1578,6 +1585,102 @@ class _MoreTile extends StatelessWidget {
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
+    ),
+  );
+}
+
+class ActivityStatusPage extends StatefulWidget {
+  const ActivityStatusPage({super.key});
+  @override
+  State<ActivityStatusPage> createState() => _ActivityStatusPageState();
+}
+
+class _ActivityStatusPageState extends State<ActivityStatusPage> {
+  static const statuses = ['All', 'Active', 'Follow-up', 'Inactive', 'Long inactive', 'Very long inactive', 'Never DP'];
+  String selected = 'All';
+  late Future<List<Map<String, Object?>>> future;
+
+  @override
+  void initState() {
+    super.initState();
+    future = AppDatabase.instance.getActivityStatusUsers();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Activity status')),
+    body: FutureBuilder<List<Map<String, Object?>>>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return const Center(child: Text('Could not load activity status.'));
+        }
+        final all = snapshot.data ?? [];
+        final rows = selected == 'All'
+            ? all
+            : all.where((row) => row['activity_status'] == selected).toList();
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+            child: Wrap(spacing: 8, runSpacing: 8, children: statuses.map((status) {
+              final count = status == 'All'
+                  ? all.length
+                  : all.where((row) => row['activity_status'] == status).length;
+              return ChoiceChip(
+                label: Text('$status ($count)'),
+                selected: selected == status,
+                onSelected: (_) => setState(() => selected = status),
+              );
+            }).toList()),
+          ),
+          Expanded(
+            child: rows.isEmpty
+                ? const EmptyState(
+                    title: 'No users in this group',
+                    subtitle: 'Users will appear here when their DP activity matches this status.',
+                    icon: Icons.people_outline_rounded,
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
+                    itemCount: rows.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final row = rows[index];
+                      final status = row['activity_status'] as String;
+                      final days = row['days_since_last_dp'] as int?;
+                      final detail = days == null
+                          ? 'No DP recorded'
+                          : days == 0 ? 'Last DP today' : 'Last DP $days day(s) ago';
+                      return Card(
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: const Color(0xFF183B36),
+                            child: Icon(
+                              status == 'Active' ? Icons.bolt_rounded : Icons.schedule_rounded,
+                              color: status == 'Active' ? emerald : amber,
+                            ),
+                          ),
+                          title: Text(row['name'] as String, style: const TextStyle(fontWeight: FontWeight.w700)),
+                          subtitle: Text('$detail · $status', style: const TextStyle(color: muted)),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => UserProfilePage(
+                              userId: row['id'] as int,
+                              onChanged: () => setState(() {
+                                future = AppDatabase.instance.getActivityStatusUsers();
+                              }),
+                            ),
+                          )),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ]);
+      },
     ),
   );
 }

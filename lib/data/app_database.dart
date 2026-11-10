@@ -536,6 +536,43 @@ class AppDatabase {
     return Sqflite.firstIntValue(rows) ?? 0;
   }
 
+  Future<List<Map<String, Object?>>> getActivityStatusUsers() async {
+    final db = await database;
+    return db.rawQuery("""
+      WITH activity AS (
+        SELECT u.id, u.name, u.phone, MAX(d.entry_date) AS last_dp_date
+        FROM users u
+        LEFT JOIN dp_entries d ON d.user_id = u.id
+        WHERE u.archived = 0
+        GROUP BY u.id, u.name, u.phone
+      ),
+      aged AS (
+        SELECT *, CASE
+          WHEN last_dp_date IS NULL THEN NULL
+          ELSE CAST(julianday(date('now', 'localtime')) - julianday(last_dp_date) AS INTEGER)
+        END AS days_since_last_dp
+        FROM activity
+      )
+      SELECT *,
+        CASE
+          WHEN last_dp_date IS NULL THEN 'Never DP'
+          WHEN days_since_last_dp <= 3 THEN 'Active'
+          WHEN days_since_last_dp <= 7 THEN 'Follow-up'
+          WHEN days_since_last_dp <= 14 THEN 'Inactive'
+          WHEN days_since_last_dp <= 30 THEN 'Long inactive'
+          ELSE 'Very long inactive'
+        END AS activity_status
+      FROM aged
+      ORDER BY
+        CASE activity_status
+          WHEN 'Follow-up' THEN 1 WHEN 'Inactive' THEN 2
+          WHEN 'Long inactive' THEN 3 WHEN 'Very long inactive' THEN 4
+          WHEN 'Never DP' THEN 5 ELSE 0
+        END,
+        days_since_last_dp DESC, name COLLATE NOCASE
+    """);
+  }
+
   Future<double> monthDpTotal() async {
     final db = await database;
     final now = DateTime.now();
