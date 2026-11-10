@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:file_picker/file_picker.dart';
@@ -1355,6 +1358,13 @@ class MoreHubPage extends StatelessWidget {
       _MoreTile(
         icon: Icons.backup_outlined,
         title: 'Backup & restore',
+        subtitle: 'Save a complete local backup or restore one',
+        onTap: () => open(context, const BackupRestorePage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.backup_outlined,
+        title: 'Backup & restore',
         subtitle: 'Export a local database backup or restore one',
         onTap: () => open(context, const BackupRestorePage()),
       ),
@@ -1480,6 +1490,115 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
           const SizedBox(height: 18),
           const Center(child: CircularProgressIndicator()),
         ],
+      ],
+    ),
+  );
+}
+
+class BackupRestorePage extends StatefulWidget {
+  const BackupRestorePage({super.key});
+  @override
+  State<BackupRestorePage> createState() => _BackupRestorePageState();
+}
+
+class _BackupRestorePageState extends State<BackupRestorePage> {
+  bool busy = false;
+
+  Future<void> createBackup() async {
+    setState(() => busy = true);
+    try {
+      final data = await AppDatabase.instance.createBackupData();
+      final bytes = Uint8List.fromList(utf8.encode(const JsonEncoder.withIndent('  ').convert(data)));
+      final now = DateTime.now();
+      final stamp = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save User Hub backup',
+        fileName: 'user-hub-backup-$stamp.json',
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        bytes: bytes,
+      );
+      if (!mounted) return;
+      if (path != null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Backup file saved successfully.')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup failed: $e')));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> restoreBackup() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      withData: true,
+    );
+    if (result == null || result.files.single.bytes == null || !mounted) return;
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Restore this backup?'),
+      content: const Text('Restoring replaces the current local records with the selected backup. Export a backup of your current data first if you may need it.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Replace data')),
+      ],
+    ));
+    if (confirmed != true || !mounted) return;
+    setState(() => busy = true);
+    try {
+      final decoded = jsonDecode(utf8.decode(result.files.single.bytes!));
+      if (decoded is! Map<String, dynamic>) throw const FormatException('Invalid backup file.');
+      await AppDatabase.instance.restoreBackupData(decoded);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Backup restored. Reopen pages to refresh their data.')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Restore failed: $e')));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Backup & restore')),
+    body: ListView(
+      padding: const EdgeInsets.all(18),
+      children: [
+        Card(child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.shield_outlined, color: emerald, size: 30),
+            const SizedBox(height: 12),
+            const Text('Keep your records safe', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            const Text('Create a portable backup containing registered users, prospects, DP and bonus records, contacts, customer issues and audit history.', style: TextStyle(color: muted, height: 1.45)),
+            const SizedBox(height: 16),
+            SizedBox(width: double.infinity, child: FilledButton.icon(
+              onPressed: busy ? null : createBackup,
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('Create backup file'),
+            )),
+          ]),
+        )),
+        const SizedBox(height: 12),
+        Card(child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.restore_rounded, color: Color(0xFFFFC36B), size: 30),
+            const SizedBox(height: 12),
+            const Text('Restore from backup', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            const Text('Choose a User Hub JSON backup. The selected backup replaces the records currently stored on this device.', style: TextStyle(color: muted, height: 1.45)),
+            const SizedBox(height: 16),
+            SizedBox(width: double.infinity, child: OutlinedButton.icon(
+              onPressed: busy ? null : restoreBackup,
+              icon: const Icon(Icons.folder_open_outlined),
+              label: const Text('Choose backup file'),
+            )),
+          ]),
+        )),
+        if (busy) const Padding(padding: EdgeInsets.only(top: 20), child: Center(child: CircularProgressIndicator())),
       ],
     ),
   );
