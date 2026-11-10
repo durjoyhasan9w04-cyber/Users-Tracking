@@ -60,7 +60,7 @@ class _MainShellState extends State<MainShell> {
       UsersPage(key: ValueKey('users-$revision'), onChanged: refresh),
       const ActivityPage(),
       const ContactHistoryPage(),
-      const PotentialUsersPage(),
+      const MoreHubPage(),
     ];
     const titles = ['Good evening', 'Users', 'Activity', 'Contact history', 'More'];
     return Scaffold(
@@ -998,6 +998,344 @@ class _ContactLogDialogState extends State<ContactLogDialog> {
     actions: [
       TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
       FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save contact')),
+    ],
+  );
+}
+
+class MoreHubPage extends StatelessWidget {
+  const MoreHubPage({super.key});
+
+  void open(BuildContext context, Widget page) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.fromLTRB(18, 18, 18, 36),
+    children: [
+      const Text('Workspace tools', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+      const SizedBox(height: 6),
+      const Text('Manage prospects and customer support records.', style: TextStyle(color: muted)),
+      const SizedBox(height: 18),
+      _MoreTile(
+        icon: Icons.person_search_outlined,
+        title: 'Potential users',
+        subtitle: 'Prospects, interest status and conversion',
+        onTap: () => open(context, const PotentialUsersPage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.support_agent_rounded,
+        title: 'Customer issues',
+        subtitle: 'Complaints, requests, priorities and resolutions',
+        onTap: () => open(context, const CustomerIssuesPage()),
+      ),
+    ],
+  );
+}
+
+class _MoreTile extends StatelessWidget {
+  const _MoreTile({required this.icon, required this.title, required this.subtitle, required this.onTap});
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      leading: CircleAvatar(backgroundColor: const Color(0xFF183B36), child: Icon(icon, color: emerald)),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
+    ),
+  );
+}
+
+class CustomerIssuesPage extends StatefulWidget {
+  const CustomerIssuesPage({super.key});
+  @override
+  State<CustomerIssuesPage> createState() => _CustomerIssuesPageState();
+}
+
+class _CustomerIssuesPageState extends State<CustomerIssuesPage> {
+  final search = TextEditingController();
+  String filter = 'All';
+  late Future<List<Map<String, Object?>>> issues;
+
+  @override
+  void initState() {
+    super.initState();
+    load();
+    search.addListener(load);
+  }
+
+  void load() => setState(() {
+    issues = AppDatabase.instance.getCustomerIssues(search: search.text, status: filter);
+  });
+
+  @override
+  void dispose() {
+    search.removeListener(load);
+    search.dispose();
+    super.dispose();
+  }
+
+  Future<void> addIssue() async {
+    final users = await AppDatabase.instance.getUsers();
+    if (!mounted) return;
+    final saved = await showDialog<bool>(context: context, builder: (_) => CustomerIssueDialog(users: users));
+    if (saved == true && mounted) load();
+  }
+
+  Future<void> updateIssue(Map<String, Object?> issue) async {
+    final saved = await showDialog<bool>(context: context, builder: (_) => UpdateIssueDialog(issue: issue));
+    if (saved == true && mounted) load();
+  }
+
+  Color priorityColor(String priority) {
+    switch (priority) {
+      case 'Urgent': return const Color(0xFFFF7777);
+      case 'High': return const Color(0xFFFFC36B);
+      case 'Low': return muted;
+      default: return emerald;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Customer issues')),
+    floatingActionButton: FloatingActionButton.extended(
+      onPressed: addIssue,
+      icon: const Icon(Icons.add),
+      label: const Text('New issue'),
+    ),
+    body: Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+        child: TextField(
+          controller: search,
+          decoration: const InputDecoration(hintText: 'Search issues or users', prefixIcon: Icon(Icons.search)),
+        ),
+      ),
+      SizedBox(
+        height: 46,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          children: ['All', 'Open', 'In Progress', 'Waiting for Customer', 'Resolved', 'Closed'].map((value) => Padding(
+            padding: const EdgeInsets.only(right: 7),
+            child: ChoiceChip(
+              label: Text(value),
+              selected: filter == value,
+              onSelected: (_) => setState(() { filter = value; load(); }),
+            ),
+          )).toList(),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Expanded(
+        child: FutureBuilder<List<Map<String, Object?>>>(
+          future: issues,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+            if (snap.hasError) return const EmptyState(title: 'Could not load issues', subtitle: 'Please reopen this page and try again.');
+            final rows = snap.data ?? [];
+            if (rows.isEmpty) return EmptyState(
+              title: search.text.isEmpty ? 'No issues recorded' : 'No matching issues',
+              subtitle: 'Record customer complaints, questions or service requests and track them to resolution.',
+              action: addIssue,
+            );
+            return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+              itemCount: rows.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 9),
+              itemBuilder: (context, index) {
+                final row = rows[index];
+                final priority = row['priority'] as String? ?? 'Normal';
+                final status = row['status'] as String? ?? 'Open';
+                return Card(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () => updateIssue(row),
+                    child: Padding(
+                      padding: const EdgeInsets.all(15),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Expanded(child: Text(row['title'] as String, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
+                          Icon(Icons.circle, size: 9, color: priorityColor(priority)),
+                          const SizedBox(width: 5),
+                          Text(priority, style: TextStyle(color: priorityColor(priority), fontSize: 11, fontWeight: FontWeight.w700)),
+                        ]),
+                        const SizedBox(height: 7),
+                        Text((row['user_name'] as String?) ?? 'General issue · no linked user', style: const TextStyle(color: muted, fontSize: 12)),
+                        if ((row['description'] as String? ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(row['description'] as String, maxLines: 3, overflow: TextOverflow.ellipsis),
+                        ],
+                        const SizedBox(height: 10),
+                        Wrap(spacing: 7, runSpacing: 6, children: [
+                          Chip(label: Text(status), visualDensity: VisualDensity.compact),
+                          Chip(label: Text(row['category'] as String), visualDensity: VisualDensity.compact),
+                        ]),
+                        if ((row['resolution'] as String? ?? '').isNotEmpty)
+                          Text('Resolution: ${row['resolution']}', style: const TextStyle(color: emerald, fontSize: 12)),
+                        Align(alignment: Alignment.centerRight, child: Text('Tap to update', style: TextStyle(color: muted.withValues(alpha: .8), fontSize: 10))),
+                      ]),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    ]),
+  );
+}
+
+class CustomerIssueDialog extends StatefulWidget {
+  const CustomerIssueDialog({super.key, required this.users});
+  final List<Map<String, Object?>> users;
+  @override
+  State<CustomerIssueDialog> createState() => _CustomerIssueDialogState();
+}
+
+class _CustomerIssueDialogState extends State<CustomerIssueDialog> {
+  final form = GlobalKey<FormState>();
+  final title = TextEditingController();
+  final description = TextEditingController();
+  int? userId;
+  String category = 'General';
+  String priority = 'Normal';
+  bool saving = false;
+
+  @override
+  void dispose() { title.dispose(); description.dispose(); super.dispose(); }
+
+  Future<void> save() async {
+    if (!form.currentState!.validate()) return;
+    setState(() => saving = true);
+    try {
+      await AppDatabase.instance.addCustomerIssue(
+        userId: userId, title: title.text, category: category,
+        description: description.text, priority: priority,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save issue: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('New customer issue'),
+    content: SizedBox(width: 440, child: Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      TextFormField(controller: title, decoration: const InputDecoration(labelText: 'Issue title'), validator: (v) => v == null || v.trim().isEmpty ? 'Enter an issue title' : null),
+      const SizedBox(height: 10),
+      DropdownButtonFormField<int?>(
+        initialValue: userId,
+        decoration: const InputDecoration(labelText: 'Link to registered user (optional)'),
+        items: [
+          const DropdownMenuItem<int?>(value: null, child: Text('No linked user')),
+          ...widget.users.map((u) => DropdownMenuItem<int?>(value: u['id'] as int, child: Text('${u['name']} · ${u['phone']}'))),
+        ],
+        onChanged: (v) => setState(() => userId = v),
+      ),
+      const SizedBox(height: 10),
+      DropdownButtonFormField<String>(
+        initialValue: category,
+        decoration: const InputDecoration(labelText: 'Category'),
+        items: const ['General', 'Payment', 'Account', 'Technical', 'Bonus', 'Complaint', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+        onChanged: (v) => setState(() => category = v ?? 'General'),
+      ),
+      const SizedBox(height: 10),
+      DropdownButtonFormField<String>(
+        initialValue: priority,
+        decoration: const InputDecoration(labelText: 'Priority'),
+        items: const ['Low', 'Normal', 'High', 'Urgent'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+        onChanged: (v) => setState(() => priority = v ?? 'Normal'),
+      ),
+      const SizedBox(height: 10),
+      TextFormField(controller: description, maxLines: 4, decoration: const InputDecoration(labelText: 'Description / customer message')),
+    ])))),
+    actions: [
+      TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save issue')),
+    ],
+  );
+}
+
+class UpdateIssueDialog extends StatefulWidget {
+  const UpdateIssueDialog({super.key, required this.issue});
+  final Map<String, Object?> issue;
+  @override
+  State<UpdateIssueDialog> createState() => _UpdateIssueDialogState();
+}
+
+class _UpdateIssueDialogState extends State<UpdateIssueDialog> {
+  final resolution = TextEditingController();
+  late String status;
+  late String priority;
+  bool saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    status = widget.issue['status'] as String? ?? 'Open';
+    priority = widget.issue['priority'] as String? ?? 'Normal';
+    resolution.text = widget.issue['resolution'] as String? ?? '';
+  }
+
+  @override
+  void dispose() { resolution.dispose(); super.dispose(); }
+
+  Future<void> save() async {
+    setState(() => saving = true);
+    try {
+      await AppDatabase.instance.updateCustomerIssue(
+        id: widget.issue['id'] as int, status: status,
+        priority: priority, resolution: resolution.text,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not update issue: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Update issue'),
+    content: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(widget.issue['title'] as String, style: const TextStyle(fontWeight: FontWeight.w800)),
+      const SizedBox(height: 12),
+      DropdownButtonFormField<String>(
+        initialValue: status,
+        decoration: const InputDecoration(labelText: 'Progress status'),
+        items: const ['Open', 'In Progress', 'Waiting for Customer', 'Resolved', 'Closed'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+        onChanged: (v) => setState(() => status = v ?? 'Open'),
+      ),
+      const SizedBox(height: 10),
+      DropdownButtonFormField<String>(
+        initialValue: priority,
+        decoration: const InputDecoration(labelText: 'Priority'),
+        items: const ['Low', 'Normal', 'High', 'Urgent'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+        onChanged: (v) => setState(() => priority = v ?? 'Normal'),
+      ),
+      const SizedBox(height: 10),
+      TextField(controller: resolution, maxLines: 4, decoration: const InputDecoration(labelText: 'Resolution / update notes')),
+    ]))),
+    actions: [
+      TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save update')),
     ],
   );
 }
