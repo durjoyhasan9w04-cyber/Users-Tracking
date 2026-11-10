@@ -60,7 +60,7 @@ class _MainShellState extends State<MainShell> {
       UsersPage(key: ValueKey('users-$revision'), onChanged: refresh),
       const ActivityPage(),
       const PlaceholderPage(icon: Icons.notifications_active_outlined, title: 'Smart alerts', subtitle: 'Match reminders and follow-ups will appear here when configured.'),
-      const PlaceholderPage(icon: Icons.apps_rounded, title: 'More tools', subtitle: 'Potential users, DP & bonuses, sports, relationships, reports and settings.'),
+      const PotentialUsersPage(),
     ];
     const titles = ['Good evening', 'Users', 'Activity', 'Smart alerts', 'More'];
     return Scaffold(
@@ -96,13 +96,15 @@ class DashboardPage extends StatelessWidget {
   Widget build(BuildContext context) => FutureBuilder<List<num>>(
     future: Future.wait<num>([
       AppDatabase.instance.countUsers(),
+      AppDatabase.instance.countPotentialUsers(),
       AppDatabase.instance.monthDpTotal(),
       AppDatabase.instance.monthBonusTotal(),
     ]),
     builder: (context, snap) {
       final count = snap.data?[0].toInt() ?? 0;
-      final dpMonth = snap.data?[1] ?? 0;
-      final bonusMonth = snap.data?[2] ?? 0;
+      final potentialCount = snap.data?[1].toInt() ?? 0;
+      final dpMonth = snap.data?[2] ?? 0;
+      final bonusMonth = snap.data?[3] ?? 0;
       return ListView(padding: const EdgeInsets.fromLTRB(18, 8, 18, 100), children: [
         Container(
           padding: const EdgeInsets.all(20),
@@ -124,7 +126,7 @@ class DashboardPage extends StatelessWidget {
         Row(children: [
           Expanded(child: MetricCard(label: 'Registered users', value: snap.connectionState == ConnectionState.waiting ? '—' : '$count', icon: Icons.people_alt_rounded)),
           const SizedBox(width: 12),
-          const Expanded(child: MetricCard(label: 'Potential users', value: '0', icon: Icons.person_add_alt_1_rounded)),
+          Expanded(child: MetricCard(label: 'Potential users', value: snap.data == null ? '—' : '$potentialCount', icon: Icons.person_add_alt_1_rounded)),
         ]),
         const SizedBox(height: 12),
         Row(children: [
@@ -574,6 +576,163 @@ class _DpEntryDialogState extends State<DpEntryDialog> {
     actions: [
       TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
       FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save DP')),
+    ],
+  );
+}
+
+class PotentialUsersPage extends StatefulWidget {
+  const PotentialUsersPage({super.key});
+  @override
+  State<PotentialUsersPage> createState() => _PotentialUsersPageState();
+}
+class _PotentialUsersPageState extends State<PotentialUsersPage> {
+  final search = TextEditingController();
+  late Future<List<Map<String, Object?>>> future;
+  @override
+  void initState() {
+    super.initState();
+    load();
+    search.addListener(load);
+  }
+  void load() => setState(() => future = AppDatabase.instance.getPotentialUsers(search: search.text));
+  @override
+  void dispose() { search.removeListener(load); search.dispose(); super.dispose(); }
+  Future<void> add() async {
+    final ok = await showDialog<bool>(context: context, builder: (_) => const PotentialUserDialog());
+    if (ok == true && mounted) load();
+  }
+  Future<void> convert(Map<String, Object?> row) async {
+    try {
+      await AppDatabase.instance.convertPotentialUser(row['id'] as int);
+      if (!mounted) return;
+      load();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Prospect converted to a registered user.')));
+    } on Exception catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().contains('already registered') ? 'This phone number is already registered.' : 'Could not convert this prospect.')));
+    }
+  }
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    Padding(padding: const EdgeInsets.fromLTRB(18, 10, 18, 10), child: Row(children: [
+      Expanded(child: TextField(controller: search, decoration: const InputDecoration(hintText: 'Search prospects', prefixIcon: Icon(Icons.search)))),
+      const SizedBox(width: 10),
+      FilledButton.icon(onPressed: add, icon: const Icon(Icons.add), label: const Text('Add')),
+    ])),
+    Expanded(child: FutureBuilder<List<Map<String, Object?>>>(
+      future: future,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snap.hasError) return const EmptyState(title: 'Could not load prospects', subtitle: 'Please close and reopen this page.');
+        final rows = snap.data ?? [];
+        if (rows.isEmpty) return EmptyState(title: search.text.isEmpty ? 'No potential users yet' : 'No matching prospects', subtitle: 'Keep prospect details separate until they choose to register.', action: add);
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(18, 4, 18, 30),
+          itemCount: rows.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 9),
+          itemBuilder: (context, i) {
+            final row = rows[i];
+            return Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Text(row['name'] as String, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+                PopupMenuButton<String>(
+                  onSelected: (v) async {
+                    if (v == 'convert') await convert(row);
+                    if (v == 'interested') { await AppDatabase.instance.updatePotentialStatus(row['id'] as int, 'Interested'); load(); }
+                    if (v == 'not_interested') { await AppDatabase.instance.updatePotentialStatus(row['id'] as int, 'Not Interested'); load(); }
+                    if (v == 'do_not_contact') { await AppDatabase.instance.updatePotentialStatus(row['id'] as int, 'Do Not Contact'); load(); }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'convert', child: Text('Convert to registered user')),
+                    PopupMenuItem(value: 'interested', child: Text('Mark interested')),
+                    PopupMenuItem(value: 'not_interested', child: Text('Not interested')),
+                    PopupMenuItem(value: 'do_not_contact', child: Text('Do not contact')),
+                  ],
+                ),
+              ]),
+              Text(row['phone'] as String, style: const TextStyle(color: muted)),
+              const SizedBox(height: 7),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                Chip(label: Text(row['status'] as String), visualDensity: VisualDensity.compact),
+                if ((row['language'] as String).isNotEmpty) Chip(label: Text(row['language'] as String), visualDensity: VisualDensity.compact),
+                if ((row['sports'] as String).isNotEmpty) Chip(label: Text(row['sports'] as String), visualDensity: VisualDensity.compact),
+              ]),
+              if ((row['notes'] as String).isNotEmpty) Text(row['notes'] as String, style: const TextStyle(color: muted)),
+              if ((row['contact_permission'] as int) == 0) const Text('Contact permission not recorded', style: TextStyle(color: Color(0xFFFFC36B), fontSize: 11)),
+            ])));
+          },
+        );
+      },
+    )),
+  ]);
+}
+
+class PotentialUserDialog extends StatefulWidget {
+  const PotentialUserDialog({super.key});
+  @override
+  State<PotentialUserDialog> createState() => _PotentialUserDialogState();
+}
+class _PotentialUserDialogState extends State<PotentialUserDialog> {
+  final form = GlobalKey<FormState>();
+  final name = TextEditingController();
+  final phone = TextEditingController();
+  final source = TextEditingController();
+  final language = TextEditingController();
+  final sports = TextEditingController();
+  final notes = TextEditingController();
+  String status = 'New Lead';
+  bool permission = false;
+  bool saving = false;
+  @override
+  void dispose() { name.dispose(); phone.dispose(); source.dispose(); language.dispose(); sports.dispose(); notes.dispose(); super.dispose(); }
+  Future<void> save() async {
+    if (!form.currentState!.validate()) return;
+    setState(() => saving = true);
+    try {
+      await AppDatabase.instance.addPotentialUser(
+        name: name.text, phone: phone.text, source: source.text,
+        language: language.text, sports: sports.text, notes: notes.text,
+        status: status, contactPermission: permission,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } on DatabaseException catch (e) {
+      if (!mounted) return;
+      setState(() => saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.isUniqueConstraintError() ? 'This phone number is already in your prospects.' : 'Could not save this prospect.')));
+    }
+  }
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Add potential user'),
+    content: SizedBox(width: 420, child: Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      TextFormField(controller: name, decoration: const InputDecoration(labelText: 'Name'), validator: (v) => v == null || v.trim().isEmpty ? 'Enter a name' : null),
+      const SizedBox(height: 10),
+      TextFormField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number'), validator: (v) => v == null || v.trim().length < 5 ? 'Enter a valid phone number' : null),
+      const SizedBox(height: 10),
+      TextField(controller: source, decoration: const InputDecoration(labelText: 'Contact source (optional)')),
+      const SizedBox(height: 10),
+      TextField(controller: language, decoration: const InputDecoration(labelText: 'Preferred language (optional)')),
+      const SizedBox(height: 10),
+      TextField(controller: sports, decoration: const InputDecoration(labelText: 'Sports interests (optional)')),
+      const SizedBox(height: 10),
+      DropdownButtonFormField<String>(
+        initialValue: status,
+        decoration: const InputDecoration(labelText: 'Interest status'),
+        items: const ['New Lead', 'Interested', 'Considering', 'Not Interested', 'Do Not Contact'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+        onChanged: (v) => setState(() => status = v ?? 'New Lead'),
+      ),
+      const SizedBox(height: 10),
+      TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+      CheckboxListTile(
+        contentPadding: EdgeInsets.zero, value: permission,
+        onChanged: (v) => setState(() => permission = v ?? false),
+        title: const Text('Permission to contact recorded'),
+        controlAffinity: ListTileControlAffinity.leading,
+      ),
+    ])))),
+    actions: [
+      TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save prospect')),
     ],
   );
 }
