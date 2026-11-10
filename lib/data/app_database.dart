@@ -73,7 +73,7 @@ class AppDatabase {
         "SELECT name FROM sqlite_master WHERE type = 'table'",
       );
       final names = tables.map((row) => row['name'] as String).toSet();
-      const required = {'users', 'dp_entries', 'bonus_entries', 'potential_users', 'contact_history', 'customer_issues', 'sports_interests'};
+      const required = {'users', 'dp_entries', 'bonus_entries', 'potential_users', 'contact_history', 'customer_issues'};
       if (!names.containsAll(required)) {
         throw StateError('This file is not a compatible User Hub backup');
       }
