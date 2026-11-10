@@ -1,6 +1,5 @@
 import 'package:file_picker/file_picker.dart';
 import 'dart:async';
-import 'dart:ui' show FontFeature;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'dart:io';
@@ -2539,7 +2538,16 @@ class EmptyState extends StatelessWidget {
       title.toLowerCase().contains('contact') ? Icons.chat_bubble_rounded :
       title.toLowerCase().contains('match') ? Icons.sports_soccer_rounded :
       title.toLowerCase().contains('issue') ? Icons.support_agent_rounded :
-      title.toLowerCase().contains('prospect') ? Icons.person_search_rounded : Icons.group_add_rounded
+      title.toLowerCase().contains('prospect') ? Icons.person_search_rounded :
+      title.toLowerCase().contains('profile') ? Icons.badge_rounded :
+      title.toLowerCase().contains('caught') ? Icons.check_circle_rounded :
+      title.toLowerCase().contains('report') ? Icons.insert_chart_rounded :
+      title.toLowerCase().contains('transaction') ? Icons.receipt_long_rounded :
+      title.toLowerCase().contains('match') ? Icons.calendar_month_rounded :
+      title.toLowerCase().contains('interest') ? Icons.sports_rounded :
+      title.toLowerCase().contains('change') ? Icons.history_rounded :
+      title.toLowerCase().contains('archived') ? Icons.archive_rounded :
+      title.toLowerCase().contains('follow-up') ? Icons.event_available_rounded : Icons.group_add_rounded
     );
     return Center(child: Padding(padding: EdgeInsets.all(compact ? 18 : 28), child: Column(mainAxisSize: MainAxisSize.min, children: [
       SizedBox(width: compact ? 76 : 112, height: compact ? 76 : 112, child: Stack(alignment: Alignment.center, children: [
