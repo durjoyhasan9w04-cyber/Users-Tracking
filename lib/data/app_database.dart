@@ -11,7 +11,7 @@ class AppDatabase {
     final root = await getDatabasesPath();
     _db = await openDatabase(
       p.join(root, 'user_hub.db'),
-      version: 6,
+      version: 7,
       onCreate: (db, version) async {
         await _createUsers(db);
         await _createDpEntries(db);
@@ -26,6 +26,7 @@ class AppDatabase {
         if (oldVersion < 4) await _createPotentialUsers(db);
         if (oldVersion < 5) await _createContactHistory(db);
         if (oldVersion < 6) await _createCustomerIssues(db);
+        if (oldVersion < 7) await db.execute("ALTER TABLE contact_history ADD COLUMN follow_up_completed INTEGER NOT NULL DEFAULT 0");
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -232,14 +233,53 @@ class AppDatabase {
     });
   }
 
+  Future<List<Map<String, Object?>>> getDueContactFollowUps() async {
+    final db = await database;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return db.rawQuery("""
+      SELECT c.id, c.user_id, c.follow_up_date AS due_date, c.reason, c.notes,
+        u.name AS user_name, u.phone AS user_phone
+      FROM contact_history c JOIN users u ON u.id = c.user_id
+      WHERE c.follow_up_date IS NOT NULL AND c.follow_up_date <= ?
+        AND c.follow_up_completed = 0 AND u.archived = 0
+      ORDER BY c.follow_up_date ASC, u.name COLLATE NOCASE
+    """, [today]);
+  }
+
+  Future<List<Map<String, Object?>>> getDuePotentialFollowUps() async {
+    final db = await database;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return db.query('potential_users',
+      columns: ['id', 'name', 'phone', 'follow_up_date', 'status'],
+      where: "follow_up_date IS NOT NULL AND follow_up_date <= ? AND status NOT IN ('Registered', 'Do Not Contact', 'Not Interested')",
+      whereArgs: [today],
+      orderBy: 'follow_up_date ASC, name COLLATE NOCASE');
+  }
+
+  Future<int> completeContactFollowUp(int id) async {
+    final db = await database;
+    return db.update('contact_history', {'follow_up_completed': 1},
+      where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> completePotentialFollowUp(int id) async {
+    final db = await database;
+    return db.update('potential_users', {'follow_up_date': null},
+      where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<int> countFollowUpsDue() async {
     final db = await database;
     final today = DateTime.now().toIso8601String().substring(0, 10);
-    final rows = await db.rawQuery(
-      "SELECT COUNT(*) AS total FROM contact_history WHERE follow_up_date IS NOT NULL AND follow_up_date <= ?",
+    final contacts = await db.rawQuery(
+      "SELECT COUNT(*) AS total FROM contact_history WHERE follow_up_date IS NOT NULL AND follow_up_date <= ? AND follow_up_completed = 0",
       [today],
     );
-    return Sqflite.firstIntValue(rows) ?? 0;
+    final prospects = await db.rawQuery(
+      "SELECT COUNT(*) AS total FROM potential_users WHERE follow_up_date IS NOT NULL AND follow_up_date <= ? AND status NOT IN ('Registered', 'Do Not Contact', 'Not Interested')",
+      [today],
+    );
+    return (Sqflite.firstIntValue(contacts) ?? 0) + (Sqflite.firstIntValue(prospects) ?? 0);
   }
 
   Future<int> countPotentialUsers() async {
