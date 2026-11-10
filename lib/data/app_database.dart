@@ -13,7 +13,7 @@ class AppDatabase {
     final root = await getDatabasesPath();
     _db = await openDatabase(
       p.join(root, 'user_hub.db'),
-      version: 8,
+      version: 9,
       onCreate: (db, version) async {
         await _createUsers(db);
         await _createDpEntries(db);
@@ -22,6 +22,7 @@ class AppDatabase {
         await _createContactHistory(db);
         await _createCustomerIssues(db);
         await _createAuditLog(db);
+        await _createSportsInterests(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _createDpEntries(db);
@@ -31,6 +32,7 @@ class AppDatabase {
         if (oldVersion < 6) await _createCustomerIssues(db);
         if (oldVersion >= 5 && oldVersion < 7) await db.execute("ALTER TABLE contact_history ADD COLUMN follow_up_completed INTEGER NOT NULL DEFAULT 0");
         if (oldVersion < 8) await _createAuditLog(db);
+        if (oldVersion < 9) await _createSportsInterests(db);
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -71,7 +73,7 @@ class AppDatabase {
         "SELECT name FROM sqlite_master WHERE type = 'table'",
       );
       final names = tables.map((row) => row['name'] as String).toSet();
-      const required = {'users', 'dp_entries', 'bonus_entries', 'potential_users', 'contact_history', 'customer_issues'};
+      const required = {'users', 'dp_entries', 'bonus_entries', 'potential_users', 'contact_history', 'customer_issues', 'sports_interests'};
       if (!names.containsAll(required)) {
         throw StateError('This file is not a compatible User Hub backup');
       }
@@ -665,6 +667,46 @@ class AppDatabase {
         }
       }
     });
+  }
+
+  Future<void> _createSportsInterests(DatabaseExecutor db) async {
+    await db.execute("""
+      CREATE TABLE sports_interests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        sport TEXT NOT NULL,
+        team TEXT NOT NULL DEFAULT '',
+        competition TEXT NOT NULL DEFAULT '',
+        player TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    """);
+    await db.execute('CREATE INDEX idx_sports_user ON sports_interests(user_id)');
+    await db.execute('CREATE INDEX idx_sports_name ON sports_interests(sport, team)');
+  }
+
+  Future<List<Map<String, Object?>>> getSportsInterests(int userId) async {
+    final db = await database;
+    return db.query('sports_interests', where: 'user_id = ?', whereArgs: [userId], orderBy: 'sport, team COLLATE NOCASE');
+  }
+
+  Future<int> addSportsInterest({
+    required int userId, required String sport, String team = '',
+    String competition = '', String player = '', String notes = '',
+  }) async {
+    final db = await database;
+    return db.insert('sports_interests', {
+      'user_id': userId, 'sport': sport, 'team': team.trim(),
+      'competition': competition.trim(), 'player': player.trim(),
+      'notes': notes.trim(), 'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<int> deleteSportsInterest(int id) async {
+    final db = await database;
+    return db.delete('sports_interests', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<void> _createAuditLog(DatabaseExecutor db) async {
