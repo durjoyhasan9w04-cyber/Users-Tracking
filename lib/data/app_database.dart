@@ -29,7 +29,7 @@ class AppDatabase {
         if (oldVersion < 4) await _createPotentialUsers(db);
         if (oldVersion < 5) await _createContactHistory(db);
         if (oldVersion < 6) await _createCustomerIssues(db);
-        if (oldVersion < 7) await db.execute("ALTER TABLE contact_history ADD COLUMN follow_up_completed INTEGER NOT NULL DEFAULT 0");
+        if (oldVersion >= 5 && oldVersion < 7) await db.execute("ALTER TABLE contact_history ADD COLUMN follow_up_completed INTEGER NOT NULL DEFAULT 0");
         if (oldVersion < 8) await _createAuditLog(db);
       },
       onOpen: (db) async {
