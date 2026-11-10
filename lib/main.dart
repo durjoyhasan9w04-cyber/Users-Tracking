@@ -1420,6 +1420,13 @@ class MoreHubPage extends StatelessWidget {
         subtitle: 'Export a local database backup or restore one',
         onTap: () => open(context, const BackupRestorePage()),
       ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.summarize_outlined,
+        title: 'Reports & export',
+        subtitle: 'Review period totals and export transaction history',
+        onTap: () => open(context, const ReportsPage()),
+      ),
     ],
   );
 }
@@ -1440,6 +1447,121 @@ class _MoreTile extends StatelessWidget {
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
+    ),
+  );
+}
+
+class ReportsPage extends StatefulWidget {
+  const ReportsPage({super.key});
+  @override
+  State<ReportsPage> createState() => _ReportsPageState();
+}
+
+class _ReportsPageState extends State<ReportsPage> {
+  DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
+  late Future<List<Object>> report;
+  bool exporting = false;
+
+  DateTime get nextMonth => DateTime(month.year, month.month + 1);
+  @override
+  void initState() { super.initState(); load(); }
+  void load() {
+    report = Future.wait<Object>([
+      AppDatabase.instance.getReportTotals(month, nextMonth),
+      AppDatabase.instance.getReportRows(month, nextMonth),
+    ]);
+  }
+
+  Future<void> chooseMonth() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: month,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      helpText: 'Choose a date in the report month',
+    );
+    if (picked != null && mounted) setState(() { month = DateTime(picked.year, picked.month); load(); });
+  }
+
+  String csvCell(Object? value) {
+    final text = value?.toString() ?? '';
+    return '"${text.replaceAll('"', '""')}"';
+  }
+
+  Future<void> exportCsv(List<Map<String, Object?>> rows) async {
+    setState(() => exporting = true);
+    try {
+      const headers = ['Type', 'Date', 'User', 'Phone', 'Amount (coins)', 'DP count', 'Reason', 'Notes'];
+      final lines = <String>[headers.map(csvCell).join(',')];
+      for (final row in rows) {
+        lines.add([
+          row['type'], row['transaction_date'], row['user_name'], row['phone'],
+          row['amount'], row['item_count'], row['reason'], row['notes'],
+        ].map(csvCell).join(','));
+      }
+      final directory = await getTemporaryDirectory();
+      final file = File('${directory.path}/user-hub-report-${month.year}-${month.month.toString().padLeft(2, '0')}.csv');
+      await file.writeAsString(lines.join('\n'), flush: true);
+      await Share.shareXFiles([XFile(file.path)], text: 'User Hub monthly report');
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not export this report.')));
+    } finally {
+      if (mounted) setState(() => exporting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Reports & export')),
+    body: FutureBuilder<List<Object>>(
+      future: report,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snap.hasError) return const EmptyState(title: 'Report unavailable', subtitle: 'Please try again.');
+        final totals = snap.data![0] as Map<String, num>;
+        final rows = snap.data![1] as List<Map<String, Object?>>;
+        final dp = totals['dp'] ?? 0;
+        final bonus = totals['bonus'] ?? 0;
+        return ListView(
+          padding: const EdgeInsets.all(18),
+          children: [
+            OutlinedButton.icon(onPressed: chooseMonth, icon: const Icon(Icons.calendar_month), label: Text('${month.year}-${month.month.toString().padLeft(2, '0')}')),
+            const SizedBox(height: 14),
+            Row(children: [
+              Expanded(child: MetricCard(label: 'DP total', value: dp.toString(), icon: Icons.account_balance_wallet_outlined)),
+              const SizedBox(width: 10),
+              Expanded(child: MetricCard(label: 'Bonus total', value: bonus.toString(), icon: Icons.card_giftcard_outlined)),
+            ]),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: MetricCard(label: 'DP records', value: '${totals['dp_count']}', icon: Icons.receipt_long_outlined)),
+              const SizedBox(width: 10),
+              Expanded(child: MetricCard(label: 'Bonus records', value: '${totals['bonus_count']}', icon: Icons.redeem_outlined)),
+            ]),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: exporting ? null : () => exportCsv(rows),
+              icon: const Icon(Icons.file_download_outlined),
+              label: Text(exporting ? 'Preparing CSV…' : 'Export transaction CSV'),
+            ),
+            const SizedBox(height: 18),
+            const SectionHeading('Transactions', trailing: 'Selected month'),
+            const SizedBox(height: 8),
+            if (rows.isEmpty)
+              const EmptyState(title: 'No transactions this month', subtitle: 'DP and bonus records will appear here.')
+            else
+              ...rows.take(100).map((row) => Card(
+                margin: const EdgeInsets.only(bottom: 7),
+                child: ListTile(
+                  title: Text('${row['user_name']} · ${row['type']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text('${row['transaction_date']} · ${row['reason'] ?? ''}'),
+                  trailing: Text('${row['amount']}', style: const TextStyle(color: emerald, fontWeight: FontWeight.w800)),
+                ),
+              )),
+            if (rows.length > 100) Text('Showing 100 of ${rows.length} transactions. The CSV includes all records.', style: const TextStyle(color: muted)),
+          ],
+        );
+      },
     ),
   );
 }
