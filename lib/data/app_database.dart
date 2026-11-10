@@ -123,15 +123,18 @@ class AppDatabase {
 
   Future<List<Map<String, Object?>>> getUsers({String search = ''}) async {
     final db = await database;
-    if (search.trim().isEmpty) {
-      return db.query('users', where: 'archived = 0', orderBy: 'name COLLATE NOCASE');
-    }
-    return db.query(
-      'users',
-      where: 'archived = 0 AND (name LIKE ? OR phone LIKE ?)',
-      whereArgs: ['%$search%', '%$search%'],
-      orderBy: 'name COLLATE NOCASE',
-    );
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month).toIso8601String().substring(0, 10);
+    final end = DateTime(now.year, now.month + 1).toIso8601String().substring(0, 10);
+    final term = search.trim();
+    return db.rawQuery('''
+      SELECT u.*,
+        COALESCE((SELECT SUM(d.total) FROM dp_entries d WHERE d.user_id = u.id), 0) AS lifetime_dp,
+        COALESCE((SELECT SUM(d.total) FROM dp_entries d WHERE d.user_id = u.id AND d.entry_date >= ? AND d.entry_date < ?), 0) AS monthly_dp
+      FROM users u
+      WHERE u.archived = 0 AND (? = '' OR u.name LIKE ? OR u.phone LIKE ?)
+      ORDER BY u.name COLLATE NOCASE
+    ''', [start, end, term, '%$term%', '%$term%']);
   }
 
   Future<int> countUsers() async {
