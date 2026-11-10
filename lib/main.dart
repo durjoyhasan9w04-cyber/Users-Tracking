@@ -365,7 +365,7 @@ class _DpEntryDialogState extends State<DpEntryDialog> {
         userId ??= rows.first['id'] as int;
         return Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           DropdownButtonFormField<int>(
-            value: userId,
+            initialValue: userId,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'User'),
             items: rows.map((u) => DropdownMenuItem<int>(value: u['id'] as int, child: Text(u['name'] as String, overflow: TextOverflow.ellipsis))).toList(),
