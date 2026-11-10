@@ -99,12 +99,14 @@ class DashboardPage extends StatelessWidget {
       AppDatabase.instance.countPotentialUsers(),
       AppDatabase.instance.monthDpTotal(),
       AppDatabase.instance.monthBonusTotal(),
+      AppDatabase.instance.countOpenCustomerIssues(),
     ]),
     builder: (context, snap) {
       final count = snap.data?[0].toInt() ?? 0;
       final potentialCount = snap.data?[1].toInt() ?? 0;
       final dpMonth = snap.data?[2] ?? 0;
       final bonusMonth = snap.data?[3] ?? 0;
+      final openIssues = snap.data?[4].toInt() ?? 0;
       return ListView(padding: const EdgeInsets.fromLTRB(18, 8, 18, 100), children: [
         Container(
           padding: const EdgeInsets.all(20),
@@ -142,6 +144,15 @@ class DashboardPage extends StatelessWidget {
             icon: Icons.card_giftcard_rounded,
           )),
         ]),
+        const SizedBox(height: 18),
+        Card(child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          leading: const CircleAvatar(backgroundColor: Color(0xFF3A2A20), child: Icon(Icons.support_agent_rounded, color: Color(0xFFFFC36B))),
+          title: const Text('Customer issues', style: TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Text(snap.data == null ? 'Checking unresolved requests…' : '$openIssues open or awaiting resolution', style: const TextStyle(color: muted)),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomerIssuesPage())),
+        )),
         const SizedBox(height: 22),
         Card(child: Padding(
           padding: const EdgeInsets.all(18),
