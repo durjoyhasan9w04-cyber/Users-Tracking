@@ -402,6 +402,26 @@ class AppDatabase {
   }
 
 
+  Future<double> todayDpTotal() async {
+    final db = await database;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final rows = await db.rawQuery(
+      'SELECT COALESCE(SUM(total), 0) AS total FROM dp_entries WHERE entry_date = ?',
+      [today],
+    );
+    return (rows.first['total'] as num).toDouble();
+  }
+
+  Future<int> todayDpTransactions() async {
+    final db = await database;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final rows = await db.rawQuery(
+      'SELECT COUNT(*) AS total FROM dp_entries WHERE entry_date = ?',
+      [today],
+    );
+    return Sqflite.firstIntValue(rows) ?? 0;
+  }
+
   Future<Map<String, double>> dashboardTotals() async {
     final db = await database;
     final now = DateTime.now();
