@@ -1804,7 +1804,7 @@ class _MatchDialogState extends State<MatchDialog> {
       TextField(controller: source, decoration: const InputDecoration(labelText: 'Fixture source URL (optional)')),
       const SizedBox(height: 10),
       TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes (optional)')),
-    ]))),
+    ])))),
     actions: [
       TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
       FilledButton(onPressed: saving ? null : save, child: const Text('Save match')),
