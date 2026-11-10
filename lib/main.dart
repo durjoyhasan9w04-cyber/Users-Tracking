@@ -1270,6 +1270,13 @@ class MoreHubPage extends StatelessWidget {
         subtitle: 'Complaints, requests, priorities and resolutions',
         onTap: () => open(context, const CustomerIssuesPage()),
       ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.archive_outlined,
+        title: 'Archived users',
+        subtitle: 'View and restore archived profiles',
+        onTap: () => open(context, const ArchivedUsersPage()),
+      ),
     ],
   );
 }
@@ -1290,6 +1297,66 @@ class _MoreTile extends StatelessWidget {
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
+    ),
+  );
+}
+
+class ArchivedUsersPage extends StatefulWidget {
+  const ArchivedUsersPage({super.key});
+  @override
+  State<ArchivedUsersPage> createState() => _ArchivedUsersPageState();
+}
+
+class _ArchivedUsersPageState extends State<ArchivedUsersPage> {
+  late Future<List<Map<String, Object?>>> users;
+  @override
+  void initState() { super.initState(); load(); }
+  void load() { users = AppDatabase.instance.getArchivedUsers(); }
+  Future<void> restore(Map<String, Object?> user) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Restore user?'),
+      content: Text('Restore ${user['name']} to the active users list?'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Restore')),
+      ],
+    ));
+    if (confirmed == true) {
+      try {
+        await AppDatabase.instance.restoreUser(user['id'] as int);
+        if (mounted) setState(load);
+      } on DatabaseException catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.isUniqueConstraintError() ? 'Another active profile already uses this phone number.' : 'Could not restore this user.'),
+        ));
+      }
+    }
+  }
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Archived users')),
+    body: FutureBuilder<List<Map<String, Object?>>>(
+      future: users,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snap.hasError) return const EmptyState(title: 'Could not load archived users', subtitle: 'Please try again.');
+        final rows = snap.data ?? [];
+        if (rows.isEmpty) return const EmptyState(title: 'No archived users', subtitle: 'Profiles you archive will appear here and can be restored.');
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: rows.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final user = rows[index];
+            return Card(child: ListTile(
+              title: Text(user['name'] as String, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text('${user['phone']} · Lifetime DP: ${user['lifetime_dp']}'),
+              trailing: TextButton.icon(onPressed: () => restore(user), icon: const Icon(Icons.unarchive_outlined), label: const Text('Restore')),
+            ));
+          },
+        );
+      },
     ),
   );
 }
