@@ -648,6 +648,7 @@ class AppDatabase {
     final tables = <String>[
       'users', 'dp_entries', 'bonus_entries', 'potential_users',
       'contact_history', 'customer_issues', 'audit_log',
+      'sports_interests', 'matches',
     ];
     final data = <String, Object?>{
       'app': 'User Hub',
@@ -680,7 +681,7 @@ class AppDatabase {
     await db.transaction((txn) async {
       for (final table in [
         'audit_log', 'customer_issues', 'contact_history',
-        'bonus_entries', 'dp_entries', 'potential_users', 'users',
+        'sports_interests', 'bonus_entries', 'dp_entries', 'potential_users', 'users',
       ]) {
         await txn.delete(table);
       }
