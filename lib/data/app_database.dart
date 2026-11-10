@@ -17,6 +17,7 @@ class AppDatabase {
         await _createDpEntries(db);
         await _createBonusEntries(db);
         await _createPotentialUsers(db);
+        await _createContactHistory(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _createDpEntries(db);
