@@ -11,15 +11,17 @@ class AppDatabase {
     final root = await getDatabasesPath();
     _db = await openDatabase(
       p.join(root, 'user_hub.db'),
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await _createUsers(db);
         await _createDpEntries(db);
         await _createBonusEntries(db);
+        await _createPotentialUsers(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _createDpEntries(db);
         if (oldVersion < 3) await _createBonusEntries(db);
+        if (oldVersion < 4) await _createPotentialUsers(db);
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -80,6 +82,77 @@ class AppDatabase {
     ''');
     await db.execute('CREATE INDEX idx_bonus_date ON bonus_entries(entry_date)');
     await db.execute('CREATE INDEX idx_bonus_user ON bonus_entries(user_id)');
+  }
+
+  Future<void> _createPotentialUsers(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE potential_users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL UNIQUE,
+        source TEXT NOT NULL DEFAULT '',
+        language TEXT NOT NULL DEFAULT '',
+        sports TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'New Lead',
+        follow_up_date TEXT,
+        contact_permission INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_potential_status ON potential_users(status)');
+  }
+
+  Future<int> countPotentialUsers() async {
+    final db = await database;
+    final rows = await db.rawQuery("SELECT COUNT(*) AS total FROM potential_users WHERE status != 'Registered' AND status != 'Do Not Contact'");
+    return Sqflite.firstIntValue(rows) ?? 0;
+  }
+
+  Future<List<Map<String, Object?>>> getPotentialUsers({String search = ''}) async {
+    final db = await database;
+    final term = search.trim();
+    return db.query('potential_users',
+      where: "status != 'Registered' AND (? = '' OR name LIKE ? OR phone LIKE ?)",
+      whereArgs: [term, '%$term%', '%$term%'],
+      orderBy: 'created_at DESC');
+  }
+
+  Future<int> addPotentialUser({
+    required String name, required String phone, String source = '',
+    String language = '', String sports = '', String notes = '',
+    String status = 'New Lead', DateTime? followUpDate, bool contactPermission = false,
+  }) async {
+    final db = await database;
+    return db.insert('potential_users', {
+      'name': name.trim(), 'phone': phone.trim(), 'source': source.trim(),
+      'language': language.trim(), 'sports': sports.trim(), 'notes': notes.trim(),
+      'status': status,
+      'follow_up_date': followUpDate?.toIso8601String().substring(0, 10),
+      'contact_permission': contactPermission ? 1 : 0,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<int> updatePotentialStatus(int id, String status) async {
+    final db = await database;
+    return db.update('potential_users', {'status': status}, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> convertPotentialUser(int id) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final rows = await txn.query('potential_users', where: 'id = ?', whereArgs: [id], limit: 1);
+      if (rows.isEmpty) throw StateError('Potential user not found');
+      final prospect = rows.first;
+      final existing = await txn.query('users', columns: ['id'], where: 'phone = ?', whereArgs: [prospect['phone']], limit: 1);
+      if (existing.isNotEmpty) throw StateError('This phone number is already registered');
+      await txn.insert('users', {
+        'name': prospect['name'], 'phone': prospect['phone'],
+        'notes': prospect['notes'], 'created_at': DateTime.now().toIso8601String(),
+      });
+      return txn.update('potential_users', {'status': 'Registered'}, where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   Future<double> monthBonusTotal() async {
