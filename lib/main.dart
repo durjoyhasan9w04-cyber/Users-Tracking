@@ -58,7 +58,7 @@ class _MainShellState extends State<MainShell> {
     final pages = [
       DashboardPage(key: ValueKey('home-$revision')),
       UsersPage(key: ValueKey('users-$revision'), onChanged: refresh),
-      const PlaceholderPage(icon: Icons.timeline_rounded, title: 'Activity timeline', subtitle: 'DP, bonuses, contacts and notes will appear here.'),
+      const ActivityPage(),
       const PlaceholderPage(icon: Icons.notifications_active_outlined, title: 'Smart alerts', subtitle: 'Match reminders and follow-ups will appear here when configured.'),
       const PlaceholderPage(icon: Icons.apps_rounded, title: 'More tools', subtitle: 'Potential users, DP & bonuses, sports, relationships, reports and settings.'),
     ];
@@ -262,6 +262,143 @@ class _UserFormDialogState extends State<UserFormDialog> {
     actions: [
       TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
       FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save user')),
+    ],
+  );
+}
+
+
+class ActivityPage extends StatefulWidget {
+  const ActivityPage({super.key});
+  @override
+  State<ActivityPage> createState() => _ActivityPageState();
+}
+class _ActivityPageState extends State<ActivityPage> {
+  late Future<List<Map<String, Object?>>> entries;
+  @override
+  void initState() { super.initState(); load(); }
+  void load() => entries = AppDatabase.instance.getDpEntries();
+  Future<void> addEntry() async {
+    final saved = await showDialog<bool>(context: context, builder: (_) => const DpEntryDialog());
+    if (!mounted) return;
+    if (saved == true) setState(load);
+  }
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    Padding(
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
+      child: Row(children: [
+        const Expanded(child: Text('DP records', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+        FilledButton.icon(onPressed: addEntry, icon: const Icon(Icons.add, size: 18), label: const Text('Record DP')),
+      ]),
+    ),
+    Expanded(child: FutureBuilder<List<Map<String, Object?>>>(
+      future: entries,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        final rows = snap.data ?? [];
+        if (rows.isEmpty) return const EmptyState(title: 'No DP records yet', subtitle: 'Record a DP entry to start building the user activity history.');
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(18, 4, 18, 28),
+          itemCount: rows.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 9),
+          itemBuilder: (context, i) {
+            final row = rows[i];
+            final total = (row['total'] as num).toDouble();
+            final date = row['entry_date'] as String;
+            final count = row['dp_count'] as int;
+            return Card(child: ListTile(
+              leading: const CircleAvatar(backgroundColor: Color(0xFF183B36), child: Icon(Icons.account_balance_wallet_outlined, color: emerald)),
+              title: Text(row['user_name'] as String, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text('$date  •  $count DP${count == 1 ? '' : 's'}', style: const TextStyle(color: muted)),
+              trailing: Text(total.toStringAsFixed(total % 1 == 0 ? 0 : 2), style: const TextStyle(color: emerald, fontWeight: FontWeight.w800, fontSize: 16)),
+            ));
+          },
+        );
+      },
+    )),
+  ]);
+}
+
+class DpEntryDialog extends StatefulWidget {
+  const DpEntryDialog({super.key});
+  @override
+  State<DpEntryDialog> createState() => _DpEntryDialogState();
+}
+class _DpEntryDialogState extends State<DpEntryDialog> {
+  final form = GlobalKey<FormState>();
+  final amounts = List.generate(5, (_) => TextEditingController());
+  final notes = TextEditingController();
+  int? userId;
+  bool contacted = false;
+  bool saving = false;
+  late Future<List<Map<String, Object?>>> users;
+  @override
+  void initState() { super.initState(); users = AppDatabase.instance.getUsers(); }
+  @override
+  void dispose() { for (final c in amounts) { c.dispose(); } notes.dispose(); super.dispose(); }
+  Future<void> save() async {
+    if (!form.currentState!.validate() || userId == null) return;
+    final values = amounts.map((c) => double.tryParse(c.text.trim()) ?? 0).toList();
+    if (!values.any((v) => v > 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter at least one DP amount.')));
+      return;
+    }
+    setState(() => saving = true);
+    try {
+      await AppDatabase.instance.addDpEntry(userId: userId!, date: DateTime.now(), amounts: values, contacted: contacted, notes: notes.text);
+      if (mounted) Navigator.pop(context, true);
+    } on Exception {
+      if (!mounted) return;
+      setState(() => saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not save this DP record.')));
+    }
+  }
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Record daily DP'),
+    content: SizedBox(width: 420, child: FutureBuilder<List<Map<String, Object?>>>(
+      future: users,
+      builder: (context, snap) {
+        final rows = snap.data ?? [];
+        if (snap.connectionState == ConnectionState.waiting) return const SizedBox(height: 90, child: Center(child: CircularProgressIndicator()));
+        if (rows.isEmpty) return const Text('Add a registered user before recording DP.');
+        userId ??= rows.first['id'] as int;
+        return Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          DropdownButtonFormField<int>(
+            value: userId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'User'),
+            items: rows.map((u) => DropdownMenuItem<int>(value: u['id'] as int, child: Text(u['name'] as String, overflow: TextOverflow.ellipsis))).toList(),
+            onChanged: saving ? null : (v) => setState(() => userId = v),
+          ),
+          const SizedBox(height: 12),
+          for (var i = 0; i < 5; i++) ...[
+            TextFormField(
+              controller: amounts[i],
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: 'DP ${i + 1} (coins)', hintText: 'Optional'),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return null;
+                final n = double.tryParse(v);
+                return n == null || n < 0 ? 'Enter a valid non-negative amount' : null;
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+          TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: contacted,
+            onChanged: saving ? null : (v) => setState(() => contacted = v ?? false),
+            title: const Text('Contacted today'),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+        ])));
+      },
+    )),
+    actions: [
+      TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save DP')),
     ],
   );
 }
