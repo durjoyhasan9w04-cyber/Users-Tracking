@@ -514,7 +514,7 @@ class AppDatabase {
     """, [userId, userId, userId, userId]);
   }
 
-  Future<List<Map<String, Object?>>> getUsers({String search = ''}) async {
+  Future<List<Map<String, Object?>>> getUsers({String search = '', int? includeArchivedId}) async {
     final db = await database;
     final now = DateTime.now();
     final start = DateTime(now.year, now.month).toIso8601String().substring(0, 10);
@@ -525,9 +525,9 @@ class AppDatabase {
         COALESCE((SELECT SUM(d.total) FROM dp_entries d WHERE d.user_id = u.id), 0) AS lifetime_dp,
         COALESCE((SELECT SUM(d.total) FROM dp_entries d WHERE d.user_id = u.id AND d.entry_date >= ? AND d.entry_date < ?), 0) AS monthly_dp
       FROM users u
-      WHERE u.archived = 0 AND (? = '' OR u.name LIKE ? OR u.phone LIKE ?)
+      WHERE (u.archived = 0 OR u.id = ?) AND (? = '' OR u.name LIKE ? OR u.phone LIKE ?)
       ORDER BY u.name COLLATE NOCASE
-    ''', [start, end, term, '%$term%', '%$term%']);
+    ''', [start, end, includeArchivedId, term, '%$term%', '%$term%']);
   }
 
   Future<int> countUsers() async {
@@ -818,7 +818,7 @@ class AppDatabase {
   }
 
   Future<int> updateDpEntry({
-    required int id, required List<double> amounts,
+    required int id, required int userId, required List<double> amounts,
     required bool contacted, required String notes,
   }) async {
     final values = List<double>.generate(5, (i) => i < amounts.length ? amounts[i] : 0);
@@ -834,10 +834,11 @@ class AppDatabase {
         'dp1': values[0], 'dp2': values[1], 'dp3': values[2],
         'dp4': values[3], 'dp5': values[4], 'total': total,
         'dp_count': count, 'contacted': contacted ? 1 : 0, 'notes': notes.trim(),
+        'user_id': userId,
       }, where: 'id = ?', whereArgs: [id]);
       await txn.insert('audit_log', {
         'entity_type': 'DP', 'entity_id': id, 'action': 'Edited',
-        'details': 'Date ${old['entry_date']} · Total ${old['total']} → $total',
+        'details': 'User ID ${old['user_id']} → $userId · Date ${old['entry_date']} · Total ${old['total']} → $total',
         'created_at': DateTime.now().toIso8601String(),
       });
       return 1;
@@ -845,7 +846,7 @@ class AppDatabase {
   }
 
   Future<int> updateBonusEntry({
-    required int id, required double amount, required String reason,
+    required int id, required int userId, required double amount, required String reason,
     double? relatedDp, required String notes,
   }) async {
     if (amount <= 0) throw ArgumentError('Bonus amount must be greater than zero');
@@ -856,10 +857,11 @@ class AppDatabase {
       final old = oldRows.first;
       await txn.update('bonus_entries', {
         'amount': amount, 'reason': reason, 'related_dp': relatedDp, 'notes': notes.trim(),
+        'user_id': userId,
       }, where: 'id = ?', whereArgs: [id]);
       await txn.insert('audit_log', {
         'entity_type': 'Bonus', 'entity_id': id, 'action': 'Edited',
-        'details': 'Date ${old['entry_date']} · Amount ${old['amount']} → $amount',
+        'details': 'User ID ${old['user_id']} → $userId · Date ${old['entry_date']} · Amount ${old['amount']} → $amount',
         'created_at': DateTime.now().toIso8601String(),
       });
       return 1;

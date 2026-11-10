@@ -732,7 +732,7 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
       relatedDp.text = row['related_dp'] == null ? '' : (row['related_dp'] as num).toString();
       notes.text = row['notes'] as String? ?? '';
     }
-    users = AppDatabase.instance.getUsers();
+    users = AppDatabase.instance.getUsers(includeArchivedId: userId);
   }
   @override
   void dispose() {
@@ -758,6 +758,7 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
       } else {
         await AppDatabase.instance.updateBonusEntry(
           id: existing['id'] as int,
+          userId: userId!,
           amount: double.parse(amount.text.trim()),
           reason: reason,
           relatedDp: relatedDp.text.trim().isEmpty ? null : double.parse(relatedDp.text.trim()),
@@ -855,7 +856,7 @@ class _DpEntryDialogState extends State<DpEntryDialog> {
       contacted = (row['contacted'] as int? ?? 0) == 1;
       notes.text = row['notes'] as String? ?? '';
     }
-    users = AppDatabase.instance.getUsers();
+    users = AppDatabase.instance.getUsers(includeArchivedId: userId);
   }
   @override
   void dispose() { for (final c in amounts) { c.dispose(); } notes.dispose(); super.dispose(); }
@@ -872,7 +873,7 @@ class _DpEntryDialogState extends State<DpEntryDialog> {
       if (existing == null) {
         await AppDatabase.instance.addDpEntry(userId: userId!, date: DateTime.now(), amounts: values, contacted: contacted, notes: notes.text);
       } else {
-        await AppDatabase.instance.updateDpEntry(id: existing['id'] as int, amounts: values, contacted: contacted, notes: notes.text);
+        await AppDatabase.instance.updateDpEntry(id: existing['id'] as int, userId: userId!, amounts: values, contacted: contacted, notes: notes.text);
       }
       if (mounted) Navigator.pop(context, true);
     } on Exception {
