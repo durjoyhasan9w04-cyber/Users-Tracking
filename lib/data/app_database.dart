@@ -21,6 +21,9 @@ class AppDatabase {
         if (oldVersion < 2) await _createDpEntries(db);
         if (oldVersion < 3) await _createBonusEntries(db);
       },
+      onOpen: (db) async {
+        await db.execute('PRAGMA foreign_keys = ON');
+      },
     );
     return _db!;
   }
