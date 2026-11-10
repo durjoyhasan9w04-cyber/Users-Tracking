@@ -1143,11 +1143,13 @@ class _CustomerIssuesPageState extends State<CustomerIssuesPage> {
             if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
             if (snap.hasError) return const EmptyState(title: 'Could not load issues', subtitle: 'Please reopen this page and try again.');
             final rows = snap.data ?? [];
-            if (rows.isEmpty) return EmptyState(
-              title: search.text.isEmpty ? 'No issues recorded' : 'No matching issues',
-              subtitle: 'Record customer complaints, questions or service requests and track them to resolution.',
-              action: addIssue,
-            );
+            if (rows.isEmpty) {
+              return EmptyState(
+                title: search.text.isEmpty ? 'No issues recorded' : 'No matching issues',
+                subtitle: 'Record customer complaints, questions or service requests and track them to resolution.',
+                action: addIssue,
+              );
+            }
             return ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
               itemCount: rows.length,
