@@ -11,7 +11,7 @@ class AppDatabase {
     final root = await getDatabasesPath();
     _db = await openDatabase(
       p.join(root, 'user_hub.db'),
-      version: 5,
+      version: 6,
       onCreate: (db, version) async {
         await _createUsers(db);
         await _createDpEntries(db);
@@ -24,6 +24,8 @@ class AppDatabase {
         if (oldVersion < 3) await _createBonusEntries(db);
         if (oldVersion < 4) await _createPotentialUsers(db);
         if (oldVersion < 5) await _createContactHistory(db);
+        if (oldVersion < 6) await _createCustomerIssues(db);
+        await _createCustomerIssues(db);
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -124,6 +126,74 @@ class AppDatabase {
     await db.execute('CREATE INDEX idx_contact_date ON contact_history(contact_date)');
     await db.execute('CREATE INDEX idx_contact_user ON contact_history(user_id)');
     await db.execute('CREATE INDEX idx_contact_followup ON contact_history(follow_up_date)');
+  }
+
+  Future<void> _createCustomerIssues(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE customer_issues (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        title TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'General',
+        description TEXT NOT NULL DEFAULT '',
+        priority TEXT NOT NULL DEFAULT 'Normal',
+        status TEXT NOT NULL DEFAULT 'Open',
+        resolution TEXT NOT NULL DEFAULT '',
+        opened_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        resolved_at TEXT,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_issue_status ON customer_issues(status)');
+    await db.execute('CREATE INDEX idx_issue_user ON customer_issues(user_id)');
+    await db.execute('CREATE INDEX idx_issue_priority ON customer_issues(priority)');
+  }
+
+  Future<List<Map<String, Object?>>> getCustomerIssues({String search = '', String status = 'All'}) async {
+    final db = await database;
+    final term = search.trim();
+    return db.rawQuery('''
+      SELECT i.*, u.name AS user_name, u.phone AS user_phone
+      FROM customer_issues i LEFT JOIN users u ON u.id = i.user_id
+      WHERE (? = '' OR i.title LIKE ? OR i.description LIKE ? OR i.category LIKE ? OR COALESCE(u.name, '') LIKE ? OR COALESCE(u.phone, '') LIKE ?)
+        AND (? = 'All' OR i.status = ?)
+      ORDER BY CASE i.status WHEN 'Open' THEN 0 WHEN 'In Progress' THEN 1 WHEN 'Waiting for Customer' THEN 2 WHEN 'Resolved' THEN 3 ELSE 4 END,
+        CASE i.priority WHEN 'Urgent' THEN 0 WHEN 'High' THEN 1 WHEN 'Normal' THEN 2 ELSE 3 END,
+        i.updated_at DESC
+    ''', [term, '%$term%', '%$term%', '%$term%', '%$term%', '%$term%', status, status]);
+  }
+
+  Future<int> addCustomerIssue({
+    int? userId, required String title, required String category,
+    required String description, required String priority,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    return db.insert('customer_issues', {
+      'user_id': userId, 'title': title.trim(), 'category': category,
+      'description': description.trim(), 'priority': priority,
+      'status': 'Open', 'opened_at': now, 'updated_at': now,
+    });
+  }
+
+  Future<int> updateCustomerIssue({
+    required int id, required String status, required String priority,
+    required String resolution,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    return db.update('customer_issues', {
+      'status': status, 'priority': priority,
+      'resolution': resolution.trim(), 'updated_at': now,
+      'resolved_at': status == 'Resolved' || status == 'Closed' ? now : null,
+    }, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> countOpenCustomerIssues() async {
+    final db = await database;
+    final rows = await db.rawQuery("SELECT COUNT(*) AS total FROM customer_issues WHERE status IN ('Open', 'In Progress', 'Waiting for Customer')");
+    return Sqflite.firstIntValue(rows) ?? 0;
   }
 
   Future<List<Map<String, Object?>>> getContactHistory({String search = ''}) async {
