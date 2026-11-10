@@ -1508,6 +1508,13 @@ class MoreHubPage extends StatelessWidget {
       ),
       const SizedBox(height: 10),
       _MoreTile(
+        icon: Icons.sports_soccer_rounded,
+        title: 'Sports & matches',
+        subtitle: 'Save user interests and manage a manual match calendar',
+        onTap: () => open(context, const SportsMatchesPage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
         icon: Icons.backup_outlined,
         title: 'Backup & restore',
         subtitle: 'Export a local database backup or restore one',
@@ -1656,6 +1663,260 @@ class _ReportsPageState extends State<ReportsPage> {
         );
       },
     ),
+  );
+}
+
+class SportsMatchesPage extends StatefulWidget {
+  const SportsMatchesPage({super.key});
+  @override
+  State<SportsMatchesPage> createState() => _SportsMatchesPageState();
+}
+
+class _SportsMatchesPageState extends State<SportsMatchesPage> {
+  String section = 'matches';
+  final search = TextEditingController();
+  late Future<List<Map<String, Object?>>> matches;
+  late Future<List<Map<String, Object?>>> interests;
+  @override
+  void initState() { super.initState(); load(); search.addListener(load); }
+  void load() {
+    matches = AppDatabase.instance.getMatches(search: search.text);
+    interests = AppDatabase.instance.getSportsInterests();
+  }
+  @override
+  void dispose() { search.removeListener(load); search.dispose(); super.dispose(); }
+  Future<void> addMatch() async {
+    final saved = await showDialog<bool>(context: context, builder: (_) => const MatchDialog());
+    if (saved == true && mounted) setState(load);
+  }
+  Future<void> addInterest() async {
+    final users = await AppDatabase.instance.getUsers();
+    if (!mounted) return;
+    if (users.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add a registered user first.')));
+      return;
+    }
+    final saved = await showDialog<bool>(context: context, builder: (_) => SportsInterestDialog(users: users));
+    if (saved == true && mounted) setState(load);
+  }
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Sports & matches')),
+    floatingActionButton: FloatingActionButton.extended(
+      onPressed: section == 'matches' ? addMatch : addInterest,
+      icon: const Icon(Icons.add),
+      label: Text(section == 'matches' ? 'Add match' : 'Add interest'),
+    ),
+    body: Column(children: [
+      Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 10), child: SegmentedButton<String>(
+        segments: const [
+          ButtonSegment(value: 'matches', label: Text('Match calendar'), icon: Icon(Icons.calendar_month_outlined)),
+          ButtonSegment(value: 'interests', label: Text('User interests'), icon: Icon(Icons.favorite_border_rounded)),
+        ],
+        selected: {section},
+        onSelectionChanged: (v) => setState(() => section = v.first),
+      )),
+      if (section == 'matches')
+        Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 10), child: TextField(
+          controller: search,
+          decoration: const InputDecoration(hintText: 'Search teams, sport or competition', prefixIcon: Icon(Icons.search)),
+        )),
+      Expanded(child: section == 'matches'
+        ? FutureBuilder<List<Map<String, Object?>>>(future: matches, builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+            if (snap.hasError) return const EmptyState(title: 'Could not load matches', subtitle: 'Please try again.');
+            final rows = snap.data ?? [];
+            if (rows.isEmpty) return const EmptyState(title: 'No matches saved', subtitle: 'Add fixtures manually. Match coverage is not automatically sourced.');
+            return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
+              itemCount: rows.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, i) {
+                final row = rows[i];
+                final date = DateTime.tryParse(row['start_at'] as String? ?? '')?.toLocal();
+                return Card(child: ListTile(
+                  leading: const CircleAvatar(backgroundColor: Color(0xFF183B36), child: Icon(Icons.sports, color: emerald)),
+                  title: Text('${row['home_team']} vs ${row['away_team']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Text('${row['sport']} · ${row['competition']}\n${date?.toString().substring(0, 16) ?? ''} · ${row['status']}'),
+                  isThreeLine: true,
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (v) async {
+                      if (v == 'delete') {
+                        await AppDatabase.instance.deleteMatch(row['id'] as int);
+                      } else {
+                        await AppDatabase.instance.updateMatchStatus(row['id'] as int, v);
+                      }
+                      if (mounted) setState(load);
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'Upcoming', child: Text('Mark upcoming')),
+                      PopupMenuItem(value: 'Live', child: Text('Mark live')),
+                      PopupMenuItem(value: 'Finished', child: Text('Mark finished')),
+                      PopupMenuItem(value: 'Cancelled', child: Text('Mark cancelled')),
+                      PopupMenuDivider(),
+                      PopupMenuItem(value: 'delete', child: Text('Delete')),
+                    ],
+                  ),
+                ));
+              },
+            );
+          })
+        : FutureBuilder<List<Map<String, Object?>>>(future: interests, builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+            if (snap.hasError) return const EmptyState(title: 'Could not load interests', subtitle: 'Please try again.');
+            final rows = snap.data ?? [];
+            if (rows.isEmpty) return const EmptyState(title: 'No sports interests saved', subtitle: 'Add a user’s favourite sports, teams and competitions.');
+            return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
+              itemCount: rows.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, i) {
+                final row = rows[i];
+                return Card(child: ListTile(
+                  title: Text(row['user_name'] as String, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  subtitle: Text('Sports: ${row['sports']}\nTeams: ${row['teams']}\nCompetitions: ${row['competitions']}'),
+                  isThreeLine: true,
+                  trailing: Icon(row['match_alerts'] == 1 ? Icons.notifications_active_outlined : Icons.notifications_off_outlined, color: row['match_alerts'] == 1 ? emerald : muted),
+                ));
+              },
+            );
+          })),
+    ]),
+  );
+}
+
+class MatchDialog extends StatefulWidget {
+  const MatchDialog({super.key});
+  @override
+  State<MatchDialog> createState() => _MatchDialogState();
+}
+class _MatchDialogState extends State<MatchDialog> {
+  final form = GlobalKey<FormState>();
+  final competition = TextEditingController();
+  final home = TextEditingController();
+  final away = TextEditingController();
+  final source = TextEditingController();
+  final notes = TextEditingController();
+  String sport = 'Cricket';
+  String status = 'Upcoming';
+  DateTime date = DateTime.now();
+  TimeOfDay time = TimeOfDay.now();
+  bool saving = false;
+  @override
+  void dispose() { competition.dispose(); home.dispose(); away.dispose(); source.dispose(); notes.dispose(); super.dispose(); }
+  Future<void> chooseDate() async {
+    final value = await showDatePicker(context: context, initialDate: date, firstDate: DateTime(2020), lastDate: DateTime(2100));
+    if (value != null) setState(() => date = value);
+  }
+  Future<void> chooseTime() async {
+    final value = await showTimePicker(context: context, initialTime: time);
+    if (value != null) setState(() => time = value);
+  }
+  Future<void> save() async {
+    if (!form.currentState!.validate()) return;
+    setState(() => saving = true);
+    try {
+      await AppDatabase.instance.addMatch(
+        sport: sport, competition: competition.text, homeTeam: home.text,
+        awayTeam: away.text,
+        startAt: DateTime(date.year, date.month, date.day, time.hour, time.minute),
+        status: status, sourceUrl: source.text, notes: notes.text,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (_) {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Add match'),
+    content: SizedBox(width: 420, child: Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      DropdownButtonFormField<String>(
+        initialValue: sport,
+        decoration: const InputDecoration(labelText: 'Sport'),
+        items: const ['Cricket', 'Football', 'Kabaddi', 'Tennis', 'Badminton', 'Esports'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+        onChanged: (v) => setState(() => sport = v ?? 'Cricket'),
+      ),
+      const SizedBox(height: 10),
+      TextFormField(controller: home, decoration: const InputDecoration(labelText: 'Home / first team'), validator: (v) => v == null || v.trim().isEmpty ? 'Enter a team' : null),
+      const SizedBox(height: 10),
+      TextFormField(controller: away, decoration: const InputDecoration(labelText: 'Away / second team'), validator: (v) => v == null || v.trim().isEmpty ? 'Enter a team' : null),
+      const SizedBox(height: 10),
+      TextField(controller: competition, decoration: const InputDecoration(labelText: 'League / competition')),
+      const SizedBox(height: 10),
+      Row(children: [
+        Expanded(child: OutlinedButton.icon(onPressed: chooseDate, icon: const Icon(Icons.calendar_today), label: Text('${date.day}/${date.month}/${date.year}'))),
+        const SizedBox(width: 8),
+        Expanded(child: OutlinedButton.icon(onPressed: chooseTime, icon: const Icon(Icons.schedule), label: Text(time.format(context)))),
+      ]),
+      const SizedBox(height: 10),
+      DropdownButtonFormField<String>(
+        initialValue: status,
+        decoration: const InputDecoration(labelText: 'Status'),
+        items: const ['Upcoming', 'Live', 'Finished', 'Cancelled'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+        onChanged: (v) => setState(() => status = v ?? 'Upcoming'),
+      ),
+      const SizedBox(height: 10),
+      TextField(controller: source, decoration: const InputDecoration(labelText: 'Fixture source URL (optional)')),
+      const SizedBox(height: 10),
+      TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+    ]))),
+    actions: [
+      TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+      FilledButton(onPressed: saving ? null : save, child: const Text('Save match')),
+    ],
+  );
+}
+
+class SportsInterestDialog extends StatefulWidget {
+  const SportsInterestDialog({super.key, required this.users});
+  final List<Map<String, Object?>> users;
+  @override
+  State<SportsInterestDialog> createState() => _SportsInterestDialogState();
+}
+class _SportsInterestDialogState extends State<SportsInterestDialog> {
+  final sports = TextEditingController();
+  final teams = TextEditingController();
+  final players = TextEditingController();
+  final competitions = TextEditingController();
+  final notes = TextEditingController();
+  int? userId;
+  bool alerts = false;
+  @override
+  void dispose() { sports.dispose(); teams.dispose(); players.dispose(); competitions.dispose(); notes.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Save sports interests'),
+    content: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      DropdownButtonFormField<int>(
+        initialValue: userId,
+        decoration: const InputDecoration(labelText: 'Registered user'),
+        items: widget.users.map((u) => DropdownMenuItem(value: u['id'] as int, child: Text(u['name'] as String))).toList(),
+        onChanged: (v) => setState(() => userId = v),
+      ),
+      const SizedBox(height: 10),
+      TextField(controller: sports, decoration: const InputDecoration(labelText: 'Sports (e.g. Cricket, Football)')),
+      const SizedBox(height: 10),
+      TextField(controller: teams, decoration: const InputDecoration(labelText: 'Favourite teams')),
+      const SizedBox(height: 10),
+      TextField(controller: players, decoration: const InputDecoration(labelText: 'Favourite players')),
+      const SizedBox(height: 10),
+      TextField(controller: competitions, decoration: const InputDecoration(labelText: 'Leagues / competitions')),
+      const SizedBox(height: 10),
+      TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes')),
+      SwitchListTile(value: alerts, onChanged: (v) => setState(() => alerts = v), title: const Text('Match alerts opted in'), contentPadding: EdgeInsets.zero),
+    ]))),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+      FilledButton(onPressed: userId == null ? null : () async {
+        await AppDatabase.instance.saveSportsInterest(
+          userId: userId!, sports: sports.text, teams: teams.text,
+          players: players.text, competitions: competitions.text,
+          notes: notes.text, matchAlerts: alerts,
+        );
+        if (context.mounted) Navigator.pop(context, true);
+      }, child: const Text('Save interests')),
+    ],
   );
 }
 
