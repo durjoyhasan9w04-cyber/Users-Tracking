@@ -18,6 +18,7 @@ class AppDatabase {
         await _createBonusEntries(db);
         await _createPotentialUsers(db);
         await _createContactHistory(db);
+        await _createCustomerIssues(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _createDpEntries(db);
@@ -25,7 +26,6 @@ class AppDatabase {
         if (oldVersion < 4) await _createPotentialUsers(db);
         if (oldVersion < 5) await _createContactHistory(db);
         if (oldVersion < 6) await _createCustomerIssues(db);
-        await _createCustomerIssues(db);
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
