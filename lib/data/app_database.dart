@@ -644,6 +644,55 @@ class AppDatabase {
     await db.execute('CREATE INDEX idx_audit_entity ON audit_log(entity_type, entity_id)');
   }
 
+  Future<int> updateDpEntry({
+    required int id, required List<double> amounts,
+    required bool contacted, required String notes,
+  }) async {
+    final values = List<double>.generate(5, (i) => i < amounts.length ? amounts[i] : 0);
+    final count = values.where((v) => v > 0).length;
+    final total = values.fold<double>(0, (sum, value) => sum + value);
+    if (count == 0) throw ArgumentError('Enter at least one DP amount');
+    final db = await database;
+    return db.transaction((txn) async {
+      final oldRows = await txn.query('dp_entries', where: 'id = ?', whereArgs: [id], limit: 1);
+      if (oldRows.isEmpty) return 0;
+      final old = oldRows.first;
+      await txn.update('dp_entries', {
+        'dp1': values[0], 'dp2': values[1], 'dp3': values[2],
+        'dp4': values[3], 'dp5': values[4], 'total': total,
+        'dp_count': count, 'contacted': contacted ? 1 : 0, 'notes': notes.trim(),
+      }, where: 'id = ?', whereArgs: [id]);
+      await txn.insert('audit_log', {
+        'entity_type': 'DP', 'entity_id': id, 'action': 'Edited',
+        'details': 'Date ${old['entry_date']} · Total ${old['total']} → $total',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      return 1;
+    });
+  }
+
+  Future<int> updateBonusEntry({
+    required int id, required double amount, required String reason,
+    double? relatedDp, required String notes,
+  }) async {
+    if (amount <= 0) throw ArgumentError('Bonus amount must be greater than zero');
+    final db = await database;
+    return db.transaction((txn) async {
+      final oldRows = await txn.query('bonus_entries', where: 'id = ?', whereArgs: [id], limit: 1);
+      if (oldRows.isEmpty) return 0;
+      final old = oldRows.first;
+      await txn.update('bonus_entries', {
+        'amount': amount, 'reason': reason, 'related_dp': relatedDp, 'notes': notes.trim(),
+      }, where: 'id = ?', whereArgs: [id]);
+      await txn.insert('audit_log', {
+        'entity_type': 'Bonus', 'entity_id': id, 'action': 'Edited',
+        'details': 'Date ${old['entry_date']} · Amount ${old['amount']} → $amount',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      return 1;
+    });
+  }
+
   Future<int> deleteDpEntry(int id) async {
     final db = await database;
     return db.transaction((txn) async {
