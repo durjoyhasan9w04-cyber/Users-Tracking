@@ -140,6 +140,19 @@ class DashboardPage extends StatelessWidget {
   );
 }
 
+String dpLevel(double amount, {required bool monthly}) {
+  if (monthly) {
+    if (amount >= 5000) return 'High';
+    if (amount >= 1500) return 'Medium';
+    if (amount >= 200) return 'Low';
+    return 'Neighborly';
+  }
+  if (amount >= 10000) return 'High';
+  if (amount >= 3000) return 'Medium';
+  if (amount >= 500) return 'Low';
+  return 'Neighborly';
+}
+
 class UsersPage extends StatefulWidget {
   const UsersPage({super.key, required this.onChanged});
   final VoidCallback onChanged;
@@ -200,7 +213,17 @@ class _UsersPageState extends State<UsersPage> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
               leading: CircleAvatar(backgroundColor: const Color(0xFF183B36), child: Text(name[0].toUpperCase(), style: const TextStyle(color: emerald, fontWeight: FontWeight.bold))),
               title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text(user['phone'] as String, style: const TextStyle(color: muted)),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(user['phone'] as String, style: const TextStyle(color: muted)),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Lifetime: ${dpLevel((user['lifetime_dp'] as num).toDouble(), monthly: false)}  •  Month: ${dpLevel((user['monthly_dp'] as num).toDouble(), monthly: true)}',
+                    style: const TextStyle(color: emerald, fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
               onTap: () => edit(user),
               trailing: PopupMenuButton<String>(
                 onSelected: (v) { if (v == 'edit') edit(user); if (v == 'archive') archive(user); },
