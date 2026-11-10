@@ -112,7 +112,7 @@ class _MainShellState extends State<MainShell> {
             style: IconButton.styleFrom(backgroundColor: emerald, foregroundColor: bg, fixedSize: const Size(46, 46)),
             onPressed: addUser, icon: const Icon(Icons.add_rounded, size: 25),
           )),
-          Padding(padding: const EdgeInsets.only(right: 18), child: CircleAvatar(
+          if (index != 1) Padding(padding: const EdgeInsets.only(right: 18), child: CircleAvatar(
             radius: 20, backgroundColor: const Color(0xFF172820),
             child: Text('UH', style: GoogleFonts.spaceGrotesk(color: emerald, fontWeight: FontWeight.w700)),
           )),
@@ -252,7 +252,7 @@ class SparklinePainter extends CustomPainter {
   final List<double> values;
   @override
   void paint(Canvas canvas, Size size) {
-    final points = values.length < 2 ? [0.35, 0.48, 0.42, 0.66, 0.59, 0.78, 0.72] : values;
+    final points = values.isEmpty ? List<double>.filled(7, 0) : values.length == 1 ? List<double>.filled(7, values.first) : values;
     final minValue = points.reduce((a, b) => a < b ? a : b);
     final maxValue = points.reduce((a, b) => a > b ? a : b);
     final range = (maxValue - minValue).abs() < 0.001 ? 1.0 : maxValue - minValue;
