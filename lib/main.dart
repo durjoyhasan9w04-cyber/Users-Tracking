@@ -93,10 +93,16 @@ class _MainShellState extends State<MainShell> {
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
   @override
-  Widget build(BuildContext context) => FutureBuilder<int>(
-    future: AppDatabase.instance.countUsers(),
+  Widget build(BuildContext context) => FutureBuilder<List<num>>(
+    future: Future.wait<num>([
+      AppDatabase.instance.countUsers(),
+      AppDatabase.instance.monthDpTotal(),
+      AppDatabase.instance.monthBonusTotal(),
+    ]),
     builder: (context, snap) {
-      final count = snap.data ?? 0;
+      final count = snap.data?[0].toInt() ?? 0;
+      final dpMonth = snap.data?[1] ?? 0;
+      final bonusMonth = snap.data?[2] ?? 0;
       return ListView(padding: const EdgeInsets.fromLTRB(18, 8, 18, 100), children: [
         Container(
           padding: const EdgeInsets.all(20),
