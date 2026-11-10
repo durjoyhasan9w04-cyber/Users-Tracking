@@ -127,10 +127,18 @@ class DashboardPage extends StatelessWidget {
           const Expanded(child: MetricCard(label: 'Potential users', value: '0', icon: Icons.person_add_alt_1_rounded)),
         ]),
         const SizedBox(height: 12),
-        const Row(children: [
-          Expanded(child: MetricCard(label: 'DP this month', value: '—', icon: Icons.account_balance_wallet_rounded)),
-          SizedBox(width: 12),
-          Expanded(child: MetricCard(label: 'Follow-ups due', value: '—', icon: Icons.event_note_rounded)),
+        Row(children: [
+          Expanded(child: MetricCard(
+            label: 'DP this month',
+            value: snap.data == null ? '—' : dpMonth.toStringAsFixed(dpMonth % 1 == 0 ? 0 : 2),
+            icon: Icons.account_balance_wallet_rounded,
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: MetricCard(
+            label: 'Bonus this month',
+            value: snap.data == null ? '—' : bonusMonth.toStringAsFixed(bonusMonth % 1 == 0 ? 0 : 2),
+            icon: Icons.card_giftcard_rounded,
+          )),
         ]),
         const SizedBox(height: 22),
         Card(child: Padding(
