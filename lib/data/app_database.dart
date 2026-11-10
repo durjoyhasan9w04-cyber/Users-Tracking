@@ -526,6 +526,21 @@ class AppDatabase {
     return db.update('users', {'name': name.trim(), 'phone': phone.trim(), 'notes': notes.trim()}, where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<List<Map<String, Object?>>> getArchivedUsers() async {
+    final db = await database;
+    return db.rawQuery("""
+      SELECT u.*,
+        COALESCE((SELECT SUM(total) FROM dp_entries WHERE user_id = u.id), 0) AS lifetime_dp
+      FROM users u WHERE u.archived = 1
+      ORDER BY u.name COLLATE NOCASE
+    """);
+  }
+
+  Future<int> restoreUser(int id) async {
+    final db = await database;
+    return db.update('users', {'archived': 0}, where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<int> archiveUser(int id) async {
     final db = await database;
     return db.update('users', {'archived': 1}, where: 'id = ?', whereArgs: [id]);
