@@ -859,6 +859,11 @@ class _PotentialUsersPageState extends State<PotentialUsersPage> {
     final ok = await showDialog<bool>(context: context, builder: (_) => const PotentialUserDialog());
     if (ok == true && mounted) load();
   }
+
+  Future<void> edit(Map<String, Object?> row) async {
+    final ok = await showDialog<bool>(context: context, builder: (_) => PotentialUserDialog(existing: row));
+    if (ok == true && mounted) load();
+  }
   Future<void> convert(Map<String, Object?> row) async {
     try {
       await AppDatabase.instance.convertPotentialUser(row['id'] as int);
@@ -895,12 +900,14 @@ class _PotentialUsersPageState extends State<PotentialUsersPage> {
                 Expanded(child: Text(row['name'] as String, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
                 PopupMenuButton<String>(
                   onSelected: (v) async {
+                    if (v == 'edit') await edit(row);
                     if (v == 'convert') await convert(row);
                     if (v == 'interested') { await AppDatabase.instance.updatePotentialStatus(row['id'] as int, 'Interested'); load(); }
                     if (v == 'not_interested') { await AppDatabase.instance.updatePotentialStatus(row['id'] as int, 'Not Interested'); load(); }
                     if (v == 'do_not_contact') { await AppDatabase.instance.updatePotentialStatus(row['id'] as int, 'Do Not Contact'); load(); }
                   },
                   itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'edit', child: Text('Edit prospect')),
                     PopupMenuItem(value: 'convert', child: Text('Convert to registered user')),
                     PopupMenuItem(value: 'interested', child: Text('Mark interested')),
                     PopupMenuItem(value: 'not_interested', child: Text('Not interested')),
@@ -926,7 +933,8 @@ class _PotentialUsersPageState extends State<PotentialUsersPage> {
 }
 
 class PotentialUserDialog extends StatefulWidget {
-  const PotentialUserDialog({super.key});
+  const PotentialUserDialog({super.key, this.existing});
+  final Map<String, Object?>? existing;
   @override
   State<PotentialUserDialog> createState() => _PotentialUserDialogState();
 }
@@ -943,16 +951,43 @@ class _PotentialUserDialogState extends State<PotentialUserDialog> {
   bool permission = false;
   bool saving = false;
   @override
+  void initState() {
+    super.initState();
+    final row = widget.existing;
+    if (row != null) {
+      name.text = row['name'] as String? ?? '';
+      phone.text = row['phone'] as String? ?? '';
+      source.text = row['source'] as String? ?? '';
+      language.text = row['language'] as String? ?? '';
+      sports.text = row['sports'] as String? ?? '';
+      notes.text = row['notes'] as String? ?? '';
+      status = row['status'] as String? ?? 'New Lead';
+      final date = row['follow_up_date'] as String?;
+      followUpDate = date == null ? null : DateTime.tryParse(date);
+      permission = (row['contact_permission'] as int? ?? 0) == 1;
+    }
+  }
+  @override
   void dispose() { name.dispose(); phone.dispose(); source.dispose(); language.dispose(); sports.dispose(); notes.dispose(); super.dispose(); }
   Future<void> save() async {
     if (!form.currentState!.validate()) return;
     setState(() => saving = true);
     try {
-      await AppDatabase.instance.addPotentialUser(
-        name: name.text, phone: phone.text, source: source.text,
-        language: language.text, sports: sports.text, notes: notes.text,
-        status: status, followUpDate: followUpDate, contactPermission: permission,
-      );
+      final existing = widget.existing;
+      if (existing == null) {
+        await AppDatabase.instance.addPotentialUser(
+          name: name.text, phone: phone.text, source: source.text,
+          language: language.text, sports: sports.text, notes: notes.text,
+          status: status, followUpDate: followUpDate, contactPermission: permission,
+        );
+      } else {
+        await AppDatabase.instance.updatePotentialUser(
+          id: existing['id'] as int, name: name.text, phone: phone.text,
+          source: source.text, language: language.text, sports: sports.text,
+          notes: notes.text, status: status, followUpDate: followUpDate,
+          contactPermission: permission,
+        );
+      }
       if (mounted) Navigator.pop(context, true);
     } on DatabaseException catch (e) {
       if (!mounted) return;
@@ -962,7 +997,7 @@ class _PotentialUserDialogState extends State<PotentialUserDialog> {
   }
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Add potential user'),
+    title: Text(widget.existing == null ? 'Add potential user' : 'Edit potential user'),
     content: SizedBox(width: 420, child: Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
       TextFormField(controller: name, decoration: const InputDecoration(labelText: 'Name'), validator: (v) => v == null || v.trim().isEmpty ? 'Enter a name' : null),
       const SizedBox(height: 10),
@@ -1005,7 +1040,7 @@ class _PotentialUserDialogState extends State<PotentialUserDialog> {
     ])))),
     actions: [
       TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
-      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save prospect')),
+      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : Text(widget.existing == null ? 'Save prospect' : 'Save changes')),
     ],
   );
 }
