@@ -329,23 +329,16 @@ String dpLevel(double amount, {required bool monthly}) {
 class UsersPage extends StatefulWidget {
   const UsersPage({super.key, required this.onChanged});
   final VoidCallback onChanged;
-  @override
-  State<UsersPage> createState() => _UsersPageState();
+  @override State<UsersPage> createState() => _UsersPageState();
 }
 class _UsersPageState extends State<UsersPage> {
   final search = TextEditingController();
   String lifetimeFilter = 'All';
   String monthlyFilter = 'All';
   late Future<List<Map<String, Object?>>> future;
-  @override
-  void initState() {
-    super.initState();
-    load();
-    search.addListener(load);
-  }
+  @override void initState() { super.initState(); load(); search.addListener(load); }
   void load() => setState(() => future = AppDatabase.instance.getUsers(search: search.text));
-  @override
-  void dispose() { search.removeListener(load); search.dispose(); super.dispose(); }
+  @override void dispose() { search.removeListener(load); search.dispose(); super.dispose(); }
   Future<void> edit(Map<String, Object?>? user) async {
     final ok = await showDialog<bool>(context: context, builder: (_) => UserFormDialog(user: user));
     if (ok == true) { load(); widget.onChanged(); }
@@ -354,92 +347,69 @@ class _UsersPageState extends State<UsersPage> {
     final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       title: const Text('Archive user?'),
       content: Text('Archive ${user['name']}? Their profile will be hidden from this list.'),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Archive')),
-      ],
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Archive'))],
     ));
     if (ok == true) { await AppDatabase.instance.archiveUser(user['id'] as int); load(); widget.onChanged(); }
   }
-  @override
-  Widget build(BuildContext context) => Column(children: [
-    Padding(padding: const EdgeInsets.fromLTRB(18, 8, 18, 8), child: TextField(
-      controller: search, decoration: const InputDecoration(hintText: 'Search by name or phone', prefixIcon: Icon(Icons.search)),
-    )),
-    Padding(padding: const EdgeInsets.fromLTRB(18, 0, 18, 10), child: Row(children: [
-      Expanded(child: DropdownButtonFormField<String>(
-        initialValue: lifetimeFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(labelText: 'Lifetime level', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
-        items: const ['All', 'High', 'Medium', 'Low', 'Neighborly'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-        onChanged: (v) => setState(() => lifetimeFilter = v ?? 'All'),
-      )),
-      const SizedBox(width: 10),
-      Expanded(child: DropdownButtonFormField<String>(
-        initialValue: monthlyFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(labelText: 'Monthly level', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
-        items: const ['All', 'High', 'Medium', 'Low', 'Neighborly'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-        onChanged: (v) => setState(() => monthlyFilter = v ?? 'All'),
-      )),
+  Widget filterRow(String label, String selected, ValueChanged<String> onSelected) => Padding(
+    padding: const EdgeInsets.only(top: 8),
+    child: Row(children: [
+      SizedBox(width: 66, child: Text(label, style: const TextStyle(fontSize: 10, color: muted, fontWeight: FontWeight.w800))),
+      Expanded(child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+        for (final item in ['All', 'High', 'Medium', 'Low', 'Neighborly'])
+          Padding(padding: const EdgeInsets.only(right: 7), child: ChoiceChip(
+            label: Text(item), selected: selected == item, onSelected: (_) => onSelected(item), showCheckmark: false,
+            selectedColor: emerald, labelStyle: TextStyle(color: selected == item ? bg : muted, fontWeight: selected == item ? FontWeight.w800 : FontWeight.w500),
+            side: BorderSide(color: selected == item ? emerald : panelBorder),
+          )),
+      ]))),
+    ]),
+  );
+  @override Widget build(BuildContext context) => Column(children: [
+    Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 8), child: TextField(controller: search, decoration: const InputDecoration(hintText: 'Search by name or phone', prefixIcon: Icon(Icons.search_rounded)))),
+    Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 10), child: Column(children: [
+      filterRow('LIFETIME', lifetimeFilter, (v) => setState(() => lifetimeFilter = v)),
+      filterRow('MONTHLY', monthlyFilter, (v) => setState(() => monthlyFilter = v)),
     ])),
-    Expanded(child: FutureBuilder<List<Map<String, Object?>>>(
-      future: future,
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        final allRows = snap.data ?? [];
-        final rows = allRows.where((user) {
+    Expanded(child: FutureBuilder<List<Map<String, Object?>>>(future: future, builder: (context, snap) {
+      if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+      final allRows = snap.data ?? [];
+      final rows = allRows.where((user) {
+        final lifetime = dpLevel((user['lifetime_dp'] as num).toDouble(), monthly: false);
+        final monthly = dpLevel((user['monthly_dp'] as num).toDouble(), monthly: true);
+        return (lifetimeFilter == 'All' || lifetime == lifetimeFilter) && (monthlyFilter == 'All' || monthly == monthlyFilter);
+      }).toList();
+      if (rows.isEmpty) return EmptyState(title: search.text.isEmpty ? 'No users yet' : 'No matching users', subtitle: search.text.isEmpty ? 'Add your first profile to start building your user list.' : 'Try another name or phone number.', icon: Icons.group_add_rounded, action: search.text.isEmpty ? () => edit(null) : null);
+      return ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 34), itemCount: rows.length, separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, i) {
+          final user = rows[i]; final name = user['name'] as String;
           final lifetime = dpLevel((user['lifetime_dp'] as num).toDouble(), monthly: false);
           final monthly = dpLevel((user['monthly_dp'] as num).toDouble(), monthly: true);
-          return (lifetimeFilter == 'All' || lifetime == lifetimeFilter) &&
-              (monthlyFilter == 'All' || monthly == monthlyFilter);
-        }).toList();
-        if (rows.isEmpty) {
-          return EmptyState(
-          title: search.text.isEmpty ? 'No users yet' : 'No matching users',
-          subtitle: search.text.isEmpty ? 'Tap Add user to create your first local profile.' : 'Try another name or phone number.',
-            action: search.text.isEmpty ? () => edit(null) : null,
-          );
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(18, 4, 18, 100),
-          itemCount: rows.length, separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, i) {
-            final user = rows[i];
-            final name = user['name'] as String;
-            return Card(child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-              leading: CircleAvatar(backgroundColor: const Color(0xFF183B36), child: Text(name[0].toUpperCase(), style: const TextStyle(color: emerald, fontWeight: FontWeight.bold))),
-              title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(user['phone'] as String, style: const TextStyle(color: muted)),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Lifetime: ${dpLevel((user['lifetime_dp'] as num).toDouble(), monthly: false)}  •  Month: ${dpLevel((user['monthly_dp'] as num).toDouble(), monthly: true)}',
-                    style: const TextStyle(color: emerald, fontSize: 11, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => UserProfilePage(userId: user['id'] as int, onChanged: () { load(); widget.onChanged(); }),
-              )),
-              trailing: PopupMenuButton<String>(
-                onSelected: (v) { if (v == 'edit') edit(user); if (v == 'archive') archive(user); },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'edit', child: Text('Edit profile')),
-                  PopupMenuItem(value: 'archive', child: Text('Archive')),
-                ],
-              ),
-            ));
-          },
-        );
-      },
-    )),
+          final lifetimeNumber = lifetime == 'High' ? 4 : lifetime == 'Medium' ? 3 : lifetime == 'Low' ? 2 : 1;
+          final monthlyNumber = monthly == 'High' ? 4 : monthly == 'Medium' ? 3 : monthly == 'Low' ? 2 : 1;
+          return Card(child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            leading: CircleAvatar(radius: 23, backgroundColor: const Color(0xFF172820), child: Text(_initials(name), style: const TextStyle(color: emerald, fontWeight: FontWeight.w800))),
+            title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+            subtitle: Text(_maskPhone(user['phone'] as String), style: const TextStyle(color: muted, fontSize: 12)),
+            trailing: SizedBox(width: 108, child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text('Lifetime $lifetimeNumber', style: TextStyle(color: lifetime == 'High' ? amber : emerald, fontWeight: FontWeight.w800, fontSize: 13)),
+              Text('Monthly $monthlyNumber', style: const TextStyle(color: muted, fontSize: 11)),
+            ])),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: user['id'] as int, onChanged: () { load(); widget.onChanged(); }))),
+            onLongPress: () => archive(user),
+          ));
+        },
+      );
+    })),
   ]);
 }
 
+String _maskPhone(String phone) {
+  if (phone.length < 7) return phone;
+  return '${phone.substring(0, 2)}••• ••${phone.substring(phone.length - 3)}';
+}
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key, required this.userId, required this.onChanged});
   final int userId;
@@ -656,15 +626,15 @@ class _ActivityPageState extends State<ActivityPage> {
     final isDp = section == 'dp';
     return Column(children: [
       Padding(
-        padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
         child: Row(children: [
-          Expanded(child: SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'dp', label: Text('DP'), icon: Icon(Icons.account_balance_wallet_outlined)),
-              ButtonSegment(value: 'bonus', label: Text('Bonuses'), icon: Icon(Icons.card_giftcard_rounded)),
-            ],
-            selected: {section},
-            onSelectionChanged: (value) => setState(() => section = value.first),
+          Expanded(child: Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(color: panel, borderRadius: BorderRadius.circular(20), border: Border.all(color: panelBorder)),
+            child: Row(children: [
+              _ActivitySegment(label: 'DP', selected: section == 'dp', onTap: () => setState(() => section = 'dp')),
+              _ActivitySegment(label: 'Bonuses', selected: section == 'bonus', onTap: () => setState(() => section = 'bonus')),
+            ]),
           )),
           const SizedBox(width: 10),
           FilledButton.icon(onPressed: addRecord, icon: const Icon(Icons.add, size: 18), label: Text(isDp ? 'Record' : 'Add bonus')),
@@ -678,11 +648,13 @@ class _ActivityPageState extends State<ActivityPage> {
           if (rows.isEmpty) {
             return EmptyState(
               title: isDp ? 'No DP records yet' : 'No bonus records yet',
-              subtitle: isDp ? 'Record a DP entry to build the activity history.' : 'Add a bonus record to keep its history separate from DP.',
+              subtitle: isDp ? 'Record your first DP entry to start building your activity history.' : 'Add your first bonus record to keep its history separate from DP.',
+              icon: isDp ? Icons.account_balance_wallet_rounded : Icons.card_giftcard_rounded,
+              action: addRecord,
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(18, 4, 18, 28),
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
             itemCount: rows.length,
             separatorBuilder: (_, __) => const SizedBox(height: 9),
             itemBuilder: (context, i) {
@@ -724,6 +696,17 @@ class _ActivityPageState extends State<ActivityPage> {
   }
 }
 
+class _ActivitySegment extends StatelessWidget {
+  const _ActivitySegment({required this.label, required this.selected, required this.onTap});
+  final String label; final bool selected; final VoidCallback onTap;
+  @override Widget build(BuildContext context) => Expanded(child: InkWell(
+    onTap: onTap, borderRadius: BorderRadius.circular(15),
+    child: AnimatedContainer(duration: const Duration(milliseconds: 180), padding: const EdgeInsets.symmetric(vertical: 13),
+      decoration: BoxDecoration(color: selected ? const Color(0xFF1B3328) : Colors.transparent, borderRadius: BorderRadius.circular(15)),
+      child: Center(child: Text(label, style: TextStyle(color: selected ? emerald : muted, fontWeight: FontWeight.w700))),
+    ),
+  ));
+}
 class BonusEntryDialog extends StatefulWidget {
   const BonusEntryDialog({super.key, this.existing});
   final Map<String, Object?>? existing;
