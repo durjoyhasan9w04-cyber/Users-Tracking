@@ -332,60 +332,6 @@ class _UsersPageState extends State<UsersPage> {
   ]);
 }
 
-class AddSportsInterestDialog extends StatefulWidget {
-  const AddSportsInterestDialog({super.key, required this.userId});
-  final int userId;
-  @override
-  State<AddSportsInterestDialog> createState() => _AddSportsInterestDialogState();
-}
-
-class _AddSportsInterestDialogState extends State<AddSportsInterestDialog> {
-  final team = TextEditingController();
-  final competition = TextEditingController();
-  final player = TextEditingController();
-  final notes = TextEditingController();
-  String sport = 'Cricket';
-  bool saving = false;
-  @override
-  void dispose() { team.dispose(); competition.dispose(); player.dispose(); notes.dispose(); super.dispose(); }
-  Future<void> save() async {
-    setState(() => saving = true);
-    try {
-      await AppDatabase.instance.addSportsInterest(
-        userId: widget.userId, sport: sport, team: team.text,
-        competition: competition.text, player: player.text, notes: notes.text,
-      );
-      if (mounted) Navigator.pop(context, true);
-    } catch (_) {
-      if (mounted) setState(() => saving = false);
-    }
-  }
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Add sports interest'),
-    content: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      DropdownButtonFormField<String>(
-        initialValue: sport,
-        decoration: const InputDecoration(labelText: 'Sport'),
-        items: const ['Cricket', 'Football', 'Kabaddi', 'Tennis', 'Badminton', 'Esports'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-        onChanged: saving ? null : (v) => setState(() => sport = v ?? 'Cricket'),
-      ),
-      const SizedBox(height: 10),
-      TextField(controller: team, decoration: const InputDecoration(labelText: 'Favourite team / club')),
-      const SizedBox(height: 10),
-      TextField(controller: competition, decoration: const InputDecoration(labelText: 'League / tournament')),
-      const SizedBox(height: 10),
-      TextField(controller: player, decoration: const InputDecoration(labelText: 'Favourite player (optional)')),
-      const SizedBox(height: 10),
-      TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
-    ]))),
-    actions: [
-      TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
-      FilledButton(onPressed: saving ? null : save, child: Text(saving ? 'Saving…' : 'Save preference')),
-    ],
-  );
-}
-
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key, required this.userId, required this.onChanged});
   final int userId;
@@ -402,7 +348,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
     data = Future.wait<Object?>([
       AppDatabase.instance.getUserProfile(widget.userId),
       AppDatabase.instance.getUserTimeline(widget.userId),
-      AppDatabase.instance.getSportsInterests(widget.userId),
     ]);
   }
   Future<void> edit(Map<String, Object?> user) async {
@@ -425,7 +370,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
         }
         final user = snap.data![0] as Map<String, Object?>;
         final timeline = snap.data![1] as List<Map<String, Object?>>;
-        final sports = snap.data![2] as List<Map<String, Object?>>;
         final name = user['name'] as String? ?? 'User';
         final lastDp = user['last_dp_date'] as String?;
         final lastContact = user['last_contact_date'] as String?;
