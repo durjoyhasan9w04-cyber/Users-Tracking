@@ -11,7 +11,7 @@ class AppDatabase {
     final root = await getDatabasesPath();
     _db = await openDatabase(
       p.join(root, 'user_hub.db'),
-      version: 4,
+      version: 5,
       onCreate: (db, version) async {
         await _createUsers(db);
         await _createDpEntries(db);
@@ -22,6 +22,7 @@ class AppDatabase {
         if (oldVersion < 2) await _createDpEntries(db);
         if (oldVersion < 3) await _createBonusEntries(db);
         if (oldVersion < 4) await _createPotentialUsers(db);
+        if (oldVersion < 5) await _createContactHistory(db);
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -101,6 +102,73 @@ class AppDatabase {
       )
     ''');
     await db.execute('CREATE INDEX idx_potential_status ON potential_users(status)');
+  }
+
+  Future<void> _createContactHistory(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE contact_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        contact_date TEXT NOT NULL,
+        channel TEXT NOT NULL,
+        reason TEXT NOT NULL DEFAULT '',
+        outcome TEXT NOT NULL,
+        response TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        follow_up_date TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_contact_date ON contact_history(contact_date)');
+    await db.execute('CREATE INDEX idx_contact_user ON contact_history(user_id)');
+    await db.execute('CREATE INDEX idx_contact_followup ON contact_history(follow_up_date)');
+  }
+
+  Future<List<Map<String, Object?>>> getContactHistory({String search = ''}) async {
+    final db = await database;
+    final term = search.trim();
+    return db.rawQuery('''
+      SELECT c.*, u.name AS user_name, u.phone AS user_phone
+      FROM contact_history c
+      JOIN users u ON u.id = c.user_id
+      WHERE (? = '' OR u.name LIKE ? OR u.phone LIKE ? OR c.reason LIKE ? OR c.notes LIKE ?)
+      ORDER BY c.contact_date DESC, c.id DESC
+    ''', [term, '%$term%', '%$term%', '%$term%', '%$term%']);
+  }
+
+  Future<int> addContactLog({
+    required int userId,
+    required DateTime contactDate,
+    required String channel,
+    required String reason,
+    required String outcome,
+    String response = '',
+    String notes = '',
+    DateTime? followUpDate,
+  }) async {
+    final db = await database;
+    return db.insert('contact_history', {
+      'user_id': userId,
+      'contact_date': contactDate.toIso8601String(),
+      'channel': channel,
+      'reason': reason.trim(),
+      'outcome': outcome,
+      'response': response.trim(),
+      'notes': notes.trim(),
+      'follow_up_date': followUpDate?.toIso8601String().substring(0, 10),
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<int> countFollowUpsDue() async {
+    final db = await database;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final rows = await db.rawQuery(
+      "SELECT COUNT(*) AS total FROM contact_history WHERE follow_up_date IS NOT NULL AND follow_up_date <= ?",
+      [today],
+    );
+    return Sqflite.firstIntValue(rows) ?? 0;
   }
 
   Future<int> countPotentialUsers() async {
