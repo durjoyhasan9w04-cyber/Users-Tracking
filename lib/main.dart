@@ -1780,9 +1780,11 @@ class _MatchDialogState extends State<MatchDialog> {
 class SportsInterestDialog extends StatefulWidget {
   const SportsInterestDialog({super.key, required this.users});
   final List<Map<String, Object?>> users;
+
   @override
   State<SportsInterestDialog> createState() => _SportsInterestDialogState();
 }
+
 class _SportsInterestDialogState extends State<SportsInterestDialog> {
   final sports = TextEditingController();
   final teams = TextEditingController();
@@ -1791,42 +1793,90 @@ class _SportsInterestDialogState extends State<SportsInterestDialog> {
   final notes = TextEditingController();
   int? userId;
   bool alerts = false;
+  bool saving = false;
+
   @override
-  void dispose() { sports.dispose(); teams.dispose(); players.dispose(); competitions.dispose(); notes.dispose(); super.dispose(); }
+  void dispose() {
+    sports.dispose();
+    teams.dispose();
+    players.dispose();
+    competitions.dispose();
+    notes.dispose();
+    super.dispose();
+  }
+
+  Future<void> save() async {
+    if (userId == null) return;
+    setState(() => saving = true);
+    try {
+      await AppDatabase.instance.saveSportsInterest(
+        userId: userId!,
+        sports: sports.text,
+        teams: teams.text,
+        players: players.text,
+        competitions: competitions.text,
+        notes: notes.text,
+        matchAlerts: alerts,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (_) {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Save sports interests'),
-    content: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      DropdownButtonFormField<int>(
-        initialValue: userId,
-        decoration: const InputDecoration(labelText: 'Registered user'),
-        items: widget.users.map((u) => DropdownMenuItem(value: u['id'] as int, child: Text(u['name'] as String))).toList(),
-        onChanged: (v) => setState(() => userId = v),
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Save sports interests'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                initialValue: userId,
+                decoration: const InputDecoration(labelText: 'Registered user'),
+                items: widget.users.map((user) {
+                  return DropdownMenuItem<int>(
+                    value: user['id'] as int,
+                    child: Text(user['name'] as String),
+                  );
+                }).toList(),
+                onChanged: saving ? null : (value) => setState(() => userId = value),
+              ),
+              const SizedBox(height: 10),
+              TextField(controller: sports, decoration: const InputDecoration(labelText: 'Sports (e.g. Cricket, Football)')),
+              const SizedBox(height: 10),
+              TextField(controller: teams, decoration: const InputDecoration(labelText: 'Favourite teams')),
+              const SizedBox(height: 10),
+              TextField(controller: players, decoration: const InputDecoration(labelText: 'Favourite players')),
+              const SizedBox(height: 10),
+              TextField(controller: competitions, decoration: const InputDecoration(labelText: 'Leagues / competitions')),
+              const SizedBox(height: 10),
+              TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes')),
+              SwitchListTile(
+                value: alerts,
+                onChanged: saving ? null : (value) => setState(() => alerts = value),
+                title: const Text('Match alerts opted in'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+        ),
       ),
-      const SizedBox(height: 10),
-      TextField(controller: sports, decoration: const InputDecoration(labelText: 'Sports (e.g. Cricket, Football)')),
-      const SizedBox(height: 10),
-      TextField(controller: teams, decoration: const InputDecoration(labelText: 'Favourite teams')),
-      const SizedBox(height: 10),
-      TextField(controller: players, decoration: const InputDecoration(labelText: 'Favourite players')),
-      const SizedBox(height: 10),
-      TextField(controller: competitions, decoration: const InputDecoration(labelText: 'Leagues / competitions')),
-      const SizedBox(height: 10),
-      TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes')),
-      SwitchListTile(value: alerts, onChanged: (v) => setState(() => alerts = v), title: const Text('Match alerts opted in'), contentPadding: EdgeInsets.zero),
-    ]))),
-    actions: [
-      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-      FilledButton(onPressed: userId == null ? null : () async {
-        await AppDatabase.instance.saveSportsInterest(
-          userId: userId!, sports: sports.text, teams: teams.text,
-          players: players.text, competitions: competitions.text,
-          notes: notes.text, matchAlerts: alerts,
-        );
-        if (context.mounted) Navigator.pop(context, true);
-      }, child: const Text('Save interests')),
-    ],
-  );
+      actions: [
+        TextButton(
+          onPressed: saving ? null : () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: saving || userId == null ? null : save,
+          child: Text(saving ? 'Saving…' : 'Save interests'),
+        ),
+      ],
+    );
+  }
 }
 
 class BackupRestorePage extends StatefulWidget {
