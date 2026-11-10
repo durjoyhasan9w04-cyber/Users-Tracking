@@ -280,7 +280,9 @@ class _UsersPageState extends State<UsersPage> {
                   ),
                 ],
               ),
-              onTap: () => edit(user),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => UserProfilePage(userId: user['id'] as int, onChanged: () { load(); widget.onChanged(); }),
+              )),
               trailing: PopupMenuButton<String>(
                 onSelected: (v) { if (v == 'edit') edit(user); if (v == 'archive') archive(user); },
                 itemBuilder: (_) => const [
@@ -294,6 +296,113 @@ class _UsersPageState extends State<UsersPage> {
       },
     )),
   ]);
+}
+
+class UserProfilePage extends StatefulWidget {
+  const UserProfilePage({super.key, required this.userId, required this.onChanged});
+  final int userId;
+  final VoidCallback onChanged;
+  @override
+  State<UserProfilePage> createState() => _UserProfilePageState();
+}
+
+class _UserProfilePageState extends State<UserProfilePage> {
+  late Future<List<Object?>> data;
+  @override
+  void initState() { super.initState(); load(); }
+  void load() {
+    data = Future.wait<Object?>([
+      AppDatabase.instance.getUserProfile(widget.userId),
+      AppDatabase.instance.getUserTimeline(widget.userId),
+    ]);
+  }
+  Future<void> edit(Map<String, Object?> user) async {
+    final saved = await showDialog<bool>(context: context, builder: (_) => UserFormDialog(user: user));
+    if (saved == true && mounted) { setState(load); widget.onChanged(); }
+  }
+  String amount(Object? value) {
+    final n = (value as num?)?.toDouble() ?? 0;
+    return n.toStringAsFixed(n % 1 == 0 ? 0 : 2);
+  }
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('User profile')),
+    body: FutureBuilder<List<Object?>>(
+      future: data,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snap.hasError || snap.data == null || snap.data![0] == null) {
+          return const EmptyState(title: 'Profile unavailable', subtitle: 'This user profile could not be loaded.');
+        }
+        final user = snap.data![0] as Map<String, Object?>;
+        final timeline = snap.data![1] as List<Map<String, Object?>>;
+        final name = user['name'] as String? ?? 'User';
+        final lastDp = user['last_dp_date'] as String?;
+        final lastContact = user['last_contact_date'] as String?;
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 32),
+          children: [
+            Card(child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  CircleAvatar(radius: 27, backgroundColor: const Color(0xFF183B36), child: Text(name.isEmpty ? '?' : name[0].toUpperCase(), style: const TextStyle(color: emerald, fontSize: 20, fontWeight: FontWeight.w800))),
+                  const SizedBox(width: 13),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                    Text(user['phone'] as String? ?? '', style: const TextStyle(color: muted)),
+                  ])),
+                  IconButton(onPressed: () => edit(user), icon: const Icon(Icons.edit_outlined)),
+                ]),
+                if ((user['notes'] as String? ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Text(user['notes'] as String, style: const TextStyle(color: muted)),
+                ],
+                const SizedBox(height: 14),
+                Text('Added: ${(user['created_at'] as String? ?? '').split('T').first}', style: const TextStyle(color: muted, fontSize: 12)),
+                Text('Last DP: ${lastDp ?? 'Never'}', style: const TextStyle(color: muted, fontSize: 12)),
+                Text('Last contact: ${lastContact ?? 'Not recorded'}', style: const TextStyle(color: muted, fontSize: 12)),
+              ]),
+            )),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: MetricCard(label: 'Lifetime DP', value: amount(user['lifetime_dp']), icon: Icons.account_balance_wallet_rounded)),
+              const SizedBox(width: 10),
+              Expanded(child: MetricCard(label: 'Lifetime bonus', value: amount(user['lifetime_bonus']), icon: Icons.card_giftcard_rounded)),
+            ]),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: MetricCard(label: 'DP records', value: '${user['dp_transactions']}', icon: Icons.receipt_long_rounded)),
+              const SizedBox(width: 10),
+              Expanded(child: MetricCard(label: 'Bonus records', value: '${user['bonus_transactions']}', icon: Icons.redeem_rounded)),
+            ]),
+            const SizedBox(height: 20),
+            const SectionHeading('Activity timeline', trailing: 'Newest first'),
+            const SizedBox(height: 10),
+            if (timeline.isEmpty)
+              const EmptyState(title: 'No activity recorded', subtitle: 'DP, bonus, contact and issue history will appear here.')
+            else
+              ...timeline.map((event) {
+                final kind = event['kind'] as String? ?? 'Activity';
+                final date = event['event_date'] as String? ?? '';
+                final detail = event['detail'] as String? ?? '';
+                final icon = kind == 'DP' ? Icons.account_balance_wallet_outlined : kind == 'Bonus' ? Icons.card_giftcard_outlined : kind == 'Contact' ? Icons.chat_bubble_outline : Icons.support_agent_outlined;
+                final value = event['amount'];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: CircleAvatar(backgroundColor: const Color(0xFF183B36), child: Icon(icon, color: emerald)),
+                    title: Text(kind, style: const TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: Text('$date · $detail'),
+                    trailing: value == null ? null : Text(amount(value), style: const TextStyle(color: emerald, fontWeight: FontWeight.w800)),
+                  ),
+                );
+              }),
+          ],
+        );
+      },
+    ),
+  );
 }
 
 class UserFormDialog extends StatefulWidget {
