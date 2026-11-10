@@ -273,50 +273,188 @@ class ActivityPage extends StatefulWidget {
   State<ActivityPage> createState() => _ActivityPageState();
 }
 class _ActivityPageState extends State<ActivityPage> {
-  late Future<List<Map<String, Object?>>> entries;
+  String section = 'dp';
+  late Future<List<Map<String, Object?>>> dpEntries;
+  late Future<List<Map<String, Object?>>> bonusEntries;
   @override
-  void initState() { super.initState(); load(); }
-  void load() => entries = AppDatabase.instance.getDpEntries();
-  Future<void> addEntry() async {
-    final saved = await showDialog<bool>(context: context, builder: (_) => const DpEntryDialog());
+  void initState() {
+    super.initState();
+    load();
+  }
+  void load() {
+    dpEntries = AppDatabase.instance.getDpEntries();
+    bonusEntries = AppDatabase.instance.getBonusEntries();
+  }
+  Future<void> addRecord() async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => section == 'dp' ? const DpEntryDialog() : const BonusEntryDialog(),
+    );
     if (!mounted) return;
     if (saved == true) setState(load);
   }
   @override
-  Widget build(BuildContext context) => Column(children: [
-    Padding(
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
-      child: Row(children: [
-        const Expanded(child: Text('DP records', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
-        FilledButton.icon(onPressed: addEntry, icon: const Icon(Icons.add, size: 18), label: const Text('Record DP')),
-      ]),
-    ),
-    Expanded(child: FutureBuilder<List<Map<String, Object?>>>(
-      future: entries,
+  Widget build(BuildContext context) {
+    final isDp = section == 'dp';
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
+        child: Row(children: [
+          Expanded(child: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'dp', label: Text('DP'), icon: Icon(Icons.account_balance_wallet_outlined)),
+              ButtonSegment(value: 'bonus', label: Text('Bonuses'), icon: Icon(Icons.card_giftcard_rounded)),
+            ],
+            selected: {section},
+            onSelectionChanged: (value) => setState(() => section = value.first),
+          )),
+          const SizedBox(width: 10),
+          FilledButton.icon(onPressed: addRecord, icon: const Icon(Icons.add, size: 18), label: Text(isDp ? 'Record' : 'Add bonus')),
+        ]),
+      ),
+      Expanded(child: FutureBuilder<List<Map<String, Object?>>>(
+        future: isDp ? dpEntries : bonusEntries,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          final rows = snap.data ?? [];
+          if (rows.isEmpty) {
+            return EmptyState(
+              title: isDp ? 'No DP records yet' : 'No bonus records yet',
+              subtitle: isDp ? 'Record a DP entry to build the activity history.' : 'Add a bonus record to keep its history separate from DP.',
+            );
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(18, 4, 18, 28),
+            itemCount: rows.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 9),
+            itemBuilder: (context, i) {
+              final row = rows[i];
+              final amount = (row[isDp ? 'total' : 'amount'] as num).toDouble();
+              final date = row['entry_date'] as String;
+              return Card(child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFF183B36),
+                  child: Icon(isDp ? Icons.account_balance_wallet_outlined : Icons.card_giftcard_rounded, color: emerald),
+                ),
+                title: Text(row['user_name'] as String, style: const TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: Text(
+                  isDp ? '$date  •  ${row['dp_count']} DP' : '$date  •  ${row['reason']}',
+                  style: const TextStyle(color: muted),
+                ),
+                trailing: Text(
+                  amount.toStringAsFixed(amount % 1 == 0 ? 0 : 2),
+                  style: TextStyle(color: isDp ? emerald : const Color(0xFFFFC36B), fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+              ));
+            },
+          );
+        },
+      )),
+    ]);
+  }
+}
+
+class BonusEntryDialog extends StatefulWidget {
+  const BonusEntryDialog({super.key});
+  @override
+  State<BonusEntryDialog> createState() => _BonusEntryDialogState();
+}
+class _BonusEntryDialogState extends State<BonusEntryDialog> {
+  final form = GlobalKey<FormState>();
+  final amount = TextEditingController();
+  final relatedDp = TextEditingController();
+  final notes = TextEditingController();
+  int? userId;
+  String reason = 'Deposit';
+  bool saving = false;
+  late Future<List<Map<String, Object?>>> users;
+  @override
+  void initState() {
+    super.initState();
+    users = AppDatabase.instance.getUsers();
+  }
+  @override
+  void dispose() {
+    amount.dispose();
+    relatedDp.dispose();
+    notes.dispose();
+    super.dispose();
+  }
+  Future<void> save() async {
+    if (!form.currentState!.validate() || userId == null) return;
+    setState(() => saving = true);
+    try {
+      await AppDatabase.instance.addBonusEntry(
+        userId: userId!,
+        date: DateTime.now(),
+        amount: double.parse(amount.text.trim()),
+        reason: reason,
+        relatedDp: relatedDp.text.trim().isEmpty ? null : double.parse(relatedDp.text.trim()),
+        notes: notes.text,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } on Exception {
+      if (!mounted) return;
+      setState(() => saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not save this bonus record.')));
+    }
+  }
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Add bonus record'),
+    content: SizedBox(width: 420, child: FutureBuilder<List<Map<String, Object?>>>(
+      future: users,
       builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         final rows = snap.data ?? [];
-        if (rows.isEmpty) return const EmptyState(title: 'No DP records yet', subtitle: 'Record a DP entry to start building the user activity history.');
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(18, 4, 18, 28),
-          itemCount: rows.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 9),
-          itemBuilder: (context, i) {
-            final row = rows[i];
-            final total = (row['total'] as num).toDouble();
-            final date = row['entry_date'] as String;
-            final count = row['dp_count'] as int;
-            return Card(child: ListTile(
-              leading: const CircleAvatar(backgroundColor: Color(0xFF183B36), child: Icon(Icons.account_balance_wallet_outlined, color: emerald)),
-              title: Text(row['user_name'] as String, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text('$date  •  $count DP${count == 1 ? '' : 's'}', style: const TextStyle(color: muted)),
-              trailing: Text(total.toStringAsFixed(total % 1 == 0 ? 0 : 2), style: const TextStyle(color: emerald, fontWeight: FontWeight.w800, fontSize: 16)),
-            ));
-          },
-        );
+        if (snap.connectionState == ConnectionState.waiting) return const SizedBox(height: 90, child: Center(child: CircularProgressIndicator()));
+        if (rows.isEmpty) return const Text('Add a registered user before recording a bonus.');
+        userId ??= rows.first['id'] as int;
+        return Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          DropdownButtonFormField<int>(
+            initialValue: userId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'User'),
+            items: rows.map((u) => DropdownMenuItem<int>(value: u['id'] as int, child: Text(u['name'] as String, overflow: TextOverflow.ellipsis))).toList(),
+            onChanged: saving ? null : (v) => setState(() => userId = v),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: amount,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Bonus amount (coins)'),
+            validator: (v) {
+              final n = double.tryParse(v?.trim() ?? '');
+              return n == null || n <= 0 ? 'Enter an amount greater than zero' : null;
+            },
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: reason,
+            decoration: const InputDecoration(labelText: 'Reason'),
+            items: const ['Deposit', 'Special', 'Promotional', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+            onChanged: saving ? null : (v) => setState(() => reason = v ?? 'Other'),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: relatedDp,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Related DP (optional)'),
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return null;
+              final n = double.tryParse(v.trim());
+              return n == null || n < 0 ? 'Enter a valid amount' : null;
+            },
+          ),
+          const SizedBox(height: 12),
+          TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+        ])));
       },
     )),
-  ]);
+    actions: [
+      TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save bonus')),
+    ],
+  );
 }
 
 class DpEntryDialog extends StatefulWidget {
