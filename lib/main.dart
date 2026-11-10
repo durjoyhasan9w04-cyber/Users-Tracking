@@ -141,109 +141,178 @@ class _MainShellState extends State<MainShell> {
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
   @override
-  Widget build(BuildContext context) => FutureBuilder<List<num>>(
-    future: Future.wait<num>([
-      AppDatabase.instance.countUsers(),
-      AppDatabase.instance.countPotentialUsers(),
-      AppDatabase.instance.monthDpTotal(),
-      AppDatabase.instance.monthBonusTotal(),
-      AppDatabase.instance.countOpenCustomerIssues(),
-      AppDatabase.instance.todayDpTotal(),
-      AppDatabase.instance.todayDpTransactions(),
-      AppDatabase.instance.countFollowUpsDue(),
-    ]),
-    builder: (context, snap) {
-      final count = snap.data?[0].toInt() ?? 0;
-      final potentialCount = snap.data?[1].toInt() ?? 0;
-      final dpMonth = snap.data?[2] ?? 0;
-      final bonusMonth = snap.data?[3] ?? 0;
-      final openIssues = snap.data?[4].toInt() ?? 0;
-      final dpToday = snap.data?[5] ?? 0;
-      final dpTransactionsToday = snap.data?[6].toInt() ?? 0;
-      final followUpsDue = snap.data?[7].toInt() ?? 0;
-      return ListView(padding: const EdgeInsets.fromLTRB(18, 8, 18, 100), children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF27D3A2), Color(0xFF168F79)]),
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('USER HUB', style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 1.4, fontWeight: FontWeight.w700)),
-            SizedBox(height: 12),
-            Text('Your users,\none clear picture.', style: TextStyle(color: Colors.white, fontSize: 25, height: 1.15, fontWeight: FontWeight.w800)),
-            SizedBox(height: 8),
-            Text('A private workspace stored on this device.', style: TextStyle(color: Colors.white, fontSize: 13)),
-          ]),
-        ),
-        const SizedBox(height: 22),
-        const SectionHeading('Overview', trailing: 'All time'),
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: MetricCard(label: 'Registered users', value: snap.connectionState == ConnectionState.waiting ? '—' : '$count', icon: Icons.people_alt_rounded)),
-          const SizedBox(width: 12),
-          Expanded(child: MetricCard(label: 'Potential users', value: snap.data == null ? '—' : '$potentialCount', icon: Icons.person_add_alt_1_rounded)),
-        ]),
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: MetricCard(
-            label: 'DP this month',
-            value: snap.data == null ? '—' : dpMonth.toStringAsFixed(dpMonth % 1 == 0 ? 0 : 2),
-            icon: Icons.account_balance_wallet_rounded,
-          )),
-          const SizedBox(width: 12),
-          Expanded(child: MetricCard(
-            label: 'Bonus this month',
-            value: snap.data == null ? '—' : bonusMonth.toStringAsFixed(bonusMonth % 1 == 0 ? 0 : 2),
-            icon: Icons.card_giftcard_rounded,
-          )),
-        ]),
-        const SizedBox(height: 12),
-        Row(children: [
-          Expanded(child: MetricCard(
-            label: 'DP today',
-            value: snap.data == null ? '—' : dpToday.toStringAsFixed(dpToday % 1 == 0 ? 0 : 2),
-            icon: Icons.today_rounded,
-          )),
-          const SizedBox(width: 12),
-          Expanded(child: MetricCard(
-            label: 'DP transactions today',
-            value: snap.data == null ? '—' : '$dpTransactionsToday',
-            icon: Icons.receipt_long_rounded,
-          )),
-        ]),
-        const SizedBox(height: 12),
-        Card(child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-          leading: const CircleAvatar(backgroundColor: Color(0xFF183B36), child: Icon(Icons.event_available_rounded, color: emerald)),
-          title: const Text('Follow-ups due', style: TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: Text(snap.data == null ? 'Checking scheduled follow-ups…' : '$followUpsDue follow-ups due today or earlier', style: const TextStyle(color: muted)),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FollowUpsPage())),
-        )),
-        const SizedBox(height: 12),
-        Card(child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-          leading: const CircleAvatar(backgroundColor: Color(0xFF3A2A20), child: Icon(Icons.support_agent_rounded, color: Color(0xFFFFC36B))),
-          title: const Text('Customer issues', style: TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: Text(snap.data == null ? 'Checking unresolved requests…' : '$openIssues open or awaiting resolution', style: const TextStyle(color: muted)),
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomerIssuesPage())),
-        )),
-        const SizedBox(height: 22),
-        Card(child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(children: [
-            const Icon(Icons.lock_outline, color: emerald),
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month);
+    final nextMonth = DateTime(now.year, now.month + 1);
+    final previousStart = DateTime(now.year, now.month - 1);
+    return FutureBuilder<List<Object?>>(
+      future: Future.wait<Object?>([
+        AppDatabase.instance.countUsers(),
+        AppDatabase.instance.countPotentialUsers(),
+        AppDatabase.instance.monthDpTotal(),
+        AppDatabase.instance.monthBonusTotal(),
+        AppDatabase.instance.countOpenCustomerIssues(),
+        AppDatabase.instance.todayDpTotal(),
+        AppDatabase.instance.todayDpTransactions(),
+        AppDatabase.instance.countFollowUpsDue(),
+        AppDatabase.instance.getDpEntries(),
+        AppDatabase.instance.getBonusEntries(),
+        AppDatabase.instance.getReportTotals(monthStart, nextMonth),
+        AppDatabase.instance.getReportTotals(previousStart, monthStart),
+      ]),
+      builder: (context, snap) {
+        final data = snap.data;
+        final count = (data?[0] as num?)?.toInt() ?? 0;
+        final potentialCount = (data?[1] as num?)?.toInt() ?? 0;
+        final dpMonth = (data?[2] as num?) ?? 0;
+        final bonusMonth = (data?[3] as num?) ?? 0;
+        final openIssues = (data?[4] as num?)?.toInt() ?? 0;
+        final dpToday = (data?[5] as num?) ?? 0;
+        final dpTransactionsToday = (data?[6] as num?)?.toInt() ?? 0;
+        final followUpsDue = (data?[7] as num?)?.toInt() ?? 0;
+        final dpRows = (data?[8] as List<Map<String, Object?>>?) ?? const [];
+        final bonusRows = (data?[9] as List<Map<String, Object?>>?) ?? const [];
+        final currentTotals = data?[10] as Map<String, num>?;
+        final previousTotals = data?[11] as Map<String, num>?;
+        final previousDp = previousTotals?['dp']?.toDouble() ?? 0;
+        final delta = previousDp > 0 ? ((dpMonth.toDouble() - previousDp) / previousDp) * 100 : null;
+        final recent = <Map<String, Object?>>[
+          ...dpRows.take(8).map((r) => <String, Object?>{'kind': 'DP', 'name': r['user_name'], 'date': r['entry_date'], 'amount': r['total']}),
+          ...bonusRows.take(8).map((r) => <String, Object?>{'kind': 'Bonus', 'name': r['user_name'], 'date': r['entry_date'], 'amount': r['amount']}),
+        ]..sort((a, b) => (b['date'] as String? ?? '').compareTo(a['date'] as String? ?? ''));
+        final trend = dpRows.take(7).toList().reversed.map((r) => (r['total'] as num?)?.toDouble() ?? 0).toList();
+        return ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 132), children: [
+          HeroKpiCard(label: 'DP this month', value: dpMonth, delta: delta, sparkline: trend, loading: snap.connectionState == ConnectionState.waiting),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: MetricCard(label: 'Registered users', value: '$count', icon: Icons.people_alt_rounded, dotColor: emerald)),
             const SizedBox(width: 12),
-            Expanded(child: Text(count == 0 ? 'Add your first user. Their profile is saved locally on this device.' : '$count user profiles saved locally on this device.', style: const TextStyle(color: muted, height: 1.4))),
+            Expanded(child: MetricCard(label: 'Potential users', value: '$potentialCount', icon: Icons.person_add_alt_1_rounded, dotColor: const Color(0xFF72A8FF))),
           ]),
-        )),
-      ]);
-    },
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: MetricCard(label: 'DP today', value: dpToday.toStringAsFixed(dpToday % 1 == 0 ? 0 : 2), icon: Icons.bolt_rounded, dotColor: emerald)),
+            const SizedBox(width: 12),
+            Expanded(child: MetricCard(label: 'Bonus this month', value: bonusMonth.toStringAsFixed(bonusMonth % 1 == 0 ? 0 : 2), icon: Icons.card_giftcard_rounded, dotColor: amber, amberValue: true)),
+          ]),
+          const SizedBox(height: 27),
+          const SectionHeading('Recent activity', trailing: 'Latest'),
+          const SizedBox(height: 12),
+          if (snap.connectionState == ConnectionState.waiting)
+            const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+          else if (recent.isEmpty)
+            const EmptyState(title: 'Your activity starts here', subtitle: 'DP and bonus entries will appear here as they are recorded.', icon: Icons.auto_graph_rounded, compact: true)
+          else
+            Card(child: Column(children: [
+              for (var i = 0; i < recent.take(4).length; i++) ...[
+                if (i > 0) const Divider(height: 1, indent: 68, endIndent: 18),
+                _RecentActivityTile(event: recent[i]),
+              ],
+            ])),
+          const SizedBox(height: 14),
+          Row(children: [
+            Expanded(child: _DashboardAlertTile(title: 'Follow-ups due', value: '$followUpsDue', subtitle: 'Due today or earlier', icon: Icons.event_available_rounded, color: emerald, onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FollowUpsPage())))),
+            const SizedBox(width: 10),
+            Expanded(child: _DashboardAlertTile(title: 'Open issues', value: '$openIssues', subtitle: 'Need attention', icon: Icons.support_agent_rounded, color: amber, onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomerIssuesPage())))),
+          ]),
+          const SizedBox(height: 8),
+          Text('$dpTransactionsToday DP transactions recorded today · ${currentTotals?['dp_count'] ?? 0} this month', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted), textAlign: TextAlign.center),
+        ]);
+      },
+    );
+  }
+}
+
+class HeroKpiCard extends StatelessWidget {
+  const HeroKpiCard({super.key, required this.label, required this.value, required this.delta, required this.sparkline, required this.loading});
+  final String label; final num value; final double? delta; final List<double> sparkline; final bool loading;
+  @override
+  Widget build(BuildContext context) {
+    final deltaText = delta == null ? 'MONTH TO DATE' : '${delta! >= 0 ? '+' : ''}${delta!.toStringAsFixed(1)}%';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 16),
+      decoration: BoxDecoration(color: const Color(0xFF12271E), borderRadius: BorderRadius.circular(27), border: Border.all(color: const Color(0xFF1B4A35))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(label, style: const TextStyle(color: muted, fontSize: 14, letterSpacing: 0))),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7), decoration: BoxDecoration(color: const Color(0xFF1B4934), borderRadius: BorderRadius.circular(30)), child: Text(deltaText, style: const TextStyle(color: emerald, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0))),
+        ]),
+        const SizedBox(height: 10),
+        loading ? const SizedBox(height: 58, child: Align(alignment: Alignment.centerLeft, child: SizedBox(width: 110, child: LinearProgressIndicator()))) : AnimatedNumberText(value: value.toDouble(), style: GoogleFonts.spaceGrotesk(fontSize: 48, fontWeight: FontWeight.w700, color: const Color(0xFFE8F0EC), letterSpacing: 0, fontFeatures: const [FontFeature.tabularFigures()])),
+        const SizedBox(height: 12),
+        SizedBox(height: 62, width: double.infinity, child: CustomPaint(painter: SparklinePainter(values: sparkline))),
+      ]),
+    );
+  }
+}
+
+class SparklinePainter extends CustomPainter {
+  const SparklinePainter({required this.values});
+  final List<double> values;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final points = values.length < 2 ? [0.35, 0.48, 0.42, 0.66, 0.59, 0.78, 0.72] : values;
+    final minValue = points.reduce((a, b) => a < b ? a : b);
+    final maxValue = points.reduce((a, b) => a > b ? a : b);
+    final range = (maxValue - minValue).abs() < 0.001 ? 1.0 : maxValue - minValue;
+    final path = Path();
+    for (var i = 0; i < points.length; i++) {
+      final x = points.length == 1 ? size.width : size.width * i / (points.length - 1);
+      final y = size.height - 7 - ((points[i] - minValue) / range) * (size.height - 18);
+      if (i == 0) { path.moveTo(x, y); } else { path.lineTo(x, y); }
+    }
+    canvas.drawPath(path, Paint()..color = emerald..strokeWidth = 3..style = PaintingStyle.stroke..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round);
+  }
+  @override
+  bool shouldRepaint(covariant SparklinePainter oldDelegate) => oldDelegate.values != values;
+}
+
+class AnimatedNumberText extends StatelessWidget {
+  const AnimatedNumberText({super.key, required this.value, required this.style});
+  final double value; final TextStyle style;
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+    tween: Tween<double>(begin: 0, end: value), duration: const Duration(milliseconds: 950), curve: Curves.easeOutCubic,
+    builder: (context, current, _) => Text(NumberFormat('#,##0.##').format(current), style: style.copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
   );
 }
 
+class _RecentActivityTile extends StatelessWidget {
+  const _RecentActivityTile({required this.event});
+  final Map<String, Object?> event;
+  @override
+  Widget build(BuildContext context) {
+    final isDp = event['kind'] == 'DP';
+    final amount = (event['amount'] as num?)?.toDouble() ?? 0;
+    final date = event['date'] as String? ?? '';
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 5),
+      leading: CircleAvatar(backgroundColor: const Color(0xFF172820), child: Text(_initials(event['name'] as String? ?? 'User'), style: const TextStyle(color: emerald, fontWeight: FontWeight.w700))),
+      title: Text(event['name'] as String? ?? 'User', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+      subtitle: Text('${isDp ? 'DP recorded' : 'Bonus added'} · $date', style: const TextStyle(color: muted, fontSize: 11)),
+      trailing: Text('+${NumberFormat('#,##0.##').format(amount)}', style: TextStyle(color: isDp ? emerald : amber, fontWeight: FontWeight.w800, fontSize: 15)),
+    );
+  }
+}
+
+class _DashboardAlertTile extends StatelessWidget {
+  const _DashboardAlertTile({required this.title, required this.value, required this.subtitle, required this.icon, required this.color, required this.onTap});
+  final String title, value, subtitle; final IconData icon; final Color color; final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Card(child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(22), child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Icon(icon, color: color, size: 19), const SizedBox(height: 9),
+    Text(value, style: GoogleFonts.spaceGrotesk(fontSize: 24, fontWeight: FontWeight.w700, color: color, fontFeatures: const [FontFeature.tabularFigures()])),
+    Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+    Text(subtitle, style: const TextStyle(fontSize: 10, color: muted)),
+  ]))));
+}
+
+String _initials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList();
+  if (parts.isEmpty) return '?';
+  return parts.take(2).map((part) => part[0].toUpperCase()).join();
+}
 String dpLevel(double amount, {required bool monthly}) {
   if (monthly) {
     if (amount >= 5000) return 'High';
