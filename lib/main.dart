@@ -217,6 +217,8 @@ class UsersPage extends StatefulWidget {
 }
 class _UsersPageState extends State<UsersPage> {
   final search = TextEditingController();
+  String lifetimeFilter = 'All';
+  String monthlyFilter = 'All';
   late Future<List<Map<String, Object?>>> future;
   @override
   void initState() {
@@ -244,14 +246,37 @@ class _UsersPageState extends State<UsersPage> {
   }
   @override
   Widget build(BuildContext context) => Column(children: [
-    Padding(padding: const EdgeInsets.fromLTRB(18, 8, 18, 12), child: TextField(
+    Padding(padding: const EdgeInsets.fromLTRB(18, 8, 18, 8), child: TextField(
       controller: search, decoration: const InputDecoration(hintText: 'Search by name or phone', prefixIcon: Icon(Icons.search)),
     )),
+    Padding(padding: const EdgeInsets.fromLTRB(18, 0, 18, 10), child: Row(children: [
+      Expanded(child: DropdownButtonFormField<String>(
+        initialValue: lifetimeFilter,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'Lifetime level', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+        items: const ['All', 'High', 'Medium', 'Low', 'Neighborly'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+        onChanged: (v) => setState(() => lifetimeFilter = v ?? 'All'),
+      )),
+      const SizedBox(width: 10),
+      Expanded(child: DropdownButtonFormField<String>(
+        initialValue: monthlyFilter,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'Monthly level', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+        items: const ['All', 'High', 'Medium', 'Low', 'Neighborly'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+        onChanged: (v) => setState(() => monthlyFilter = v ?? 'All'),
+      )),
+    ])),
     Expanded(child: FutureBuilder<List<Map<String, Object?>>>(
       future: future,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        final rows = snap.data ?? [];
+        final allRows = snap.data ?? [];
+        final rows = allRows.where((user) {
+          final lifetime = dpLevel((user['lifetime_dp'] as num).toDouble(), monthly: false);
+          final monthly = dpLevel((user['monthly_dp'] as num).toDouble(), monthly: true);
+          return (lifetimeFilter == 'All' || lifetime == lifetimeFilter) &&
+              (monthlyFilter == 'All' || monthly == monthlyFilter);
+        }).toList();
         if (rows.isEmpty) {
           return EmptyState(
           title: search.text.isEmpty ? 'No users yet' : 'No matching users',
