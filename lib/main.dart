@@ -797,6 +797,17 @@ class _ContactHistoryPageState extends State<ContactHistoryPage> {
             ),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: userSnap.connectionState == ConnectionState.waiting ? null : () => addLog(registeredUsers),
+              icon: const Icon(Icons.add_comment_outlined),
+              label: const Text('Record a contact'),
+            ),
+          ),
+        ),
         Expanded(
           child: FutureBuilder<List<Map<String, Object?>>>(
             future: history,
