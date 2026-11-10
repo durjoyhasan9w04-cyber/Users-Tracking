@@ -59,10 +59,10 @@ class _MainShellState extends State<MainShell> {
       DashboardPage(key: ValueKey('home-$revision')),
       UsersPage(key: ValueKey('users-$revision'), onChanged: refresh),
       const ActivityPage(),
-      const PlaceholderPage(icon: Icons.notifications_active_outlined, title: 'Smart alerts', subtitle: 'Match reminders and follow-ups will appear here when configured.'),
+      const ContactHistoryPage(),
       const PotentialUsersPage(),
     ];
-    const titles = ['Good evening', 'Users', 'Activity', 'Smart alerts', 'More'];
+    const titles = ['Good evening', 'Users', 'Activity', 'Contact history', 'More'];
     return Scaffold(
       appBar: AppBar(
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -82,7 +82,7 @@ class _MainShellState extends State<MainShell> {
           NavigationDestination(icon: Icon(Icons.grid_view_rounded), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.people_alt_outlined), selectedIcon: Icon(Icons.people_alt_rounded), label: 'Users'),
           NavigationDestination(icon: Icon(Icons.timeline_rounded), label: 'Activity'),
-          NavigationDestination(icon: Icon(Icons.notifications_none_rounded), label: 'Alerts'),
+          NavigationDestination(icon: Icon(Icons.forum_outlined), selectedIcon: Icon(Icons.forum_rounded), label: 'Contacts'),
           NavigationDestination(icon: Icon(Icons.apps_rounded), label: 'More'),
         ],
       ),
@@ -733,6 +733,260 @@ class _PotentialUserDialogState extends State<PotentialUserDialog> {
     actions: [
       TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
       FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save prospect')),
+    ],
+  );
+}
+
+class ContactHistoryPage extends StatefulWidget {
+  const ContactHistoryPage({super.key});
+  @override
+  State<ContactHistoryPage> createState() => _ContactHistoryPageState();
+}
+
+class _ContactHistoryPageState extends State<ContactHistoryPage> {
+  final search = TextEditingController();
+  late Future<List<Map<String, Object?>>> history;
+  late Future<List<Map<String, Object?>>> users;
+
+  @override
+  void initState() {
+    super.initState();
+    load();
+    users = AppDatabase.instance.getUsers();
+    search.addListener(load);
+  }
+
+  void load() => setState(() {
+    history = AppDatabase.instance.getContactHistory(search: search.text);
+  });
+
+  @override
+  void dispose() {
+    search.removeListener(load);
+    search.dispose();
+    super.dispose();
+  }
+
+  Future<void> addLog(List<Map<String, Object?>> registeredUsers) async {
+    if (registeredUsers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add a registered user before recording contact history.')),
+      );
+      return;
+    }
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => ContactLogDialog(users: registeredUsers),
+    );
+    if (saved == true) load();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, Object?>>>(
+    future: users,
+    builder: (context, userSnap) {
+      final registeredUsers = userSnap.data ?? [];
+      return Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+          child: TextField(
+            controller: search,
+            decoration: const InputDecoration(
+              hintText: 'Search user, phone, reason or notes',
+              prefixIcon: Icon(Icons.search),
+            ),
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<List<Map<String, Object?>>>(
+            future: history,
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final rows = snap.data ?? [];
+              if (rows.isEmpty) {
+                return EmptyState(
+                  title: search.text.isEmpty ? 'No contact history yet' : 'No matching records',
+                  subtitle: 'Record calls, WhatsApp conversations, replies and follow-up dates here.',
+                  action: registeredUsers.isEmpty ? null : () => addLog(registeredUsers),
+                );
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.fromLTRB(18, 4, 18, 100),
+                itemCount: rows.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 9),
+                itemBuilder: (context, index) {
+                  final row = rows[index];
+                  final date = DateTime.tryParse(row['contact_date'] as String? ?? '');
+                  final followUp = row['follow_up_date'] as String?;
+                  return Card(
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
+                      leading: CircleAvatar(
+                        backgroundColor: const Color(0xFF183B36),
+                        child: Icon(
+                          row['channel'] == 'Phone' ? Icons.call_outlined : row['channel'] == 'WhatsApp' ? Icons.chat_bubble_outline : Icons.forum_outlined,
+                          color: emerald,
+                        ),
+                      ),
+                      title: Text(row['user_name'] as String? ?? 'Unknown user', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 5),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${row['channel']} · ${row['outcome']} · ${date == null ? '' : date.toLocal().toString().substring(0, 16)}'),
+                            if ((row['reason'] as String? ?? '').isNotEmpty) Text('Reason: ${row['reason']}'),
+                            if ((row['response'] as String? ?? '').isNotEmpty) Text('Response: ${row['response']}'),
+                            if ((row['notes'] as String? ?? '').isNotEmpty) Text(row['notes'] as String),
+                            if (followUp != null) Text('Follow-up: $followUp', style: const TextStyle(color: emerald, fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        if (userSnap.connectionState == ConnectionState.waiting)
+          const LinearProgressIndicator(minHeight: 2),
+      ]);
+    },
+  );
+}
+
+class ContactLogDialog extends StatefulWidget {
+  const ContactLogDialog({super.key, required this.users});
+  final List<Map<String, Object?>> users;
+  @override
+  State<ContactLogDialog> createState() => _ContactLogDialogState();
+}
+
+class _ContactLogDialogState extends State<ContactLogDialog> {
+  final form = GlobalKey<FormState>();
+  final reason = TextEditingController();
+  final response = TextEditingController();
+  final notes = TextEditingController();
+  int? userId;
+  String channel = 'WhatsApp';
+  String outcome = 'Replied';
+  DateTime contactDate = DateTime.now();
+  DateTime? followUpDate;
+  bool saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    userId = widget.users.first['id'] as int;
+  }
+
+  @override
+  void dispose() {
+    reason.dispose();
+    response.dispose();
+    notes.dispose();
+    super.dispose();
+  }
+
+  Future<void> save() async {
+    if (!form.currentState!.validate() || userId == null) return;
+    setState(() => saving = true);
+    try {
+      await AppDatabase.instance.addContactLog(
+        userId: userId!,
+        contactDate: contactDate,
+        channel: channel,
+        reason: reason.text,
+        outcome: outcome,
+        response: response.text,
+        notes: notes.text,
+        followUpDate: followUpDate,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save contact: $e')));
+      }
+    }
+  }
+
+  Future<void> chooseFollowUp() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: followUpDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => followUpDate = picked);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Record contact'),
+    content: SizedBox(
+      width: 440,
+      child: Form(
+        key: form,
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            DropdownButtonFormField<int>(
+              initialValue: userId,
+              decoration: const InputDecoration(labelText: 'Registered user'),
+              items: widget.users.map((u) => DropdownMenuItem<int>(
+                value: u['id'] as int,
+                child: Text('${u['name']} · ${u['phone']}'),
+              )).toList(),
+              onChanged: (v) => setState(() => userId = v),
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              initialValue: channel,
+              decoration: const InputDecoration(labelText: 'Contact channel'),
+              items: const ['WhatsApp', 'Phone', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+              onChanged: (v) => setState(() => channel = v ?? 'WhatsApp'),
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              initialValue: outcome,
+              decoration: const InputDecoration(labelText: 'Outcome'),
+              items: const ['Replied', 'No reply', 'Call completed', 'Could not reach', 'Issue reported'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+              onChanged: (v) => setState(() => outcome = v ?? 'Replied'),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(controller: reason, decoration: const InputDecoration(labelText: 'Contact reason')),
+            const SizedBox(height: 10),
+            TextField(controller: response, maxLines: 2, decoration: const InputDecoration(labelText: 'Customer reply / feedback')),
+            const SizedBox(height: 10),
+            TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Private notes')),
+            const SizedBox(height: 8),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text('Contact date: ${contactDate.toLocal().toString().substring(0, 10)}'),
+              trailing: const Icon(Icons.calendar_today_outlined),
+              onTap: () async {
+                final picked = await showDatePicker(context: context, initialDate: contactDate, firstDate: DateTime(2020), lastDate: DateTime(2100));
+                if (picked != null) setState(() => contactDate = picked);
+              },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(followUpDate == null ? 'Add follow-up date (optional)' : 'Follow-up: ${followUpDate!.toLocal().toString().substring(0, 10)}'),
+              trailing: Icon(followUpDate == null ? Icons.add_alarm : Icons.edit_calendar_outlined, color: emerald),
+              onTap: chooseFollowUp,
+            ),
+            if (followUpDate != null)
+              Align(alignment: Alignment.centerRight, child: TextButton(onPressed: () => setState(() => followUpDate = null), child: const Text('Clear follow-up'))),
+          ]),
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save contact')),
     ],
   );
 }
