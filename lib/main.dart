@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
@@ -12,6 +13,7 @@ import 'data/app_database.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const UserHubApp());
+  unawaited(AppDatabase.instance.createDailyBackupIfNeeded().catchError((_) {}));
 }
 
 const emerald = Color(0xFF27D3A2);
