@@ -403,6 +403,22 @@ class AppDatabase {
     });
   }
 
+  Future<int> updatePotentialUser({
+    required int id, required String name, required String phone,
+    required String source, required String language, required String sports,
+    required String notes, required String status, DateTime? followUpDate,
+    required bool contactPermission,
+  }) async {
+    final db = await database;
+    return db.update('potential_users', {
+      'name': name.trim(), 'phone': phone.trim(), 'source': source.trim(),
+      'language': language.trim(), 'sports': sports.trim(), 'notes': notes.trim(),
+      'status': status,
+      'follow_up_date': followUpDate?.toIso8601String().substring(0, 10),
+      'contact_permission': contactPermission ? 1 : 0,
+    }, where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<int> updatePotentialStatus(int id, String status) async {
     final db = await database;
     return db.update('potential_users', {'status': status}, where: 'id = ?', whereArgs: [id]);
