@@ -171,7 +171,7 @@ class DashboardPage extends StatelessWidget {
           title: const Text('Follow-ups due', style: TextStyle(fontWeight: FontWeight.w700)),
           subtitle: Text(snap.data == null ? 'Checking scheduled follow-ups…' : '$followUpsDue follow-ups due today or earlier', style: const TextStyle(color: muted)),
           trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ContactHistoryPage())),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FollowUpsPage())),
         )),
         const SizedBox(height: 12),
         Card(child: ListTile(
@@ -775,6 +775,97 @@ class _PotentialUserDialogState extends State<PotentialUserDialog> {
       FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save prospect')),
     ],
   );
+}
+
+class FollowUpsPage extends StatefulWidget {
+  const FollowUpsPage({super.key});
+  @override
+  State<FollowUpsPage> createState() => _FollowUpsPageState();
+}
+
+class _FollowUpsPageState extends State<FollowUpsPage> {
+  late Future<List<Object>> due;
+  @override
+  void initState() { super.initState(); load(); }
+  void load() {
+    due = Future.wait<Object>([
+      AppDatabase.instance.getDueContactFollowUps(),
+      AppDatabase.instance.getDuePotentialFollowUps(),
+    ]);
+  }
+  Future<void> complete(bool prospect, int id) async {
+    if (prospect) {
+      await AppDatabase.instance.completePotentialFollowUp(id);
+    } else {
+      await AppDatabase.instance.completeContactFollowUp(id);
+    }
+    if (mounted) setState(load);
+  }
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Follow-ups due')),
+    body: FutureBuilder<List<Object>>(
+      future: due,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snap.hasError) return const EmptyState(title: 'Could not load follow-ups', subtitle: 'Please reopen this page and try again.');
+        final contacts = snap.data?[0] as List<Map<String, Object?>>? ?? [];
+        final prospects = snap.data?[1] as List<Map<String, Object?>>? ?? [];
+        if (contacts.isEmpty && prospects.isEmpty) return const EmptyState(title: 'You are all caught up', subtitle: 'There are no overdue or due follow-ups.');
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
+          children: [
+            if (contacts.isNotEmpty) ...[
+              const SectionHeading('Registered users', trailing: 'Contact follow-ups'),
+              const SizedBox(height: 8),
+              ...contacts.map((row) => _FollowUpTile(
+                name: row['user_name'] as String? ?? 'Unknown user',
+                phone: row['user_phone'] as String? ?? '',
+                date: row['due_date'] as String? ?? '',
+                detail: (row['reason'] as String? ?? '').isEmpty ? (row['notes'] as String? ?? '') : row['reason'] as String,
+                onDone: () => complete(false, row['id'] as int),
+              )),
+            ],
+            if (prospects.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              const SectionHeading('Potential users', trailing: 'Prospect follow-ups'),
+              const SizedBox(height: 8),
+              ...prospects.map((row) => _FollowUpTile(
+                name: row['name'] as String? ?? 'Unknown prospect',
+                phone: row['phone'] as String? ?? '',
+                date: row['follow_up_date'] as String? ?? '',
+                detail: row['status'] as String? ?? '',
+                onDone: () => complete(true, row['id'] as int),
+              )),
+            ],
+          ],
+        );
+      },
+    ),
+  );
+}
+
+class _FollowUpTile extends StatelessWidget {
+  const _FollowUpTile({required this.name, required this.phone, required this.date, required this.detail, required this.onDone});
+  final String name, phone, date, detail;
+  final VoidCallback onDone;
+  @override
+  Widget build(BuildContext context) {
+    final overdue = date.isNotEmpty && date.compareTo(DateTime.now().toIso8601String().substring(0, 10)) < 0;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text('$phone\n${overdue ? 'Overdue' : 'Due today'} · $date${detail.isEmpty ? '' : '\n$detail'}'),
+        isThreeLine: true,
+        trailing: IconButton(
+          tooltip: 'Mark follow-up complete',
+          onPressed: onDone,
+          icon: const Icon(Icons.check_circle_outline_rounded, color: emerald),
+        ),
+      ),
+    );
+  }
 }
 
 class ContactHistoryPage extends StatefulWidget {
