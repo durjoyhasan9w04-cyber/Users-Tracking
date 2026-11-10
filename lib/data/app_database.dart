@@ -11,13 +11,15 @@ class AppDatabase {
     final root = await getDatabasesPath();
     _db = await openDatabase(
       p.join(root, 'user_hub.db'),
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await _createUsers(db);
         await _createDpEntries(db);
+        await _createBonusEntries(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _createDpEntries(db);
+        if (oldVersion < 3) await _createBonusEntries(db);
       },
     );
     return _db!;
@@ -57,6 +59,66 @@ class AppDatabase {
     ''');
     await db.execute('CREATE INDEX idx_dp_date ON dp_entries(entry_date)');
     await db.execute('CREATE INDEX idx_dp_user ON dp_entries(user_id)');
+  }
+
+  Future<void> _createBonusEntries(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE bonus_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        entry_date TEXT NOT NULL,
+        amount REAL NOT NULL,
+        reason TEXT NOT NULL,
+        related_dp REAL,
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_bonus_date ON bonus_entries(entry_date)');
+    await db.execute('CREATE INDEX idx_bonus_user ON bonus_entries(user_id)');
+  }
+
+  Future<double> monthBonusTotal() async {
+    final db = await database;
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month).toIso8601String().substring(0, 10);
+    final end = DateTime(now.year, now.month + 1).toIso8601String().substring(0, 10);
+    final rows = await db.rawQuery(
+      'SELECT COALESCE(SUM(amount), 0) AS total FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?',
+      [start, end],
+    );
+    return (rows.first['total'] as num).toDouble();
+  }
+
+  Future<List<Map<String, Object?>>> getBonusEntries() async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT b.*, u.name AS user_name
+      FROM bonus_entries b JOIN users u ON u.id = b.user_id
+      ORDER BY b.entry_date DESC, b.id DESC
+    ''');
+  }
+
+  Future<int> addBonusEntry({
+    required int userId,
+    required DateTime date,
+    required double amount,
+    required String reason,
+    double? relatedDp,
+    String notes = '',
+  }) async {
+    if (amount <= 0) throw ArgumentError('Bonus amount must be greater than zero');
+    final db = await database;
+    return db.insert('bonus_entries', {
+      'user_id': userId,
+      'entry_date': date.toIso8601String().substring(0, 10),
+      'amount': amount,
+      'reason': reason,
+      'related_dp': relatedDp,
+      'notes': notes.trim(),
+      'created_at': DateTime.now().toIso8601String(),
+    });
   }
 
   Future<List<Map<String, Object?>>> getUsers({String search = ''}) async {
