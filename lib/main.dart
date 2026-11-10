@@ -506,6 +506,25 @@ class _ActivityPageState extends State<ActivityPage> {
     if (!mounted) return;
     if (saved == true) setState(load);
   }
+
+  Future<void> deleteRecord(Map<String, Object?> row, bool isDp) async {
+    final label = isDp ? 'DP record' : 'bonus record';
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: Text('Delete $label?'),
+      content: const Text('This record will be removed from totals and history. A deletion entry will be kept in the audit log.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+      ],
+    ));
+    if (confirmed != true) return;
+    if (isDp) {
+      await AppDatabase.instance.deleteDpEntry(row['id'] as int);
+    } else {
+      await AppDatabase.instance.deleteBonusEntry(row['id'] as int);
+    }
+    if (mounted) setState(load);
+  }
   @override
   Widget build(BuildContext context) {
     final isDp = section == 'dp';
@@ -554,10 +573,16 @@ class _ActivityPageState extends State<ActivityPage> {
                   isDp ? '$date  •  ${row['dp_count']} DP' : '$date  •  ${row['reason']}',
                   style: const TextStyle(color: muted),
                 ),
-                trailing: Text(
-                  amount.toStringAsFixed(amount % 1 == 0 ? 0 : 2),
-                  style: TextStyle(color: isDp ? emerald : const Color(0xFFFFC36B), fontWeight: FontWeight.w800, fontSize: 16),
-                ),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(
+                    amount.toStringAsFixed(amount % 1 == 0 ? 0 : 2),
+                    style: TextStyle(color: isDp ? emerald : const Color(0xFFFFC36B), fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                  PopupMenuButton<String>(
+                    onSelected: (value) { if (value == 'delete') deleteRecord(row, isDp); },
+                    itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Delete record'))],
+                  ),
+                ]),
               ));
             },
           );
@@ -1302,6 +1327,13 @@ class MoreHubPage extends StatelessWidget {
         subtitle: 'View and restore archived profiles',
         onTap: () => open(context, const ArchivedUsersPage()),
       ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.history_rounded,
+        title: 'Audit history',
+        subtitle: 'Review recorded DP and bonus deletions',
+        onTap: () => open(context, const AuditHistoryPage()),
+      ),
     ],
   );
 }
@@ -1322,6 +1354,38 @@ class _MoreTile extends StatelessWidget {
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
+    ),
+  );
+}
+
+class AuditHistoryPage extends StatelessWidget {
+  const AuditHistoryPage({super.key});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Audit history')),
+    body: FutureBuilder<List<Map<String, Object?>>>(
+      future: AppDatabase.instance.getAuditLog(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snap.hasError) return const EmptyState(title: 'Could not load audit history', subtitle: 'Please try again.');
+        final rows = snap.data ?? [];
+        if (rows.isEmpty) return const EmptyState(title: 'No changes recorded', subtitle: 'Deleted DP and bonus records will be listed here.');
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: rows.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            final date = DateTime.tryParse(row['created_at'] as String? ?? '');
+            return Card(child: ListTile(
+              leading: const CircleAvatar(backgroundColor: Color(0xFF3A2A20), child: Icon(Icons.delete_outline_rounded, color: Color(0xFFFFC36B))),
+              title: Text('${row['action']} ${row['entity_type']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text('${row['details']}\n${date?.toLocal().toString().substring(0, 16) ?? ''}'),
+              isThreeLine: true,
+            ));
+          },
+        );
+      },
     ),
   );
 }
