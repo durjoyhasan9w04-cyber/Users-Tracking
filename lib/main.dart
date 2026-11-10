@@ -880,6 +880,7 @@ class _PotentialUserDialogState extends State<PotentialUserDialog> {
   final sports = TextEditingController();
   final notes = TextEditingController();
   String status = 'New Lead';
+  DateTime? followUpDate;
   bool permission = false;
   bool saving = false;
   @override
@@ -891,7 +892,7 @@ class _PotentialUserDialogState extends State<PotentialUserDialog> {
       await AppDatabase.instance.addPotentialUser(
         name: name.text, phone: phone.text, source: source.text,
         language: language.text, sports: sports.text, notes: notes.text,
-        status: status, contactPermission: permission,
+        status: status, followUpDate: followUpDate, contactPermission: permission,
       );
       if (mounted) Navigator.pop(context, true);
     } on DatabaseException catch (e) {
@@ -919,6 +920,20 @@ class _PotentialUserDialogState extends State<PotentialUserDialog> {
         decoration: const InputDecoration(labelText: 'Interest status'),
         items: const ['New Lead', 'Interested', 'Considering', 'Not Interested', 'Do Not Contact'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
         onChanged: (v) => setState(() => status = v ?? 'New Lead'),
+      ),
+      const SizedBox(height: 10),
+      OutlinedButton.icon(
+        onPressed: saving ? null : () async {
+          final picked = await showDatePicker(
+            context: context,
+            initialDate: followUpDate ?? DateTime.now(),
+            firstDate: DateTime.now().subtract(const Duration(days: 365)),
+            lastDate: DateTime(2100),
+          );
+          if (picked != null) setState(() => followUpDate = picked);
+        },
+        icon: const Icon(Icons.event_available_outlined),
+        label: Text(followUpDate == null ? 'Set follow-up date (optional)' : 'Follow-up: ${followUpDate!.toIso8601String().substring(0, 10)}'),
       ),
       const SizedBox(height: 10),
       TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
