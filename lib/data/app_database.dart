@@ -376,6 +376,38 @@ class AppDatabase {
     });
   }
 
+  Future<Map<String, Object?>?> getUserProfile(int userId) async {
+    final db = await database;
+    final rows = await db.rawQuery("""
+      SELECT u.*,
+        COALESCE((SELECT SUM(total) FROM dp_entries WHERE user_id = u.id), 0) AS lifetime_dp,
+        COALESCE((SELECT SUM(amount) FROM bonus_entries WHERE user_id = u.id), 0) AS lifetime_bonus,
+        (SELECT MAX(entry_date) FROM dp_entries WHERE user_id = u.id) AS last_dp_date,
+        (SELECT MAX(contact_date) FROM contact_history WHERE user_id = u.id) AS last_contact_date,
+        (SELECT COUNT(*) FROM dp_entries WHERE user_id = u.id) AS dp_transactions,
+        (SELECT COUNT(*) FROM bonus_entries WHERE user_id = u.id) AS bonus_transactions
+      FROM users u WHERE u.id = ? LIMIT 1
+    """, [userId]);
+    return rows.isEmpty ? null : rows.first;
+  }
+
+  Future<List<Map<String, Object?>>> getUserTimeline(int userId) async {
+    final db = await database;
+    return db.rawQuery("""
+      SELECT 'DP' AS kind, entry_date AS event_date, total AS amount,
+        dp_count || ' DP item(s)' AS detail FROM dp_entries WHERE user_id = ?
+      UNION ALL
+      SELECT 'Bonus', entry_date, amount, reason FROM bonus_entries WHERE user_id = ?
+      UNION ALL
+      SELECT 'Contact', substr(contact_date, 1, 10), NULL,
+        channel || ' · ' || outcome FROM contact_history WHERE user_id = ?
+      UNION ALL
+      SELECT 'Issue', substr(opened_at, 1, 10), NULL,
+        title || ' · ' || status FROM customer_issues WHERE user_id = ?
+      ORDER BY event_date DESC
+    """, [userId, userId, userId, userId]);
+  }
+
   Future<List<Map<String, Object?>>> getUsers({String search = ''}) async {
     final db = await database;
     final now = DateTime.now();
