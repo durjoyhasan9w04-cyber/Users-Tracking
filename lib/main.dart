@@ -165,7 +165,7 @@ class _UsersPageState extends State<UsersPage> {
   Future<void> archive(Map<String, Object?> user) async {
     final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       title: const Text('Archive user?'),
-      content: Text('Archive ' + (user['name'] as String) + '? Their profile will be hidden from this list.'),
+      content: Text('Archive ${user['name']}? Their profile will be hidden from this list.'),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
         FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Archive')),
@@ -183,11 +183,13 @@ class _UsersPageState extends State<UsersPage> {
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         final rows = snap.data ?? [];
-        if (rows.isEmpty) return EmptyState(
+        if (rows.isEmpty) {
+          return EmptyState(
           title: search.text.isEmpty ? 'No users yet' : 'No matching users',
           subtitle: search.text.isEmpty ? 'Tap Add user to create your first local profile.' : 'Try another name or phone number.',
-          action: search.text.isEmpty ? () => edit(null) : null,
-        );
+            action: search.text.isEmpty ? () => edit(null) : null,
+          );
+        }
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(18, 4, 18, 100),
           itemCount: rows.length, separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -240,6 +242,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
       }
       if (mounted) Navigator.pop(context, true);
     } on DatabaseException catch (e) {
+      if (!mounted) return;
       setState(() => saving = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
         e.isUniqueConstraintError() ? 'That phone number is already registered.' : 'Could not save this profile.',
