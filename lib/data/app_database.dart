@@ -22,6 +22,7 @@ class AppDatabase {
         await _createContactHistory(db);
         await _createCustomerIssues(db);
         await _createAuditLog(db);
+        await _createSportsTables(db);
         await _createSportsInterests(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
@@ -32,6 +33,7 @@ class AppDatabase {
         if (oldVersion < 6) await _createCustomerIssues(db);
         if (oldVersion >= 5 && oldVersion < 7) await db.execute("ALTER TABLE contact_history ADD COLUMN follow_up_completed INTEGER NOT NULL DEFAULT 0");
         if (oldVersion < 8) await _createAuditLog(db);
+        if (oldVersion < 9) await _createSportsTables(db);
         if (oldVersion < 9) await _createSportsInterests(db);
       },
       onOpen: (db) async {
@@ -729,6 +731,99 @@ class AppDatabase {
   Future<int> deleteSportsInterest(int id) async {
     final db = await database;
     return db.delete('sports_interests', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> _createSportsTables(DatabaseExecutor db) async {
+    await db.execute("""
+      CREATE TABLE sports_interests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL UNIQUE,
+        sports TEXT NOT NULL DEFAULT '',
+        teams TEXT NOT NULL DEFAULT '',
+        players TEXT NOT NULL DEFAULT '',
+        competitions TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        match_alerts INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT
+      )
+    """);
+    await db.execute("""
+      CREATE TABLE matches (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sport TEXT NOT NULL,
+        competition TEXT NOT NULL DEFAULT '',
+        home_team TEXT NOT NULL,
+        away_team TEXT NOT NULL,
+        start_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Upcoming',
+        source_url TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+      )
+    """);
+    await db.execute('CREATE INDEX idx_matches_start ON matches(start_at)');
+    await db.execute('CREATE INDEX idx_matches_sport ON matches(sport)');
+  }
+
+  Future<List<Map<String, Object?>>> getSportsInterests() async {
+    final db = await database;
+    return db.rawQuery("""
+      SELECT s.*, u.name AS user_name, u.phone AS user_phone
+      FROM sports_interests s JOIN users u ON u.id = s.user_id
+      WHERE u.archived = 0 ORDER BY u.name COLLATE NOCASE
+    """);
+  }
+
+  Future<int> saveSportsInterest({
+    required int userId, required String sports, required String teams,
+    required String players, required String competitions, required String notes,
+    required bool matchAlerts,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    return db.insert('sports_interests', {
+      'user_id': userId, 'sports': sports.trim(), 'teams': teams.trim(),
+      'players': players.trim(), 'competitions': competitions.trim(),
+      'notes': notes.trim(), 'match_alerts': matchAlerts ? 1 : 0,
+      'created_at': now, 'updated_at': now,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<Map<String, Object?>>> getMatches({String search = ''}) async {
+    final db = await database;
+    final term = search.trim();
+    return db.query('matches',
+      where: "? = '' OR sport LIKE ? OR competition LIKE ? OR home_team LIKE ? OR away_team LIKE ?",
+      whereArgs: [term, '%$term%', '%$term%', '%$term%', '%$term%'],
+      orderBy: 'start_at ASC');
+  }
+
+  Future<int> addMatch({
+    required String sport, required String competition,
+    required String homeTeam, required String awayTeam,
+    required DateTime startAt, required String status,
+    String sourceUrl = '', String notes = '',
+  }) async {
+    final db = await database;
+    return db.insert('matches', {
+      'sport': sport, 'competition': competition.trim(),
+      'home_team': homeTeam.trim(), 'away_team': awayTeam.trim(),
+      'start_at': startAt.toIso8601String(), 'status': status,
+      'source_url': sourceUrl.trim(), 'notes': notes.trim(),
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<int> updateMatchStatus(int id, String status) async {
+    final db = await database;
+    return db.update('matches', {'status': status}, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteMatch(int id) async {
+    final db = await database;
+    return db.delete('matches', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<void> _createAuditLog(DatabaseExecutor db) async {
