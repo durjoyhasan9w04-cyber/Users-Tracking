@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'data/app_database.dart';
 
 void main() {
@@ -1349,6 +1351,13 @@ class MoreHubPage extends StatelessWidget {
         subtitle: 'Review recorded DP and bonus deletions',
         onTap: () => open(context, const AuditHistoryPage()),
       ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.backup_outlined,
+        title: 'Backup & restore',
+        subtitle: 'Export a local database backup or restore one',
+        onTap: () => open(context, const BackupRestorePage()),
+      ),
     ],
   );
 }
@@ -1369,6 +1378,109 @@ class _MoreTile extends StatelessWidget {
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
+    ),
+  );
+}
+
+class BackupRestorePage extends StatefulWidget {
+  const BackupRestorePage({super.key});
+  @override
+  State<BackupRestorePage> createState() => _BackupRestorePageState();
+}
+
+class _BackupRestorePageState extends State<BackupRestorePage> {
+  bool busy = false;
+  String status = 'Backups contain your users, DP, bonuses, prospects, contacts and issue history. Keep a copy somewhere safe.';
+
+  Future<void> exportBackup() async {
+    setState(() { busy = true; status = 'Preparing backup…'; });
+    try {
+      final path = await AppDatabase.instance.createBackupFile();
+      await Share.shareXFiles([XFile(path)], text: 'User Hub database backup');
+      if (mounted) setState(() => status = 'Backup prepared. Choose a safe destination in the share sheet.');
+    } catch (_) {
+      if (mounted) setState(() => status = 'Could not create the backup. Please try again.');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> restoreBackup() async {
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['db', 'sqlite', 'sqlite3'],
+      allowMultiple: false,
+    );
+    if (picked == null || picked.files.single.path == null || !mounted) return;
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Restore this backup?'),
+      content: const Text('The current local database will be replaced. A rollback copy is kept during the restore, but export your current data first if you may need it.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Restore backup')),
+      ],
+    ));
+    if (confirmed != true || !mounted) return;
+    setState(() { busy = true; status = 'Checking and restoring backup…'; });
+    try {
+      await AppDatabase.instance.restoreBackupFile(picked.files.single.path!);
+      if (mounted) setState(() => status = 'Backup restored successfully. Your saved records are now loaded.');
+    } catch (e) {
+      if (mounted) setState(() => status = 'Restore failed: ${e.toString()}');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> runIntegrityCheck() async {
+    setState(() { busy = true; status = 'Checking database integrity…'; });
+    try {
+      final valid = await AppDatabase.instance.checkIntegrity();
+      if (mounted) setState(() => status = valid ? 'Database integrity check passed.' : 'Database integrity check reported a problem. Create a backup before making changes.');
+    } catch (_) {
+      if (mounted) setState(() => status = 'Could not complete the integrity check.');
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Backup & restore')),
+    body: ListView(
+      padding: const EdgeInsets.all(18),
+      children: [
+        Card(child: Padding(padding: const EdgeInsets.all(16), child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.shield_outlined, color: emerald),
+            const SizedBox(width: 12),
+            Expanded(child: Text(status, style: const TextStyle(color: muted, height: 1.4))),
+          ],
+        ))),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          onPressed: busy ? null : exportBackup,
+          icon: const Icon(Icons.upload_file_rounded),
+          label: const Text('Export database backup'),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: busy ? null : restoreBackup,
+          icon: const Icon(Icons.restore_rounded),
+          label: const Text('Restore from backup file'),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: busy ? null : runIntegrityCheck,
+          icon: const Icon(Icons.fact_check_outlined),
+          label: const Text('Check database integrity'),
+        ),
+        if (busy) ...[
+          const SizedBox(height: 18),
+          const Center(child: CircularProgressIndicator()),
+        ],
+      ],
     ),
   );
 }
