@@ -508,6 +508,44 @@ class AppDatabase {
     return (rows.first['total'] as num).toDouble();
   }
 
+  Future<List<Map<String, Object?>>> getReportRows(DateTime start, DateTime end) async {
+    final database = await this.database;
+    final from = start.toIso8601String().substring(0, 10);
+    final until = end.toIso8601String().substring(0, 10);
+    return database.rawQuery("""
+      SELECT 'DP' AS type, d.entry_date AS transaction_date, u.name AS user_name,
+        u.phone AS phone, d.total AS amount, d.dp_count AS item_count,
+        d.notes AS notes, '' AS reason
+      FROM dp_entries d JOIN users u ON u.id = d.user_id
+      WHERE d.entry_date >= ? AND d.entry_date < ?
+      UNION ALL
+      SELECT 'Bonus', b.entry_date, u.name, u.phone, b.amount, 1, b.notes, b.reason
+      FROM bonus_entries b JOIN users u ON u.id = b.user_id
+      WHERE b.entry_date >= ? AND b.entry_date < ?
+      ORDER BY transaction_date DESC, type ASC, user_name COLLATE NOCASE
+    """, [from, until, from, until]);
+  }
+
+  Future<Map<String, num>> getReportTotals(DateTime start, DateTime end) async {
+    final database = await this.database;
+    final from = start.toIso8601String().substring(0, 10);
+    final until = end.toIso8601String().substring(0, 10);
+    final dp = await database.rawQuery(
+      'SELECT COALESCE(SUM(total), 0) AS total, COUNT(*) AS count FROM dp_entries WHERE entry_date >= ? AND entry_date < ?',
+      [from, until],
+    );
+    final bonus = await database.rawQuery(
+      'SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?',
+      [from, until],
+    );
+    return {
+      'dp': dp.first['total'] as num,
+      'dp_count': dp.first['count'] as num,
+      'bonus': bonus.first['total'] as num,
+      'bonus_count': bonus.first['count'] as num,
+    };
+  }
+
   Future<List<Map<String, Object?>>> getDpEntries() async {
     final db = await database;
     return db.rawQuery('''
