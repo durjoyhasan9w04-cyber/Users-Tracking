@@ -2508,42 +2508,50 @@ class PlaceholderPage extends StatelessWidget {
   ));
 }
 class SectionHeading extends StatelessWidget {
-  const SectionHeading(this.title, {super.key, this.trailing});
-  final String title; final String? trailing;
-  @override
-  Widget build(BuildContext context) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-    Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-    if (trailing != null) Text(trailing!, style: const TextStyle(fontSize: 12, color: muted)),
+  const SectionHeading(this.title, {super.key, this.trailing, this.onTrailingTap});
+  final String title; final String? trailing; final VoidCallback? onTrailingTap;
+  @override Widget build(BuildContext context) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+    Text(title, style: Theme.of(context).textTheme.titleLarge),
+    if (trailing != null) TextButton(onPressed: onTrailingTap, child: Text(trailing!, style: const TextStyle(color: muted, fontSize: 12))),
   ]);
 }
+
 class MetricCard extends StatelessWidget {
-  const MetricCard({super.key, required this.label, required this.value, required this.icon});
-  final String label; final String value; final IconData icon;
-  @override
-  Widget build(BuildContext context) => Card(child: Padding(
-    padding: const EdgeInsets.all(15),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Container(width: 36, height: 36, decoration: BoxDecoration(color: const Color(0xFF183B36), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: emerald, size: 19)),
+  const MetricCard({super.key, required this.label, required this.value, required this.icon, this.dotColor = emerald, this.amberValue = false});
+  final String label, value; final IconData icon; final Color dotColor; final bool amberValue;
+  @override Widget build(BuildContext context) {
+    final numeric = double.tryParse(value.replaceAll(',', ''));
+    return Card(child: Padding(padding: const EdgeInsets.fromLTRB(16, 15, 14, 16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [Container(width: 8, height: 8, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)), const SizedBox(width: 8), Expanded(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: muted))) ]),
       const SizedBox(height: 14),
-      Text(value, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 3),
-      Text(label, style: const TextStyle(fontSize: 11, color: muted)),
-    ]),
-  ));
+      if (numeric != null) AnimatedNumberText(value: numeric, style: GoogleFonts.spaceGrotesk(fontSize: 29, fontWeight: FontWeight.w700, color: amberValue ? amber : const Color(0xFFE8F0EC), letterSpacing: 0))
+      else Text(value, style: GoogleFonts.spaceGrotesk(fontSize: 29, fontWeight: FontWeight.w700)),
+    ])));
+  }
 }
 class EmptyState extends StatelessWidget {
-  const EmptyState({super.key, required this.title, required this.subtitle, this.action});
-  final String title; final String subtitle; final VoidCallback? action;
-  @override
-  Widget build(BuildContext context) => Center(child: Padding(
-    padding: const EdgeInsets.all(28),
-    child: Column(mainAxisSize: MainAxisSize.min, children: [
-      const Icon(Icons.people_outline_rounded, size: 38, color: emerald),
-      const SizedBox(height: 14),
-      Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-      const SizedBox(height: 6),
-      Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: muted, fontSize: 12, height: 1.5)),
-      if (action != null) ...[const SizedBox(height: 16), FilledButton.icon(onPressed: action, icon: const Icon(Icons.person_add_alt_1), label: const Text('Add user'))],
-    ]),
-  ));
+  const EmptyState({super.key, required this.title, required this.subtitle, this.action, this.icon, this.compact = false});
+  final String title, subtitle; final VoidCallback? action; final IconData? icon; final bool compact;
+  @override Widget build(BuildContext context) {
+    final illustration = icon ?? (
+      title.toLowerCase().contains('dp') ? Icons.account_balance_wallet_rounded :
+      title.toLowerCase().contains('bonus') ? Icons.card_giftcard_rounded :
+      title.toLowerCase().contains('contact') ? Icons.chat_bubble_rounded :
+      title.toLowerCase().contains('match') ? Icons.sports_soccer_rounded :
+      title.toLowerCase().contains('issue') ? Icons.support_agent_rounded :
+      title.toLowerCase().contains('prospect') ? Icons.person_search_rounded : Icons.group_add_rounded
+    );
+    return Center(child: Padding(padding: EdgeInsets.all(compact ? 18 : 28), child: Column(mainAxisSize: MainAxisSize.min, children: [
+      SizedBox(width: compact ? 76 : 112, height: compact ? 76 : 112, child: Stack(alignment: Alignment.center, children: [
+        Container(width: compact ? 76 : 112, height: compact ? 76 : 112, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: emerald.withValues(alpha: .13), width: 2))),
+        Container(width: compact ? 58 : 82, height: compact ? 58 : 82, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: emerald.withValues(alpha: .28), width: 2))),
+        Container(width: compact ? 38 : 52, height: compact ? 38 : 52, decoration: const BoxDecoration(color: Color(0xFF173126), shape: BoxShape.circle), child: Icon(illustration, size: compact ? 20 : 27, color: emerald)),
+      ])),
+      const SizedBox(height: 17),
+      Text(title, textAlign: TextAlign.center, style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700, fontSize: compact ? 16 : 20, color: const Color(0xFFE8F0EC))),
+      const SizedBox(height: 7),
+      ConstrainedBox(constraints: const BoxConstraints(maxWidth: 290), child: Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: muted, fontSize: 13, height: 1.5))),
+      if (action != null) ...[const SizedBox(height: 20), FilledButton.icon(onPressed: action, icon: const Icon(Icons.add_rounded), label: Text(title.toLowerCase().contains('dp') ? 'Record first DP' : title.toLowerCase().contains('bonus') ? 'Add first bonus' : 'Get started'))],
+    ])));
+  }
 }
