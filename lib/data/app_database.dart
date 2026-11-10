@@ -121,6 +121,24 @@ class AppDatabase {
     });
   }
 
+  Future<void> _createBonusEntries(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE bonus_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        amount REAL NOT NULL,
+        reason TEXT NOT NULL,
+        related_dp_id INTEGER,
+        entry_date TEXT NOT NULL,
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_bonus_date ON bonus_entries(entry_date)');
+    await db.execute('CREATE INDEX idx_bonus_user ON bonus_entries(user_id)');
+  }
+
   Future<List<Map<String, Object?>>> getUsers({String search = ''}) async {
     final db = await database;
     final now = DateTime.now();
@@ -184,6 +202,66 @@ class AppDatabase {
       'total': total, 'dp_count': count, 'contacted': contacted ? 1 : 0,
       'notes': notes.trim(), 'created_at': DateTime.now().toIso8601String(),
     });
+  }
+
+
+  Future<double> monthBonusTotal() async {
+    final db = await database;
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month).toIso8601String().substring(0, 10);
+    final end = DateTime(now.year, now.month + 1).toIso8601String().substring(0, 10);
+    final rows = await db.rawQuery(
+      'SELECT COALESCE(SUM(amount), 0) AS total FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?',
+      [start, end],
+    );
+    return (rows.first['total'] as num).toDouble();
+  }
+
+  Future<List<Map<String, Object?>>> getBonusEntries() async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT b.*, u.name AS user_name
+      FROM bonus_entries b JOIN users u ON u.id = b.user_id
+      ORDER BY b.entry_date DESC, b.id DESC
+    ''');
+  }
+
+  Future<int> addBonusEntry({
+    required int userId,
+    required double amount,
+    required String reason,
+    required DateTime date,
+    String notes = '',
+  }) async {
+    if (amount <= 0) throw ArgumentError('Bonus must be greater than zero');
+    final db = await database;
+    return db.insert('bonus_entries', {
+      'user_id': userId,
+      'amount': amount,
+      'reason': reason,
+      'entry_date': date.toIso8601String().substring(0, 10),
+      'notes': notes.trim(),
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<Map<String, double>> dashboardTotals() async {
+    final db = await database;
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month).toIso8601String().substring(0, 10);
+    final end = DateTime(now.year, now.month + 1).toIso8601String().substring(0, 10);
+    final dp = await db.rawQuery(
+      'SELECT COALESCE(SUM(total), 0) AS total FROM dp_entries WHERE entry_date >= ? AND entry_date < ?',
+      [start, end],
+    );
+    final bonus = await db.rawQuery(
+      'SELECT COALESCE(SUM(amount), 0) AS total FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?',
+      [start, end],
+    );
+    return {
+      'dp': (dp.first['total'] as num).toDouble(),
+      'bonus': (bonus.first['total'] as num).toDouble(),
+    };
   }
 
   Future<int> addUser({required String name, required String phone, String notes = ''}) async {
