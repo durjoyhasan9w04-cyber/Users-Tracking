@@ -1552,13 +1552,6 @@ class MoreHubPage extends StatelessWidget {
       ),
       const SizedBox(height: 10),
       _MoreTile(
-        icon: Icons.backup_outlined,
-        title: 'Backup & restore',
-        subtitle: 'Export a local database backup or restore one',
-        onTap: () => open(context, const BackupRestorePage()),
-      ),
-      const SizedBox(height: 10),
-      _MoreTile(
         icon: Icons.summarize_outlined,
         title: 'Reports & export',
         subtitle: 'Review period totals and export transaction history',

@@ -341,7 +341,7 @@ class AppDatabase {
     final today = DateTime.now().toIso8601String().substring(0, 10);
     return db.query('potential_users',
       columns: ['id', 'name', 'phone', 'follow_up_date', 'status'],
-      where: "follow_up_date IS NOT NULL AND follow_up_date <= ? AND status NOT IN ('Registered', 'Do Not Contact', 'Not Interested')",
+      where: "follow_up_date IS NOT NULL AND follow_up_date <= ? AND contact_permission = 1 AND status NOT IN ('Registered', 'Do Not Contact', 'Not Interested')",
       whereArgs: [today],
       orderBy: 'follow_up_date ASC, name COLLATE NOCASE');
   }
@@ -366,7 +366,7 @@ class AppDatabase {
       [today],
     );
     final prospects = await db.rawQuery(
-      "SELECT COUNT(*) AS total FROM potential_users WHERE follow_up_date IS NOT NULL AND follow_up_date <= ? AND status NOT IN ('Registered', 'Do Not Contact', 'Not Interested')",
+      "SELECT COUNT(*) AS total FROM potential_users WHERE follow_up_date IS NOT NULL AND follow_up_date <= ? AND contact_permission = 1 AND status NOT IN ('Registered', 'Do Not Contact', 'Not Interested')",
       [today],
     );
     return (Sqflite.firstIntValue(contacts) ?? 0) + (Sqflite.firstIntValue(prospects) ?? 0);
@@ -682,6 +682,7 @@ class AppDatabase {
     const tables = <String>[
       'users', 'dp_entries', 'bonus_entries', 'potential_users',
       'contact_history', 'customer_issues', 'audit_log',
+      'sports_interests', 'matches',
     ];
     for (final table in tables) {
       if (data[table] is! List) {
@@ -694,7 +695,7 @@ class AppDatabase {
     final db = await database;
     await db.transaction((txn) async {
       for (final table in [
-        'audit_log', 'customer_issues', 'contact_history',
+        'matches', 'audit_log', 'customer_issues', 'contact_history',
         'sports_interests', 'bonus_entries', 'dp_entries', 'potential_users', 'users',
       ]) {
         await txn.delete(table);
