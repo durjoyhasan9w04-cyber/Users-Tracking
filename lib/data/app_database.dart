@@ -41,6 +41,28 @@ class AppDatabase {
     return _db!;
   }
 
+  Future<void> createDailyBackupIfNeeded() async {
+    final liveDb = await database;
+    await liveDb.rawQuery('PRAGMA wal_checkpoint(FULL)');
+    final support = await getApplicationSupportDirectory();
+    final folder = Directory(p.join(support.path, 'backups'));
+    await folder.create(recursive: true);
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final backup = File(p.join(folder.path, 'user-hub-$today.db'));
+    final root = await getDatabasesPath();
+    final source = File(p.join(root, 'user_hub.db'));
+    if (!await backup.exists() && await source.exists()) {
+      await source.copy(backup.path);
+    }
+    final files = folder.listSync().whereType<File>()
+      .where((file) => p.basename(file.path).startsWith('user-hub-') && file.path.endsWith('.db'))
+      .toList()
+      ..sort((a, b) => b.path.compareTo(a.path));
+    for (final old in files.skip(7)) {
+      await old.delete();
+    }
+  }
+
   Future<String> createBackupFile() async {
     final liveDb = await database;
     await liveDb.rawQuery('PRAGMA wal_checkpoint(FULL)');
