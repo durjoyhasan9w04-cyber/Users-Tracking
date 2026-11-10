@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 class AppDatabase {
@@ -35,6 +37,67 @@ class AppDatabase {
       },
     );
     return _db!;
+  }
+
+  Future<String> createBackupFile() async {
+    final liveDb = await database;
+    await liveDb.rawQuery('PRAGMA wal_checkpoint(FULL)');
+    final root = await getDatabasesPath();
+    final source = File(p.join(root, 'user_hub.db'));
+    if (!await source.exists()) throw StateError('Database file not found');
+    final temp = await getTemporaryDirectory();
+    final stamp = DateTime.now().toIso8601String().replaceAll(':', '-').replaceAll('.', '-');
+    final backup = File(p.join(temp.path, 'user-hub-backup-$stamp.db'));
+    await source.copy(backup.path);
+    return backup.path;
+  }
+
+  Future<bool> checkIntegrity() async {
+    final db = await database;
+    final rows = await db.rawQuery('PRAGMA integrity_check');
+    return rows.isNotEmpty && rows.first.values.first == 'ok';
+  }
+
+  Future<void> restoreBackupFile(String sourcePath) async {
+    final source = File(sourcePath);
+    if (!await source.exists()) throw ArgumentError('Backup file does not exist');
+    final candidate = await openDatabase(source.path, readOnly: true);
+    try {
+      final integrity = await candidate.rawQuery('PRAGMA integrity_check');
+      if (integrity.isEmpty || integrity.first.values.first != 'ok') {
+        throw StateError('The selected backup failed its integrity check');
+      }
+      final tables = await candidate.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table'",
+      );
+      final names = tables.map((row) => row['name'] as String).toSet();
+      const required = {'users', 'dp_entries', 'bonus_entries', 'potential_users', 'contact_history', 'customer_issues'};
+      if (!names.containsAll(required)) {
+        throw StateError('This file is not a compatible User Hub backup');
+      }
+    } finally {
+      await candidate.close();
+    }
+
+    final root = await getDatabasesPath();
+    final destination = File(p.join(root, 'user_hub.db'));
+    final temp = await getTemporaryDirectory();
+    final rollback = File(p.join(temp.path, 'user-hub-before-restore.db'));
+    if (await destination.exists()) await destination.copy(rollback.path);
+    await _db?.close();
+    _db = null;
+    try {
+      await source.copy(destination.path);
+      await database;
+      final valid = await checkIntegrity();
+      if (!valid) throw StateError('Restored database failed its integrity check');
+    } catch (_) {
+      await _db?.close();
+      _db = null;
+      if (await rollback.exists()) await rollback.copy(destination.path);
+      await database;
+      rethrow;
+    }
   }
 
   Future<void> _createUsers(DatabaseExecutor db) async {
