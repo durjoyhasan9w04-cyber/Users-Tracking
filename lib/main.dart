@@ -1,11 +1,8 @@
-import 'dart:convert';
-import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'data/app_database.dart';
@@ -411,39 +408,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
               Expanded(child: MetricCard(label: 'Bonus records', value: '${user['bonus_transactions']}', icon: Icons.redeem_rounded)),
             ]),
             const SizedBox(height: 20),
-            Row(children: [
-              const Expanded(child: SectionHeading('Sports interests', trailing: 'Preferences')),
-              TextButton.icon(
-                onPressed: () async {
-                  final saved = await showDialog<bool>(context: context, builder: (_) => AddSportsInterestDialog(userId: widget.userId));
-                  if (saved == true && mounted) setState(load);
-                },
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add'),
-              ),
-            ]),
-            if (sports.isEmpty)
-              const Text('No sports preferences recorded yet.', style: TextStyle(color: muted))
-            else
-              ...sports.map((item) => Card(
-                margin: const EdgeInsets.only(bottom: 7),
-                child: ListTile(
-                  leading: const CircleAvatar(backgroundColor: Color(0xFF183B36), child: Icon(Icons.sports, color: emerald)),
-                  title: Text(item['sport'] as String, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text([
-                    item['team'], item['competition'], item['player'],
-                  ].where((v) => v != null && (v as String).isNotEmpty).join(' · ')),
-                  trailing: IconButton(
-                    tooltip: 'Remove sports preference',
-                    onPressed: () async {
-                      await AppDatabase.instance.deleteSportsInterest(item['id'] as int);
-                      if (mounted) setState(load);
-                    },
-                    icon: const Icon(Icons.close_rounded, color: muted),
-                  ),
-                ),
-              )),
-            const SizedBox(height: 18),
+            const SizedBox(height: 8),
             const SectionHeading('Activity timeline', trailing: 'Newest first'),
             const SizedBox(height: 10),
             if (timeline.isEmpty)
@@ -1546,7 +1511,7 @@ class _ReportsPageState extends State<ReportsPage> {
       final directory = await getTemporaryDirectory();
       final file = File('${directory.path}/user-hub-report-${month.year}-${month.month.toString().padLeft(2, '0')}.csv');
       await file.writeAsString(lines.join('\n'), flush: true);
-      await Share.shareXFiles([XFile(file.path)], text: 'User Hub monthly report');
+      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'User Hub monthly report'));
     } catch (_) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not export this report.')));
     } finally {
@@ -1878,7 +1843,7 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
     setState(() { busy = true; status = 'Preparing backup…'; });
     try {
       final path = await AppDatabase.instance.createBackupFile();
-      await Share.shareXFiles([XFile(path)], text: 'User Hub database backup');
+      await SharePlus.instance.share(ShareParams(files: [XFile(path)], text: 'User Hub database backup'));
       if (mounted) setState(() => status = 'Backup prepared. Choose a safe destination in the share sheet.');
     } catch (_) {
       if (mounted) setState(() => status = 'Could not create the backup. Please try again.');
@@ -1962,115 +1927,6 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
           const SizedBox(height: 18),
           const Center(child: CircularProgressIndicator()),
         ],
-      ],
-    ),
-  );
-}
-
-class BackupRestorePage extends StatefulWidget {
-  const BackupRestorePage({super.key});
-  @override
-  State<BackupRestorePage> createState() => _BackupRestorePageState();
-}
-
-class _BackupRestorePageState extends State<BackupRestorePage> {
-  bool busy = false;
-
-  Future<void> createBackup() async {
-    setState(() => busy = true);
-    try {
-      final data = await AppDatabase.instance.createBackupData();
-      final bytes = Uint8List.fromList(utf8.encode(const JsonEncoder.withIndent('  ').convert(data)));
-      final now = DateTime.now();
-      final stamp = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
-      final path = await FilePicker.platform.saveFile(
-        dialogTitle: 'Save User Hub backup',
-        fileName: 'user-hub-backup-$stamp.json',
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        bytes: bytes,
-      );
-      if (!mounted) return;
-      if (path != null) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Backup file saved successfully.')));
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Backup failed: $e')));
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
-  }
-
-  Future<void> restoreBackup() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['json'],
-      withData: true,
-    );
-    if (result == null || result.files.single.bytes == null || !mounted) return;
-    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-      title: const Text('Restore this backup?'),
-      content: const Text('Restoring replaces the current local records with the selected backup. Export a backup of your current data first if you may need it.'),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Replace data')),
-      ],
-    ));
-    if (confirmed != true || !mounted) return;
-    setState(() => busy = true);
-    try {
-      final decoded = jsonDecode(utf8.decode(result.files.single.bytes!));
-      if (decoded is! Map<String, dynamic>) throw const FormatException('Invalid backup file.');
-      await AppDatabase.instance.restoreBackupData(decoded);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Backup restored. Reopen pages to refresh their data.')));
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Restore failed: $e')));
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Backup & restore')),
-    body: ListView(
-      padding: const EdgeInsets.all(18),
-      children: [
-        Card(child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Icon(Icons.shield_outlined, color: emerald, size: 30),
-            const SizedBox(height: 12),
-            const Text('Keep your records safe', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            const Text('Create a portable backup containing registered users, prospects, DP and bonus records, contacts, customer issues and audit history.', style: TextStyle(color: muted, height: 1.45)),
-            const SizedBox(height: 16),
-            SizedBox(width: double.infinity, child: FilledButton.icon(
-              onPressed: busy ? null : createBackup,
-              icon: const Icon(Icons.download_outlined),
-              label: const Text('Create backup file'),
-            )),
-          ]),
-        )),
-        const SizedBox(height: 12),
-        Card(child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Icon(Icons.restore_rounded, color: Color(0xFFFFC36B), size: 30),
-            const SizedBox(height: 12),
-            const Text('Restore from backup', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            const Text('Choose a User Hub JSON backup. The selected backup replaces the records currently stored on this device.', style: TextStyle(color: muted, height: 1.45)),
-            const SizedBox(height: 16),
-            SizedBox(width: double.infinity, child: OutlinedButton.icon(
-              onPressed: busy ? null : restoreBackup,
-              icon: const Icon(Icons.folder_open_outlined),
-              label: const Text('Choose backup file'),
-            )),
-          ]),
-        )),
-        if (busy) const Padding(padding: EdgeInsets.only(top: 20), child: Center(child: CircularProgressIndicator())),
       ],
     ),
   );
