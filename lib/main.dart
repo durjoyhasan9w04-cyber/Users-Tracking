@@ -512,6 +512,14 @@ class _ActivityPageState extends State<ActivityPage> {
     if (saved == true) setState(load);
   }
 
+  Future<void> editRecord(Map<String, Object?> row, bool isDp) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => isDp ? DpEntryDialog(existing: row) : BonusEntryDialog(existing: row),
+    );
+    if (mounted && saved == true) setState(load);
+  }
+
   Future<void> deleteRecord(Map<String, Object?> row, bool isDp) async {
     final label = isDp ? 'DP record' : 'bonus record';
     final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
@@ -584,8 +592,14 @@ class _ActivityPageState extends State<ActivityPage> {
                     style: TextStyle(color: isDp ? emerald : const Color(0xFFFFC36B), fontWeight: FontWeight.w800, fontSize: 16),
                   ),
                   PopupMenuButton<String>(
-                    onSelected: (value) { if (value == 'delete') deleteRecord(row, isDp); },
-                    itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Delete record'))],
+                    onSelected: (value) {
+                      if (value == 'edit') editRecord(row, isDp);
+                      if (value == 'delete') deleteRecord(row, isDp);
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'edit', child: Text('Edit record')),
+                      PopupMenuItem(value: 'delete', child: Text('Delete record')),
+                    ],
                   ),
                 ]),
               ));
@@ -598,7 +612,8 @@ class _ActivityPageState extends State<ActivityPage> {
 }
 
 class BonusEntryDialog extends StatefulWidget {
-  const BonusEntryDialog({super.key});
+  const BonusEntryDialog({super.key, this.existing});
+  final Map<String, Object?>? existing;
   @override
   State<BonusEntryDialog> createState() => _BonusEntryDialogState();
 }
@@ -614,6 +629,14 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
   @override
   void initState() {
     super.initState();
+    final row = widget.existing;
+    if (row != null) {
+      userId = row['user_id'] as int;
+      amount.text = (row['amount'] as num).toString();
+      reason = row['reason'] as String? ?? 'Other';
+      relatedDp.text = row['related_dp'] == null ? '' : (row['related_dp'] as num).toString();
+      notes.text = row['notes'] as String? ?? '';
+    }
     users = AppDatabase.instance.getUsers();
   }
   @override
@@ -627,14 +650,25 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
     if (!form.currentState!.validate() || userId == null) return;
     setState(() => saving = true);
     try {
-      await AppDatabase.instance.addBonusEntry(
-        userId: userId!,
-        date: DateTime.now(),
-        amount: double.parse(amount.text.trim()),
-        reason: reason,
-        relatedDp: relatedDp.text.trim().isEmpty ? null : double.parse(relatedDp.text.trim()),
-        notes: notes.text,
-      );
+      final existing = widget.existing;
+      if (existing == null) {
+        await AppDatabase.instance.addBonusEntry(
+          userId: userId!,
+          date: DateTime.now(),
+          amount: double.parse(amount.text.trim()),
+          reason: reason,
+          relatedDp: relatedDp.text.trim().isEmpty ? null : double.parse(relatedDp.text.trim()),
+          notes: notes.text,
+        );
+      } else {
+        await AppDatabase.instance.updateBonusEntry(
+          id: existing['id'] as int,
+          amount: double.parse(amount.text.trim()),
+          reason: reason,
+          relatedDp: relatedDp.text.trim().isEmpty ? null : double.parse(relatedDp.text.trim()),
+          notes: notes.text,
+        );
+      }
       if (mounted) Navigator.pop(context, true);
     } on Exception {
       if (!mounted) return;
@@ -644,7 +678,7 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
   }
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Add bonus record'),
+    title: Text(widget.existing == null ? 'Add bonus record' : 'Edit bonus record'),
     content: SizedBox(width: 420, child: FutureBuilder<List<Map<String, Object?>>>(
       future: users,
       builder: (context, snap) {
@@ -695,13 +729,14 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
     )),
     actions: [
       TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
-      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save bonus')),
+      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : Text(widget.existing == null ? 'Save bonus' : 'Save changes')),
     ],
   );
 }
 
 class DpEntryDialog extends StatefulWidget {
-  const DpEntryDialog({super.key});
+  const DpEntryDialog({super.key, this.existing});
+  final Map<String, Object?>? existing;
   @override
   State<DpEntryDialog> createState() => _DpEntryDialogState();
 }
@@ -714,7 +749,19 @@ class _DpEntryDialogState extends State<DpEntryDialog> {
   bool saving = false;
   late Future<List<Map<String, Object?>>> users;
   @override
-  void initState() { super.initState(); users = AppDatabase.instance.getUsers(); }
+  void initState() {
+    super.initState();
+    final row = widget.existing;
+    if (row != null) {
+      userId = row['user_id'] as int;
+      for (var i = 0; i < 5; i++) {
+        amounts[i].text = (row['dp${i + 1}'] as num).toString();
+      }
+      contacted = (row['contacted'] as int? ?? 0) == 1;
+      notes.text = row['notes'] as String? ?? '';
+    }
+    users = AppDatabase.instance.getUsers();
+  }
   @override
   void dispose() { for (final c in amounts) { c.dispose(); } notes.dispose(); super.dispose(); }
   Future<void> save() async {
@@ -726,7 +773,12 @@ class _DpEntryDialogState extends State<DpEntryDialog> {
     }
     setState(() => saving = true);
     try {
-      await AppDatabase.instance.addDpEntry(userId: userId!, date: DateTime.now(), amounts: values, contacted: contacted, notes: notes.text);
+      final existing = widget.existing;
+      if (existing == null) {
+        await AppDatabase.instance.addDpEntry(userId: userId!, date: DateTime.now(), amounts: values, contacted: contacted, notes: notes.text);
+      } else {
+        await AppDatabase.instance.updateDpEntry(id: existing['id'] as int, amounts: values, contacted: contacted, notes: notes.text);
+      }
       if (mounted) Navigator.pop(context, true);
     } on Exception {
       if (!mounted) return;
@@ -736,7 +788,7 @@ class _DpEntryDialogState extends State<DpEntryDialog> {
   }
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Record daily DP'),
+    title: Text(widget.existing == null ? 'Record daily DP' : 'Edit DP record'),
     content: SizedBox(width: 420, child: FutureBuilder<List<Map<String, Object?>>>(
       future: users,
       builder: (context, snap) {
@@ -779,7 +831,7 @@ class _DpEntryDialogState extends State<DpEntryDialog> {
     )),
     actions: [
       TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
-      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save DP')),
+      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : Text(widget.existing == null ? 'Save DP' : 'Save changes')),
     ],
   );
 }
