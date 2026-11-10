@@ -122,6 +122,7 @@ class AppDatabase {
         response TEXT NOT NULL DEFAULT '',
         notes TEXT NOT NULL DEFAULT '',
         follow_up_date TEXT,
+        follow_up_completed INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT
       )
