@@ -100,6 +100,9 @@ class DashboardPage extends StatelessWidget {
       AppDatabase.instance.monthDpTotal(),
       AppDatabase.instance.monthBonusTotal(),
       AppDatabase.instance.countOpenCustomerIssues(),
+      AppDatabase.instance.todayDpTotal(),
+      AppDatabase.instance.todayDpTransactions(),
+      AppDatabase.instance.countFollowUpsDue(),
     ]),
     builder: (context, snap) {
       final count = snap.data?[0].toInt() ?? 0;
@@ -107,6 +110,9 @@ class DashboardPage extends StatelessWidget {
       final dpMonth = snap.data?[2] ?? 0;
       final bonusMonth = snap.data?[3] ?? 0;
       final openIssues = snap.data?[4].toInt() ?? 0;
+      final dpToday = snap.data?[5] ?? 0;
+      final dpTransactionsToday = snap.data?[6].toInt() ?? 0;
+      final followUpsDue = snap.data?[7].toInt() ?? 0;
       return ListView(padding: const EdgeInsets.fromLTRB(18, 8, 18, 100), children: [
         Container(
           padding: const EdgeInsets.all(20),
@@ -144,7 +150,30 @@ class DashboardPage extends StatelessWidget {
             icon: Icons.card_giftcard_rounded,
           )),
         ]),
-        const SizedBox(height: 18),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(child: MetricCard(
+            label: 'DP today',
+            value: snap.data == null ? '—' : dpToday.toStringAsFixed(dpToday % 1 == 0 ? 0 : 2),
+            icon: Icons.today_rounded,
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: MetricCard(
+            label: 'DP transactions today',
+            value: snap.data == null ? '—' : '$dpTransactionsToday',
+            icon: Icons.receipt_long_rounded,
+          )),
+        ]),
+        const SizedBox(height: 12),
+        Card(child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          leading: const CircleAvatar(backgroundColor: Color(0xFF183B36), child: Icon(Icons.event_available_rounded, color: emerald)),
+          title: const Text('Follow-ups due', style: TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Text(snap.data == null ? 'Checking scheduled follow-ups…' : '$followUpsDue follow-ups due today or earlier', style: const TextStyle(color: muted)),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ContactHistoryPage())),
+        )),
+        const SizedBox(height: 12),
         Card(child: ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
           leading: const CircleAvatar(backgroundColor: Color(0xFF3A2A20), child: Icon(Icons.support_agent_rounded, color: Color(0xFFFFC36B))),
