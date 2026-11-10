@@ -1,5 +1,8 @@
 import 'package:file_picker/file_picker.dart';
 import 'dart:async';
+import 'dart:ui' show FontFeature;
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
@@ -13,37 +16,65 @@ void main() {
   unawaited(AppDatabase.instance.createDailyBackupIfNeeded().catchError((_) {}));
 }
 
-const emerald = Color(0xFF27D3A2);
-const muted = Color(0xFF9AADB5);
-const panel = Color(0xFF17232B);
-const bg = Color(0xFF0D151B);
+const emerald = Color(0xFF3DDC97);
+const amber = Color(0xFFF5B94A);
+const muted = Color(0xFF8B9B94);
+const panel = Color(0xFF111B18);
+const bg = Color(0xFF0A110F);
+const panelBorder = Color(0xFF1D2A25);
+
+final ThemeData userHubTheme = ThemeData(
+  useMaterial3: true,
+  brightness: Brightness.dark,
+  colorScheme: const ColorScheme.dark(
+    primary: emerald, onPrimary: Color(0xFF062017),
+    secondary: amber, onSecondary: Color(0xFF261A00),
+    surface: panel, onSurface: Color(0xFFE8F0EC),
+    error: Color(0xFFFF7474), onError: Color(0xFF240909),
+  ),
+  scaffoldBackgroundColor: bg,
+  canvasColor: bg,
+  textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
+    displayLarge: GoogleFonts.spaceGrotesk(fontSize: 34, fontWeight: FontWeight.w700, color: const Color(0xFFE8F0EC), letterSpacing: 0, fontFeatures: const [FontFeature.tabularFigures()]),
+    headlineLarge: GoogleFonts.spaceGrotesk(fontSize: 30, fontWeight: FontWeight.w700, color: const Color(0xFFE8F0EC), letterSpacing: 0),
+    headlineMedium: GoogleFonts.spaceGrotesk(fontSize: 25, fontWeight: FontWeight.w700, color: const Color(0xFFE8F0EC), letterSpacing: 0),
+    titleLarge: GoogleFonts.spaceGrotesk(fontSize: 18, fontWeight: FontWeight.w700, color: const Color(0xFFE8F0EC), letterSpacing: 0),
+    titleMedium: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: const Color(0xFFE8F0EC), letterSpacing: 0),
+    bodyLarge: GoogleFonts.inter(fontSize: 15, color: const Color(0xFFE8F0EC), letterSpacing: 0),
+    bodyMedium: GoogleFonts.inter(fontSize: 13, color: muted, letterSpacing: 0),
+    labelLarge: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 0),
+  ),
+  appBarTheme: const AppBarTheme(backgroundColor: bg, surfaceTintColor: Colors.transparent, elevation: 0, foregroundColor: Color(0xFFE8F0EC)),
+  cardTheme: CardThemeData(
+    color: panel, elevation: 0, margin: EdgeInsets.zero,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: panelBorder)),
+  ),
+  inputDecorationTheme: InputDecorationTheme(
+    filled: true, fillColor: panel, hintStyle: const TextStyle(color: muted, letterSpacing: 0),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: panelBorder)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: emerald, width: 1.2)),
+  ),
+  filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(
+    backgroundColor: emerald, foregroundColor: const Color(0xFF062017),
+    minimumSize: const Size(48, 50), padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+    shape: const StadiumBorder(), textStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0),
+  )),
+  floatingActionButtonTheme: const FloatingActionButtonThemeData(backgroundColor: emerald, foregroundColor: Color(0xFF062017), elevation: 2, shape: StadiumBorder()),
+  navigationBarTheme: NavigationBarThemeData(
+    backgroundColor: panel, indicatorColor: const Color(0xFF1B3B2D), labelBehavior: NavigationDestinationLabelBehavior.alwaysShow, height: 76,
+    iconTheme: WidgetStateProperty.resolveWith((states) => IconThemeData(color: states.contains(WidgetState.selected) ? emerald : muted)),
+    labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(color: states.contains(WidgetState.selected) ? emerald : muted, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0)),
+  ),
+  chipTheme: const ChipThemeData(backgroundColor: panel, selectedColor: emerald, side: BorderSide(color: panelBorder), shape: StadiumBorder(), padding: EdgeInsets.symmetric(horizontal: 9, vertical: 7)),
+  dividerColor: panelBorder,
+);
 
 class UserHubApp extends StatelessWidget {
   const UserHubApp({super.key});
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'User Hub',
-    debugShowCheckedModeBanner: false,
-    theme: ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: emerald, brightness: Brightness.dark, surface: panel),
-      scaffoldBackgroundColor: bg,
-      appBarTheme: const AppBarTheme(backgroundColor: bg, surfaceTintColor: Colors.transparent),
-      cardTheme: CardThemeData(
-        color: panel, elevation: 0, margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: Color(0xFF263640))),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true, fillColor: const Color(0xFF101B22),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: const Color(0xFF121D24), indicatorColor: emerald.withValues(alpha: .14),
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      ),
-    ),
-    home: const MainShell(),
-  );
+  Widget build(BuildContext context) => MaterialApp(title: 'User Hub', debugShowCheckedModeBanner: false, theme: userHubTheme, home: const MainShell());
 }
 
 class MainShell extends StatefulWidget {
@@ -68,29 +99,40 @@ class _MainShellState extends State<MainShell> {
       const ContactHistoryPage(),
       const MoreHubPage(),
     ];
-    const titles = ['Good evening', 'Users', 'Activity', 'Contact history', 'More'];
+    const titles = ['Overview', 'Users', 'Activity', 'Contacts', 'More'];
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: index == 0 ? 88 : 72,
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(titles[index], style: const TextStyle(fontWeight: FontWeight.w800)),
-          if (index == 0) const Text('Your customer overview', style: TextStyle(fontSize: 12, color: muted)),
+          if (index == 0) const Text('Good evening', style: TextStyle(fontSize: 13, color: muted, fontWeight: FontWeight.w500, letterSpacing: 0)),
+          Text(titles[index], style: Theme.of(context).textTheme.headlineMedium),
         ]),
         actions: [
-          if (index == 1) IconButton(onPressed: addUser, icon: const Icon(Icons.person_add_alt_1_rounded)),
-          const Padding(padding: EdgeInsets.only(right: 12), child: CircleAvatar(radius: 18, backgroundColor: Color(0xFF183B36), child: Icon(Icons.person, color: emerald))),
+          if (index == 1) Padding(padding: const EdgeInsets.only(right: 14), child: IconButton.filled(
+            style: IconButton.styleFrom(backgroundColor: emerald, foregroundColor: bg, fixedSize: const Size(46, 46)),
+            onPressed: addUser, icon: const Icon(Icons.add_rounded, size: 25),
+          )),
+          Padding(padding: const EdgeInsets.only(right: 18), child: CircleAvatar(
+            radius: 20, backgroundColor: const Color(0xFF172820),
+            child: Text('UH', style: GoogleFonts.spaceGrotesk(color: emerald, fontWeight: FontWeight.w700)),
+          )),
         ],
       ),
       body: AnimatedSwitcher(duration: const Duration(milliseconds: 220), child: pages[index]),
-      floatingActionButton: index == 0 ? FloatingActionButton.extended(onPressed: addUser, icon: const Icon(Icons.person_add_alt_1), label: const Text('Add user')) : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index, onDestinationSelected: (v) => setState(() => index = v),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.grid_view_rounded), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.people_alt_outlined), selectedIcon: Icon(Icons.people_alt_rounded), label: 'Users'),
-          NavigationDestination(icon: Icon(Icons.timeline_rounded), label: 'Activity'),
-          NavigationDestination(icon: Icon(Icons.forum_outlined), selectedIcon: Icon(Icons.forum_rounded), label: 'Contacts'),
-          NavigationDestination(icon: Icon(Icons.apps_rounded), label: 'More'),
-        ],
+      floatingActionButton: index == 0 ? FloatingActionButton.extended(onPressed: addUser, icon: const Icon(Icons.add_rounded), label: const Text('Add user')) : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+        child: ClipRRect(borderRadius: BorderRadius.circular(26), child: NavigationBar(
+          selectedIndex: index, onDestinationSelected: (v) => setState(() => index = v),
+          destinations: const [
+            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
+            NavigationDestination(icon: Icon(Icons.people_outline_rounded), selectedIcon: Icon(Icons.people_rounded), label: 'Users'),
+            NavigationDestination(icon: Icon(Icons.monitor_heart_outlined), selectedIcon: Icon(Icons.monitor_heart_rounded), label: 'Activity'),
+            NavigationDestination(icon: Icon(Icons.chat_bubble_outline_rounded), selectedIcon: Icon(Icons.chat_bubble_rounded), label: 'Contacts'),
+            NavigationDestination(icon: Icon(Icons.more_horiz_rounded), label: 'More'),
+          ],
+        )),
       ),
     );
   }
