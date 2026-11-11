@@ -8,8 +8,10 @@ void main() {
         {'teams': 'Bangladesh, India', 'competitions': 'ICC T20 World Cup', 'sports': 'Cricket'},
         {'teams': 'Bangladesh', 'competitions': '', 'sports': 'Cricket'},
       ]);
-      expect(queries, hasLength(3));
-      expect(queries.join(' '), contains('Bangladesh'));
+      expect(queries, hasLength(5));
+      expect(queries.where((query) => query.contains('"Bangladesh"')), hasLength(1));
+      expect(queries.join(' '), contains('India cricket team'));
+      expect(queries.join(' '), contains('India national cricket team'));
       expect(queries.join(' '), contains('ICC T20 World Cup'));
     });
 
