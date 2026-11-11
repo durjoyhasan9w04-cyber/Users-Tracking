@@ -177,7 +177,8 @@ jobs:
                   }
               }
               '''
-              text = text.replace("android {", "android {\\n" + signing, 1)
+              text = text.replace("android {", "android {
+" + signing, 1)
               text = text.replace(
                   'signingConfig = signingConfigs.getByName("debug")',
                   'signingConfig = signingConfigs.getByName("release")'
@@ -193,7 +194,8 @@ jobs:
                   }
               }
               '''
-              text = text.replace("android {", "android {\\n" + signing, 1)
+              text = text.replace("android {", "android {
+" + signing, 1)
               text = text.replace(
                   "signingConfig signingConfigs.debug",
                   "signingConfig signingConfigs.release"
