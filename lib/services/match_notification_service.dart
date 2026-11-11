@@ -52,7 +52,8 @@ class MatchNotificationService {
   static Future<void> initializeAndRestore() async {
     await initialize();
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('match_reminders_enabled') == true) {
+    if (prefs.getBool('match_reminders_enabled') == true ||
+        prefs.getBool('dp_time_reminders_enabled') == true) {
       await rescheduleAllUpcoming();
     }
   }
@@ -75,55 +76,99 @@ class MatchNotificationService {
   static Future<void> rescheduleAllUpcoming() async {
     await initialize();
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('match_reminders_enabled') != true) {
-      await _plugin.cancelAll();
-      return;
-    }
+    final matchEnabled = prefs.getBool('match_reminders_enabled') == true;
+    final dpTimeEnabled = prefs.getBool('dp_time_reminders_enabled') == true;
 
+    // Rebuild both reminder types together so toggling one never deletes the other.
     await _plugin.cancelAll();
-    final matches = await AppDatabase.instance.getMatches();
-    final interests = await AppDatabase.instance.getSportsInterests();
-    final now = DateTime.now();
+    if (matchEnabled) {
+      final matches = await AppDatabase.instance.getMatches();
+      final interests = await AppDatabase.instance.getSportsInterests();
+      final now = DateTime.now();
 
-    for (final match in matches) {
-      if ((match['status'] as String? ?? 'Upcoming') != 'Upcoming') continue;
-      final startAt = DateTime.tryParse(match['start_at'] as String? ?? '');
-      if (startAt == null || !startAt.isAfter(now)) continue;
+      for (final match in matches) {
+        if ((match['status'] as String? ?? 'Upcoming') != 'Upcoming') continue;
+        final startAt = DateTime.tryParse(match['start_at'] as String? ?? '');
+        if (startAt == null || !startAt.isAfter(now)) continue;
 
-      final matchingUsers = interests.where((interest) =>
-          isEligibleForMatchAlerts(interest) &&
-          isRelevantMatch(match: match, interest: interest)).toList();
-      if (matchingUsers.isEmpty) continue;
+        final matchingUsers = interests.where((interest) =>
+            isEligibleForMatchAlerts(interest) &&
+            isRelevantMatch(match: match, interest: interest)).toList();
+        if (matchingUsers.isEmpty) continue;
 
-      var reminderAt = startAt.subtract(const Duration(minutes: 30));
-      if (!reminderAt.isAfter(now)) reminderAt = startAt;
-      reminderAt = applyQuietHours(
-        reminderAt,
-        startAt,
-        enabled: prefs.getBool('quiet_hours_enabled') ?? false,
-        quietStartMinute: prefs.getInt('quiet_hours_start_minute') ?? 1320,
-        quietEndMinute: prefs.getInt('quiet_hours_end_minute') ?? 420,
-      ) ?? DateTime(0);
-      if (reminderAt.year == 0) continue;
-      final scheduled = tz.TZDateTime.from(reminderAt, tz.local);
-      final names = matchingUsers
-          .map((interest) => interest['user_name'] as String? ?? 'User')
-          .toSet()
-          .take(4)
-          .join(', ');
-      final extra = matchingUsers.length > 4
-          ? ' +${matchingUsers.length - 4} more'
-          : '';
-      final matchId = match['id'] as int;
-      await _plugin.zonedSchedule(
-        matchId,
-        'Match reminder: ${match["home_team"]} vs ${match["away_team"]}',
-        'Matches saved interests for $names$extra · ${match["sport"]}',
-        scheduled,
-        _details,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      );
+        var reminderAt = startAt.subtract(const Duration(minutes: 30));
+        if (!reminderAt.isAfter(now)) reminderAt = startAt;
+        reminderAt = applyQuietHours(
+          reminderAt,
+          startAt,
+          enabled: prefs.getBool('quiet_hours_enabled') ?? false,
+          quietStartMinute: prefs.getInt('quiet_hours_start_minute') ?? 1320,
+          quietEndMinute: prefs.getInt('quiet_hours_end_minute') ?? 420,
+        ) ?? DateTime(0);
+        if (reminderAt.year == 0) continue;
+        final scheduled = tz.TZDateTime.from(reminderAt, tz.local);
+        final names = matchingUsers
+            .map((interest) => interest['user_name'] as String? ?? 'User')
+            .toSet()
+            .take(4)
+            .join(', ');
+        final extra = matchingUsers.length > 4
+            ? ' +${matchingUsers.length - 4} more'
+            : '';
+        final matchId = match['id'] as int;
+        await _plugin.zonedSchedule(
+          matchId,
+          'Match reminder: ${match["home_team"]} vs ${match["away_team"]}',
+          'Matches saved interests for $names$extra · ${match["sport"]}',
+          scheduled,
+          _details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        );
+      }
     }
+
+    if (dpTimeEnabled) {
+      final patterns = await AppDatabase.instance.getUsualDpTimePatterns();
+      final now = DateTime.now();
+      for (final pattern in patterns) {
+        final minute = (pattern['usual_minute'] as num?)?.round();
+        if (minute == null || minute < 0 || minute >= 1440) continue;
+        var reminderAt = nextDailyReminderTime(minute, now);
+        reminderAt = applyQuietHours(
+          reminderAt,
+          reminderAt.add(const Duration(days: 1)),
+          enabled: prefs.getBool('quiet_hours_enabled') ?? false,
+          quietStartMinute: prefs.getInt('quiet_hours_start_minute') ?? 1320,
+          quietEndMinute: prefs.getInt('quiet_hours_end_minute') ?? 420,
+        ) ?? DateTime(0);
+        if (reminderAt.year == 0) continue;
+        final userId = pattern['user_id'] as int;
+        await _plugin.zonedSchedule(
+          1000000000 + userId,
+          'Usual DP time: ${pattern['user_name']}',
+          'DP activity has often been recorded around ${formatMinuteOfDay(minute)}. Review the profile and contact preferences before any contact.',
+          tz.TZDateTime.from(reminderAt, tz.local),
+          _details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        );
+      }
+    }
+  }
+
+  static DateTime nextDailyReminderTime(int minuteOfDay, DateTime now) {
+    final candidate = DateTime(
+      now.year, now.month, now.day,
+      minuteOfDay ~/ 60, minuteOfDay % 60,
+    );
+    return candidate.isAfter(now) ? candidate : candidate.add(const Duration(days: 1));
+  }
+
+  static String formatMinuteOfDay(int minuteOfDay) {
+    final hour = minuteOfDay ~/ 60;
+    final minute = minuteOfDay % 60;
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    return '$displayHour:${minute.toString().padLeft(2, '0')} $period';
   }
 
   /// Moves a reminder to the end of quiet hours when possible.

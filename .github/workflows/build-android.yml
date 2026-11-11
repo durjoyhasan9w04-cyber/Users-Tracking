@@ -40,7 +40,7 @@ jobs:
           root = tree.getroot()
           android = '{http://schemas.android.com/apk/res/android}'
           permissions = {node.get(android + 'name') for node in root.findall('uses-permission')}
-          for name in ('android.permission.POST_NOTIFICATIONS', 'android.permission.RECEIVE_BOOT_COMPLETED'):
+          for name in ('android.permission.INTERNET', 'android.permission.POST_NOTIFICATIONS', 'android.permission.RECEIVE_BOOT_COMPLETED'):
               if name not in permissions:
                   permission = ET.Element('uses-permission')
                   permission.set(android + 'name', name)

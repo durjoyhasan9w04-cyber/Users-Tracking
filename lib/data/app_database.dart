@@ -405,6 +405,22 @@ class AppDatabase {
     });
   }
 
+  Future<List<Map<String, Object?>>> getUsualDpTimePatterns() async {
+    final db = await database;
+    return db.rawQuery("""
+      SELECT u.id AS user_id, u.name AS user_name, COUNT(d.id) AS record_count,
+        AVG(CAST(strftime('%H', d.created_at) AS INTEGER) * 60 +
+            CAST(strftime('%M', d.created_at) AS INTEGER)) AS usual_minute
+      FROM users u
+      JOIN dp_entries d ON d.user_id = u.id
+      WHERE u.archived = 0 AND u.do_not_contact = 0
+        AND datetime(substr(d.created_at, 1, 19)) >= datetime('now', 'localtime', '-30 days')
+      GROUP BY u.id
+      HAVING COUNT(d.id) >= 3
+      ORDER BY usual_minute ASC, u.name COLLATE NOCASE
+    """);
+  }
+
   Future<List<Map<String, Object?>>> getDueContactFollowUps() async {
     final db = await database;
     final today = DateTime.now().toIso8601String().substring(0, 10);
@@ -413,7 +429,7 @@ class AppDatabase {
         u.name AS user_name, u.phone AS user_phone
       FROM contact_history c JOIN users u ON u.id = c.user_id
       WHERE c.follow_up_date IS NOT NULL AND c.follow_up_date <= ?
-        AND c.follow_up_completed = 0 AND u.archived = 0
+        AND c.follow_up_completed = 0 AND u.archived = 0 AND u.do_not_contact = 0
       ORDER BY c.follow_up_date ASC, u.name COLLATE NOCASE
     """, [today]);
   }
@@ -444,7 +460,10 @@ class AppDatabase {
     final db = await database;
     final today = DateTime.now().toIso8601String().substring(0, 10);
     final contacts = await db.rawQuery(
-      "SELECT COUNT(*) AS total FROM contact_history WHERE follow_up_date IS NOT NULL AND follow_up_date <= ? AND follow_up_completed = 0",
+      """SELECT COUNT(*) AS total FROM contact_history c
+         JOIN users u ON u.id = c.user_id
+         WHERE c.follow_up_date IS NOT NULL AND c.follow_up_date <= ?
+           AND c.follow_up_completed = 0 AND u.archived = 0 AND u.do_not_contact = 0""",
       [today],
     );
     final prospects = await db.rawQuery(
@@ -615,6 +634,16 @@ class AppDatabase {
     final dates = rows.map((r) => DateTime.parse(r['entry_date'] as String)).toList();
     final total = totals.fold<double>(0, (sum, value) => sum + value);
     final highest = totals.isEmpty ? 0.0 : totals.reduce((a, b) => a > b ? a : b);
+    final timeRows = await db.rawQuery("""
+      SELECT COUNT(*) AS record_count,
+        AVG(CAST(strftime('%H', created_at) AS INTEGER) * 60 +
+            CAST(strftime('%M', created_at) AS INTEGER)) AS usual_minute
+      FROM dp_entries
+      WHERE user_id = ?
+        AND datetime(substr(created_at, 1, 19)) >= datetime('now', 'localtime', '-30 days')
+    """, [userId]);
+    final usualTimeCount = (timeRows.first['record_count'] as num).toInt();
+    final usualMinute = usualTimeCount >= 3 ? timeRows.first['usual_minute'] as num? : null;
     var gapTotal = 0;
     for (var i = 1; i < dates.length; i++) {
       gapTotal += dates[i].difference(dates[i - 1]).inDays;
@@ -625,6 +654,8 @@ class AppDatabase {
       'average_per_day': rows.isEmpty ? 0.0 : total / rows.length,
       'highest_day': highest,
       'average_gap': dates.length < 2 ? null : gapTotal / (dates.length - 1),
+      'usual_minute': usualMinute,
+      'usual_time_records': usualTimeCount,
     };
   }
 

@@ -558,6 +558,15 @@ class _UserProfilePageState extends State<UserProfilePage> {
             ]),
             const SizedBox(height: 20),
             const SectionHeading('DP behaviour · Last 30 days', trailing: 'Recent pattern'),
+            if ((insights['usual_time_records'] as int? ?? 0) >= 3 &&
+                insights['usual_minute'] is num)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Usual DP entry time: ${TimeOfDay(hour: (insights['usual_minute'] as num).round() ~/ 60, minute: (insights['usual_minute'] as num).round() % 60).format(context)} · based on ${insights['usual_time_records']} records',
+                  style: const TextStyle(color: muted, fontSize: 12),
+                ),
+              ),
             const SizedBox(height: 10),
             Row(children: [
               Expanded(child: MetricCard(label: 'DP total · 30 days', value: amount(insights['total']), icon: Icons.account_balance_wallet_rounded)),
@@ -1840,6 +1849,7 @@ class MatchNotificationSettingsPage extends StatefulWidget {
 
 class _MatchNotificationSettingsPageState extends State<MatchNotificationSettingsPage> {
   bool enabled = false;
+  bool dpTimeEnabled = false;
   bool loading = true;
   bool busy = false;
   bool quietHoursEnabled = false;
@@ -1857,6 +1867,7 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
     if (!mounted) return;
     setState(() {
       enabled = prefs.getBool('match_reminders_enabled') ?? false;
+      dpTimeEnabled = prefs.getBool('dp_time_reminders_enabled') ?? false;
       quietHoursEnabled = prefs.getBool('quiet_hours_enabled') ?? false;
       final start = prefs.getInt('quiet_hours_start_minute') ?? 1320;
       final end = prefs.getInt('quiet_hours_end_minute') ?? 420;
@@ -1885,13 +1896,43 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
         await MatchNotificationService.rescheduleAllUpcoming();
       } else {
         await prefs.setBool('match_reminders_enabled', false);
-        await MatchNotificationService.cancelAll();
+        await MatchNotificationService.rescheduleAllUpcoming();
       }
       if (mounted) setState(() => enabled = value);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not update notification settings: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _toggleDpTime(bool value) async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (value) {
+        final granted = await MatchNotificationService.requestPermission();
+        if (!granted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Notification permission was not granted. Enable it in Android settings to receive reminders.')),
+            );
+          }
+          return;
+        }
+      }
+      await prefs.setBool('dp_time_reminders_enabled', value);
+      await MatchNotificationService.rescheduleAllUpcoming();
+      if (mounted) setState(() => dpTimeEnabled = value);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update usual DP-time reminders: $e')),
         );
       }
     } finally {
@@ -1908,7 +1949,7 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
     await prefs.setBool('quiet_hours_enabled', value);
     if (!mounted) return;
     setState(() => quietHoursEnabled = value);
-    if (enabled) await MatchNotificationService.rescheduleAllUpcoming();
+    if (enabled || dpTimeEnabled) await MatchNotificationService.rescheduleAllUpcoming();
   }
 
   Future<void> _chooseQuietTime({required bool isStart}) async {
@@ -1931,7 +1972,7 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
     await prefs.setInt('quiet_hours_end_minute', _minuteOfDay(nextEnd));
     if (!mounted) return;
     setState(() { quietStart = nextStart; quietEnd = nextEnd; });
-    if (enabled) await MatchNotificationService.rescheduleAllUpcoming();
+    if (enabled || dpTimeEnabled) await MatchNotificationService.rescheduleAllUpcoming();
   }
 
   Future<void> _test() async {
@@ -1982,6 +2023,21 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
           ]),
         )),
         const SizedBox(height: 12),
+        Card(child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Usual DP-time reminders', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            const SizedBox(height: 4),
+            const Text('A daily operator-only alert at the average DP-entry time from the last 30 days. It requires at least three recorded DP entries and excludes archived and Do Not Contact users.', style: TextStyle(color: muted, height: 1.4)),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Enable usual DP-time reminders'),
+              subtitle: Text(dpTimeEnabled ? 'Daily reminders are enabled' : 'Daily reminders are off'),
+              value: dpTimeEnabled,
+              onChanged: loading || busy ? null : _toggleDpTime,
+            ),
+          ]),
+        )),
         const SizedBox(height: 12),
         Card(child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
@@ -2026,9 +2082,9 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
             leading: const Icon(Icons.notifications_outlined, color: emerald),
             title: const Text('Send test notification'),
             subtitle: const Text('Check whether Android notifications are working.'),
-            enabled: !busy && enabled,
+            enabled: !busy && (enabled || dpTimeEnabled),
             trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: busy || !enabled ? null : _test,
+            onTap: busy || (!enabled && !dpTimeEnabled) ? null : _test,
           ),
         ])),
         const SizedBox(height: 10),

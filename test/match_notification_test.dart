@@ -100,6 +100,27 @@ void main() {
     );
   });
 
+  test('usual DP reminder is scheduled later today when its time is ahead', () {
+    final now = DateTime(2026, 11, 11, 10, 0);
+    expect(
+      MatchNotificationService.nextDailyReminderTime(11 * 60 + 30, now),
+      DateTime(2026, 11, 11, 11, 30),
+    );
+  });
+
+  test('usual DP reminder moves to tomorrow when today time has passed', () {
+    final now = DateTime(2026, 11, 11, 11, 30);
+    expect(
+      MatchNotificationService.nextDailyReminderTime(10 * 60, now),
+      DateTime(2026, 11, 12, 10, 0),
+    );
+  });
+
+  test('formats usual DP time in a readable local clock format', () {
+    expect(MatchNotificationService.formatMinuteOfDay(0), '12:00 AM');
+    expect(MatchNotificationService.formatMinuteOfDay(13 * 60 + 5), '1:05 PM');
+  });
+
   test('does not match an unrelated sport or team', () {
     const interest = <String, Object?>{
       'match_alerts': 1,
