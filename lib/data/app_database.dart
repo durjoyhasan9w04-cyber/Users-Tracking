@@ -636,12 +636,23 @@ class AppDatabase {
     final users = await db.rawQuery(
       'SELECT COUNT(*) AS total FROM users WHERE archived = 0',
     );
+    // A user counts as contacted today if either a contact-history entry
+    // exists or a DP record has its independent "contacted" checkbox enabled.
+    // Count users once even when both sources contain today's activity.
     final contacted = await db.rawQuery(
-      """SELECT COUNT(DISTINCT c.user_id) AS total
-         FROM contact_history c
-         JOIN users u ON u.id = c.user_id
-         WHERE substr(c.contact_date, 1, 10) = ? AND u.archived = 0""",
-      [today],
+      """SELECT COUNT(*) AS total
+         FROM users u
+         WHERE u.archived = 0 AND (
+           EXISTS (
+             SELECT 1 FROM contact_history c
+             WHERE c.user_id = u.id AND substr(c.contact_date, 1, 10) = ?
+           )
+           OR EXISTS (
+             SELECT 1 FROM dp_entries d
+             WHERE d.user_id = u.id AND d.entry_date = ? AND d.contacted = 1
+           )
+         )""",
+      [today, today],
     );
     final multipleDp = await db.rawQuery(
       """SELECT COUNT(DISTINCT user_id) AS total
