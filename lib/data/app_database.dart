@@ -2,8 +2,10 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+import 'dart:convert';
+import '../models/user_level_config.dart';
 
-const int supportedUserHubDatabaseVersion = 11;
+const int supportedUserHubDatabaseVersion = 12;
 
 Set<String> requiredBackupTablesForVersion(int version) {
   if (version < 1 || version > supportedUserHubDatabaseVersion) {
@@ -19,6 +21,7 @@ Set<String> requiredBackupTablesForVersion(int version) {
     if (version >= 8) 'audit_log',
     if (version >= 9) 'sports_interests',
     if (version >= 9) 'matches',
+    if (version >= 12) 'user_level_settings',
   };
 }
 
@@ -72,6 +75,7 @@ class AppDatabase {
         await _createCustomerIssues(db);
         await _createAuditLog(db);
         await _createSportsTables(db);
+        await _createUserLevelSettings(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _createDpEntries(db);
@@ -87,6 +91,7 @@ class AppDatabase {
           await db.execute("ALTER TABLE users ADD COLUMN preferred_language TEXT NOT NULL DEFAULT ''");
           await db.execute("ALTER TABLE users ADD COLUMN preferred_contact_method TEXT NOT NULL DEFAULT ''");
         }
+        if (oldVersion < 12) await _createUserLevelSettings(db);
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -201,6 +206,44 @@ class AppDatabase {
     } finally {
       if (await rollback.exists()) await rollback.delete();
     }
+  }
+
+  Future<void> _createUserLevelSettings(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE user_level_settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        settings_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+    await db.insert('user_level_settings', {
+      'id': 1,
+      'settings_json': jsonEncode(UserLevelConfig.defaults.toJson()),
+      'updated_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<UserLevelConfig> getUserLevelConfig() async {
+    final db = await database;
+    final rows = await db.query('user_level_settings', where: 'id = 1', limit: 1);
+    if (rows.isEmpty) return UserLevelConfig.defaults;
+    try {
+      return UserLevelConfig.fromJson(
+        jsonDecode(rows.first['settings_json'] as String) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      return UserLevelConfig.defaults;
+    }
+  }
+
+  Future<void> saveUserLevelConfig(UserLevelConfig config) async {
+    config.validate();
+    final db = await database;
+    await db.insert('user_level_settings', {
+      'id': 1,
+      'settings_json': jsonEncode(config.toJson()),
+      'updated_at': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> _createUsers(DatabaseExecutor db) async {
@@ -909,7 +952,7 @@ class AppDatabase {
     final tables = <String>[
       'users', 'dp_entries', 'bonus_entries', 'potential_users',
       'contact_history', 'customer_issues', 'audit_log',
-      'sports_interests', 'matches',
+      'sports_interests', 'matches', 'user_level_settings',
     ];
     final data = <String, Object?>{
       'app': 'User Hub',
@@ -926,10 +969,14 @@ class AppDatabase {
     if (data['app'] != 'User Hub' || data['format_version'] != 1) {
       throw const FormatException('This is not a supported User Hub backup.');
     }
-    const tables = <String>[
+    const requiredTables = <String>[
       'users', 'dp_entries', 'bonus_entries', 'potential_users',
       'contact_history', 'customer_issues', 'audit_log',
       'sports_interests', 'matches',
+    ];
+    final tables = <String>[
+      ...requiredTables,
+      if (data['user_level_settings'] is List) 'user_level_settings',
     ];
     for (final table in tables) {
       if (data[table] is! List) {
@@ -942,9 +989,10 @@ class AppDatabase {
     final db = await database;
     await db.transaction((txn) async {
       for (final table in [
-        'matches', 'audit_log', 'customer_issues', 'contact_history',
+        'user_level_settings', 'matches', 'audit_log', 'customer_issues', 'contact_history',
         'sports_interests', 'bonus_entries', 'dp_entries', 'potential_users', 'users',
       ]) {
+        if (table == 'user_level_settings' && !tables.contains(table)) continue;
         await txn.delete(table);
       }
       for (final table in tables) {

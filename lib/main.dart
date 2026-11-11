@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'data/app_database.dart';
 import 'services/match_notification_service.dart';
 import 'services/fixture_discovery_service.dart';
+import 'models/user_level_config.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -374,18 +375,8 @@ String _initials(String name) {
   if (parts.isEmpty) return '?';
   return parts.take(2).map((part) => part[0].toUpperCase()).join();
 }
-String dpLevel(double amount, {required bool monthly}) {
-  if (monthly) {
-    if (amount >= 5000) return 'High';
-    if (amount >= 1500) return 'Medium';
-    if (amount >= 200) return 'Low';
-    return 'Neighborly';
-  }
-  if (amount >= 10000) return 'High';
-  if (amount >= 3000) return 'Medium';
-  if (amount >= 500) return 'Low';
-  return 'Neighborly';
-}
+String dpLevel(double amount, {required bool monthly, UserLevelConfig config = UserLevelConfig.defaults}) =>
+    config.labelFor(amount, monthly: monthly);
 
 class UsersPage extends StatefulWidget {
   const UsersPage({super.key, required this.onChanged});
@@ -396,9 +387,12 @@ class _UsersPageState extends State<UsersPage> {
   final search = TextEditingController();
   String lifetimeFilter = 'All';
   String monthlyFilter = 'All';
-  late Future<List<Map<String, Object?>>> future;
+  late Future<List<Object?>> future;
   @override void initState() { super.initState(); load(); search.addListener(load); }
-  void load() => setState(() => future = AppDatabase.instance.getUsers(search: search.text));
+  void load() => setState(() => future = Future.wait<Object?>([
+    AppDatabase.instance.getUsers(search: search.text),
+    AppDatabase.instance.getUserLevelConfig(),
+  ]));
   @override void dispose() { search.removeListener(load); search.dispose(); super.dispose(); }
   Future<void> edit(Map<String, Object?>? user) async {
     final ok = await showDialog<bool>(context: context, builder: (_) => UserFormDialog(user: user));
@@ -412,12 +406,12 @@ class _UsersPageState extends State<UsersPage> {
     ));
     if (ok == true) { await AppDatabase.instance.archiveUser(user['id'] as int); load(); widget.onChanged(); }
   }
-  Widget filterRow(String label, String selected, ValueChanged<String> onSelected) => Padding(
+  Widget filterRow(String label, String selected, ValueChanged<String> onSelected, List<String> levelLabels) => Padding(
     padding: const EdgeInsets.only(top: 8),
     child: Row(children: [
       SizedBox(width: 66, child: Text(label, style: const TextStyle(fontSize: 10, color: muted, fontWeight: FontWeight.w800))),
       Expanded(child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
-        for (final item in ['All', 'High', 'Medium', 'Low', 'Neighborly'])
+        for (final item in ['All', ...levelLabels])
           Padding(padding: const EdgeInsets.only(right: 7), child: ChoiceChip(
             label: Text(item), selected: selected == item, onSelected: (_) => onSelected(item), showCheckmark: false,
             selectedColor: emerald, labelStyle: TextStyle(color: selected == item ? bg : muted, fontWeight: selected == item ? FontWeight.w800 : FontWeight.w500),
@@ -429,15 +423,17 @@ class _UsersPageState extends State<UsersPage> {
   @override Widget build(BuildContext context) => Column(children: [
     Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 8), child: TextField(controller: search, decoration: const InputDecoration(hintText: 'Search by name or phone', prefixIcon: Icon(Icons.search_rounded)))),
     Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 10), child: Column(children: [
-      filterRow('LIFETIME', lifetimeFilter, (v) => setState(() => lifetimeFilter = v)),
-      filterRow('MONTHLY', monthlyFilter, (v) => setState(() => monthlyFilter = v)),
+      filterRow('LIFETIME', lifetimeFilter, (v) => setState(() => lifetimeFilter = v), levelLabels),
+      filterRow('MONTHLY', monthlyFilter, (v) => setState(() => monthlyFilter = v), levelLabels),
     ])),
-    Expanded(child: FutureBuilder<List<Map<String, Object?>>>(future: future, builder: (context, snap) {
+    Expanded(child: FutureBuilder<List<Object?>>(future: future, builder: (context, snap) {
       if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-      final allRows = snap.data ?? [];
+      final allRows = (snap.data?[0] as List<Map<String, Object?>>?) ?? const [];
+      final config = snap.data?[1] as UserLevelConfig? ?? UserLevelConfig.defaults;
+      final levelLabels = config.tiers.reversed.map((tier) => tier.label).toList();
       final rows = allRows.where((user) {
-        final lifetime = dpLevel((user['lifetime_dp'] as num).toDouble(), monthly: false);
-        final monthly = dpLevel((user['monthly_dp'] as num).toDouble(), monthly: true);
+        final lifetime = dpLevel((user['lifetime_dp'] as num).toDouble(), monthly: false, config: config);
+        final monthly = dpLevel((user['monthly_dp'] as num).toDouble(), monthly: true, config: config);
         return (lifetimeFilter == 'All' || lifetime == lifetimeFilter) && (monthlyFilter == 'All' || monthly == monthlyFilter);
       }).toList();
       if (rows.isEmpty) return EmptyState(title: search.text.isEmpty ? 'No users yet' : 'No matching users', subtitle: search.text.isEmpty ? 'Add your first profile to start building your user list.' : 'Try another name or phone number.', icon: Icons.group_add_rounded, action: search.text.isEmpty ? () => edit(null) : null);
@@ -445,18 +441,20 @@ class _UsersPageState extends State<UsersPage> {
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 34), itemCount: rows.length, separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, i) {
           final user = rows[i]; final name = user['name'] as String;
-          final lifetime = dpLevel((user['lifetime_dp'] as num).toDouble(), monthly: false);
-          final monthly = dpLevel((user['monthly_dp'] as num).toDouble(), monthly: true);
-          final lifetimeNumber = lifetime == 'High' ? 4 : lifetime == 'Medium' ? 3 : lifetime == 'Low' ? 2 : 1;
-          final monthlyNumber = monthly == 'High' ? 4 : monthly == 'Medium' ? 3 : monthly == 'Low' ? 2 : 1;
+          final lifetimeIndex = config.indexFor((user['lifetime_dp'] as num).toDouble(), monthly: false);
+          final monthlyIndex = config.indexFor((user['monthly_dp'] as num).toDouble(), monthly: true);
+          final lifetime = config.tiers[lifetimeIndex].label;
+          final monthly = config.tiers[monthlyIndex].label;
+          final lifetimeNumber = lifetimeIndex + 1;
+          final monthlyNumber = monthlyIndex + 1;
           return Card(child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
             leading: CircleAvatar(radius: 23, backgroundColor: const Color(0xFF172820), child: Text(_initials(name), style: const TextStyle(color: emerald, fontWeight: FontWeight.w800))),
             title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
             subtitle: Text(_maskPhone(user['phone'] as String), style: const TextStyle(color: muted, fontSize: 12)),
             trailing: SizedBox(width: 108, child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text('Lifetime $lifetimeNumber', style: TextStyle(color: lifetime == 'High' ? amber : emerald, fontWeight: FontWeight.w800, fontSize: 13)),
-              Text('Monthly $monthlyNumber', style: const TextStyle(color: muted, fontSize: 11)),
+              Text('Lifetime $lifetimeNumber · $lifetime', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: lifetimeIndex == 3 ? amber : emerald, fontWeight: FontWeight.w800, fontSize: 11)),
+              Text('Monthly $monthlyNumber · $monthly', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: muted, fontSize: 10)),
             ])),
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: user['id'] as int, onChanged: () { load(); widget.onChanged(); }))),
             onLongPress: () => archive(user),
@@ -1711,6 +1709,13 @@ class MoreHubPage extends StatelessWidget {
       ),
       const SizedBox(height: 10),
       _MoreTile(
+        icon: Icons.stars_rounded,
+        title: 'User level requirements',
+        subtitle: 'Edit lifetime and monthly DP thresholds and level labels',
+        onTap: () => open(context, const UserLevelSettingsPage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
         icon: Icons.settings_outlined,
         title: 'Settings',
         subtitle: 'App preferences, data checks and workspace information',
@@ -1737,6 +1742,145 @@ class _MoreTile extends StatelessWidget {
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
     ),
+  );
+}
+
+class UserLevelSettingsPage extends StatefulWidget {
+  const UserLevelSettingsPage({super.key});
+
+  @override
+  State<UserLevelSettingsPage> createState() => _UserLevelSettingsPageState();
+}
+
+class _UserLevelSettingsPageState extends State<UserLevelSettingsPage> {
+  static const keys = ['neighborly', 'low', 'medium', 'high'];
+  late final List<TextEditingController> labels;
+  late final List<TextEditingController> lifetime;
+  late final List<TextEditingController> monthly;
+  bool loading = true;
+  bool saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    labels = List.generate(4, (_) => TextEditingController());
+    lifetime = List.generate(4, (_) => TextEditingController());
+    monthly = List.generate(4, (_) => TextEditingController());
+    load();
+  }
+
+  Future<void> load() async {
+    final config = await AppDatabase.instance.getUserLevelConfig();
+    if (!mounted) return;
+    for (var i = 0; i < 4; i++) {
+      labels[i].text = config.tiers[i].label;
+      lifetime[i].text = config.tiers[i].lifetimeMinimum.toStringAsFixed(0);
+      monthly[i].text = config.tiers[i].monthlyMinimum.toStringAsFixed(0);
+    }
+    setState(() => loading = false);
+  }
+
+  @override
+  void dispose() {
+    for (final controller in [...labels, ...lifetime, ...monthly]) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  String? validateNumber(String? value, int index, List<TextEditingController> controllers) {
+    final number = double.tryParse((value ?? '').trim());
+    if (number == null || !number.isFinite || number < 0) return 'Enter a valid non-negative amount';
+    if (index > 0) {
+      final previous = double.tryParse(controllers[index - 1].text.trim());
+      if (previous != null && number <= previous) return 'Must be greater than the level below';
+    }
+    return null;
+  }
+
+  Future<void> save() async {
+    final parsedLifetime = lifetime.map((c) => double.tryParse(c.text.trim())).toList();
+    final parsedMonthly = monthly.map((c) => double.tryParse(c.text.trim())).toList();
+    if (labels.any((c) => c.text.trim().isEmpty) ||
+        labels.map((c) => c.text.trim().toLowerCase()).toSet().length != 4 ||
+        parsedLifetime.any((v) => v == null || !v.isFinite) ||
+        parsedMonthly.any((v) => v == null || !v.isFinite)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Check that all labels are unique and all DP requirements are valid.')));
+      return;
+    }
+    final tiers = List.generate(4, (i) => UserLevelTier(
+      key: keys[i],
+      label: labels[i].text.trim(),
+      lifetimeMinimum: parsedLifetime[i]!,
+      monthlyMinimum: parsedMonthly[i]!,
+    ));
+    final config = UserLevelConfig(tiers: tiers);
+    try {
+      config.validate();
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString().replaceFirst('Invalid argument(s): ', ''))));
+      return;
+    }
+    setState(() => saving = true);
+    try {
+      await AppDatabase.instance.saveUserLevelConfig(config);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User level requirements saved. User levels have been recalculated.')));
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (mounted) {
+        setState(() => saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save settings: $error')));
+      }
+    }
+  }
+
+  Widget thresholdField(String label, TextEditingController controller, int index, List<TextEditingController> controllers) =>
+      Expanded(child: TextFormField(
+        controller: controller,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(labelText: label, prefixText: 'DP '),
+        validator: (value) => validateNumber(value, index, controllers),
+      ));
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('User level requirements')),
+    body: loading
+        ? const Center(child: CircularProgressIndicator())
+        : ListView(padding: const EdgeInsets.fromLTRB(18, 8, 18, 32), children: [
+            const Text('Customize your four user levels', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            const Text('Change each label and the minimum DP needed to reach it. Lifetime and monthly requirements are independent.', style: TextStyle(color: muted, height: 1.4)),
+            const SizedBox(height: 16),
+            for (var i = 3; i >= 0; i--) ...[
+              Card(child: Padding(padding: const EdgeInsets.all(15), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('LEVEL ${i + 1}', style: const TextStyle(color: emerald, fontWeight: FontWeight.w800, fontSize: 11)),
+                const SizedBox(height: 10),
+                TextField(controller: labels[i], decoration: const InputDecoration(labelText: 'Level label')),
+                const SizedBox(height: 10),
+                if (i == 0)
+                  const Text('This is the starting level. Its minimum is always 0 DP.', style: TextStyle(color: muted, fontSize: 12))
+                else ...[
+                  Row(children: [
+                    thresholdField('Lifetime minimum', lifetime[i], i, lifetime),
+                    const SizedBox(width: 10),
+                    thresholdField('Monthly minimum', monthly[i], i, monthly),
+                  ]),
+                  const SizedBox(height: 8),
+                  Text('Applies from this amount up to the next level.', style: const TextStyle(color: muted, fontSize: 11)),
+                ],
+              ]))),
+              const SizedBox(height: 10),
+            ],
+            const Text('The app updates the level shown on user profiles and the Users page. Your DP records are not changed.', style: TextStyle(color: muted, height: 1.4)),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: saving ? null : save,
+              icon: saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_rounded),
+              label: Text(saving ? 'Saving…' : 'Save requirements'),
+            ),
+          ]),
   );
 }
 
@@ -1782,6 +1926,14 @@ class _SettingsPageState extends State<SettingsPage> {
         const Text('Manage local reminders and protect your records.', style: TextStyle(color: muted)),
         const SizedBox(height: 16),
         Card(child: Column(children: [
+          ListTile(
+            leading: const Icon(Icons.stars_rounded, color: emerald),
+            title: const Text('User level requirements'),
+            subtitle: const Text('Customize level labels and lifetime/monthly DP thresholds'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => open(context, const UserLevelSettingsPage()),
+          ),
+          const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.notifications_active_outlined, color: emerald),
             title: const Text('Notifications & quiet hours'),
