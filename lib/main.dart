@@ -3008,7 +3008,7 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
           ],
           const Padding(
             padding: EdgeInsets.only(bottom: 20),
-            child: Text('Structured event times are preferred; article publication dates are never treated as match times. TheSportsDB's free API has request and data limits, and some sites block scraping or do not expose machine-readable fixtures. Images use event artwork when available, then team artwork; verify important fixtures before saving.', style: TextStyle(color: muted, fontSize: 12, height: 1.45)),
+            child: Text("Structured event times are preferred; article publication dates are never treated as match times. TheSportsDB free API has request and data limits, and some sites block scraping or do not expose machine-readable fixtures. Images use event artwork when available, then team artwork; verify important fixtures before saving.", style: TextStyle(color: muted, fontSize: 12, height: 1.45)),
           ),
         ],
       ],
