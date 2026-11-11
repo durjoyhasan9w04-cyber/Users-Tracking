@@ -211,7 +211,7 @@ class FixtureDiscoveryService {
           final time = (event['strTime'] ?? '').toString();
           DateTime? start = DateTime.tryParse(rawTime);
           if (start == null && date.isNotEmpty && time.isNotEmpty) {
-            start = DateTime.tryParse(date + 'T' + time);
+            start = DateTime.tryParse('${date}T$time');
           }
           final eventId = event['idEvent']?.toString() ?? '';
           final eventUrl = event['strWebsite']?.toString() ?? '';
