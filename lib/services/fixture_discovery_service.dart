@@ -130,7 +130,7 @@ class FixtureDiscoveryService {
 
   static String _tag(String xml, String name) {
     final match = RegExp(
-      '<$name(?:\s[^>]*)?>([\s\S]*?)</$name>',
+      '<$name(?:\\s[^>]*)?>([\\s\\S]*?)</$name>',
       caseSensitive: false,
     ).firstMatch(xml);
     if (match == null) return '';

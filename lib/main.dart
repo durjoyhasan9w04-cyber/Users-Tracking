@@ -1659,7 +1659,7 @@ class MoreHubPage extends StatelessWidget {
       _MoreTile(
         icon: Icons.sports_soccer_rounded,
         title: 'Sports & matches',
-        subtitle: 'Save user interests and manage a manual match calendar',
+        subtitle: 'Save favourite teams and discover upcoming fixtures online',
         onTap: () => open(context, const SportsMatchesPage()),
       ),
       const SizedBox(height: 10),
@@ -2009,7 +2009,7 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
         ])),
         const SizedBox(height: 10),
         const Text(
-          'Important: fixtures must be entered in the Match Calendar. The app does not automatically discover worldwide fixtures. Android notification permission and battery settings can affect delivery.',
+          'Fixture discovery searches Google News for saved teams and competitions. Search results are suggestions, not a complete or verified worldwide fixture feed. Review match date and local time before saving. Android notification permission and battery settings can affect delivery.',
           style: TextStyle(color: muted, fontSize: 12, height: 1.5),
         ),
       ],
@@ -2343,8 +2343,14 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
   Future<void> _loadInterests() async {
     try {
       final rows = await AppDatabase.instance.getSportsInterests();
-      if (mounted) setState(() => interests = rows);
-    } catch (_) {}
+      if (!mounted) return;
+      setState(() => interests = rows);
+      // Automatically look up saved favourite teams and competitions when
+      // this page opens. Results remain suggestions until the operator reviews them.
+      if (rows.isNotEmpty) await _searchSaved();
+    } catch (e) {
+      if (mounted) setState(() => error = 'Could not load saved sports interests: $e');
+    }
   }
 
   Future<void> _searchCustom() async {
@@ -2532,6 +2538,20 @@ class _SportsMatchesPageState extends State<SportsMatchesPage> {
         onSelectionChanged: (v) => setState(() => section = v.first),
       )),
       if (section == 'matches')
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const FixtureDiscoveryPage()),
+              ),
+              icon: const Icon(Icons.travel_explore_rounded),
+              label: const Text('Find fixtures for saved teams & leagues'),
+            ),
+          ),
+        ),
+      if (section == 'matches')
         Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 10), child: TextField(
           controller: search,
           decoration: const InputDecoration(hintText: 'Search teams, sport or competition', prefixIcon: Icon(Icons.search)),
@@ -2541,7 +2561,7 @@ class _SportsMatchesPageState extends State<SportsMatchesPage> {
             if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
             if (snap.hasError) return const EmptyState(title: 'Could not load matches', subtitle: 'Please try again.');
             final rows = snap.data ?? [];
-            if (rows.isEmpty) return const EmptyState(title: 'No matches saved', subtitle: 'Use the search icon above to discover fixtures online, or add a fixture manually.');
+            if (rows.isEmpty) return const EmptyState(title: 'No matches saved', subtitle: 'Use the fixture finder above to search saved favourites, or add a match manually.');
             return ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
               itemCount: rows.length,
