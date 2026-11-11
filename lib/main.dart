@@ -159,6 +159,7 @@ class DashboardPage extends StatelessWidget {
         AppDatabase.instance.getBonusEntries(),
         AppDatabase.instance.getReportTotals(monthStart, nextMonth),
         AppDatabase.instance.getReportTotals(previousStart, monthStart),
+        AppDatabase.instance.todayContactMetrics(),
       ]),
       builder: (context, snap) {
         final data = snap.data;
@@ -174,6 +175,10 @@ class DashboardPage extends StatelessWidget {
         final bonusRows = (data?[9] as List<Map<String, Object?>>?) ?? const [];
         final currentTotals = data?[10] as Map<String, num>?;
         final previousTotals = data?[11] as Map<String, num>?;
+        final contactMetrics = data?[12] as Map<String, int>? ?? const <String, int>{};
+        final contactedToday = contactMetrics['contacted'] ?? 0;
+        final notContactedToday = contactMetrics['not_contacted'] ?? 0;
+        final multipleDpToday = contactMetrics['multiple_dp'] ?? 0;
         final previousDp = previousTotals?['dp']?.toDouble() ?? 0;
         final delta = previousDp > 0 ? ((dpMonth.toDouble() - previousDp) / previousDp) * 100 : null;
         final recent = <Map<String, Object?>>[
@@ -195,6 +200,14 @@ class DashboardPage extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(child: MetricCard(label: 'Bonus this month', value: bonusMonth.toStringAsFixed(bonusMonth % 1 == 0 ? 0 : 2), icon: Icons.card_giftcard_rounded, dotColor: amber, amberValue: true)),
           ]),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: MetricCard(label: 'Contacted today', value: '$contactedToday', icon: Icons.mark_chat_read_rounded, dotColor: emerald)),
+            const SizedBox(width: 12),
+            Expanded(child: MetricCard(label: 'Not contacted', value: '$notContactedToday', icon: Icons.mark_chat_unread_rounded, dotColor: amber, amberValue: true)),
+          ]),
+          const SizedBox(height: 12),
+          MetricCard(label: 'Users with multiple DP today', value: '$multipleDpToday', icon: Icons.bolt_rounded, dotColor: const Color(0xFF72A8FF)),
           const SizedBox(height: 27),
           const SectionHeading('Recent activity', trailing: 'Latest'),
           const SizedBox(height: 12),

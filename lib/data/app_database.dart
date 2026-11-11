@@ -530,6 +530,34 @@ class AppDatabase {
     ''', [start, end, includeArchivedId, term, '%$term%', '%$term%']);
   }
 
+  Future<Map<String, int>> todayContactMetrics() async {
+    final db = await database;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final users = await db.rawQuery(
+      'SELECT COUNT(*) AS total FROM users WHERE archived = 0',
+    );
+    final contacted = await db.rawQuery(
+      """SELECT COUNT(DISTINCT c.user_id) AS total
+         FROM contact_history c
+         JOIN users u ON u.id = c.user_id
+         WHERE substr(c.contact_date, 1, 10) = ? AND u.archived = 0""",
+      [today],
+    );
+    final multipleDp = await db.rawQuery(
+      """SELECT COUNT(DISTINCT user_id) AS total
+         FROM dp_entries
+         WHERE entry_date = ? AND dp_count > 1""",
+      [today],
+    );
+    final totalUsers = Sqflite.firstIntValue(users) ?? 0;
+    final contactedUsers = Sqflite.firstIntValue(contacted) ?? 0;
+    return {
+      'contacted': contactedUsers,
+      'not_contacted': (totalUsers - contactedUsers).clamp(0, totalUsers),
+      'multiple_dp': Sqflite.firstIntValue(multipleDp) ?? 0,
+    };
+  }
+
   Future<int> countUsers() async {
     final db = await database;
     final rows = await db.rawQuery('SELECT COUNT(*) AS total FROM users WHERE archived = 0');
