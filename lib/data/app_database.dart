@@ -649,6 +649,7 @@ class AppDatabase {
     final rows = await db.rawQuery("""
       SELECT u.*,
         COALESCE((SELECT SUM(total) FROM dp_entries WHERE user_id = u.id), 0) AS lifetime_dp,
+        COALESCE((SELECT SUM(total) FROM dp_entries WHERE user_id = u.id AND entry_date >= date('now','localtime','start of month') AND entry_date < date('now','localtime','start of month','+1 month')), 0) AS monthly_dp,
         COALESCE((SELECT SUM(amount) FROM bonus_entries WHERE user_id = u.id), 0) AS lifetime_bonus,
         (SELECT MAX(entry_date) FROM dp_entries WHERE user_id = u.id) AS last_dp_date,
         CAST(julianday(date('now','localtime')) - julianday((SELECT MAX(entry_date) FROM dp_entries WHERE user_id = u.id)) AS INTEGER) AS days_since_last_dp,

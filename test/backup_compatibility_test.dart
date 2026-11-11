@@ -16,6 +16,8 @@ void main() {
       expect(requiredBackupTablesForVersion(7), isNot(contains('audit_log')));
       expect(requiredBackupTablesForVersion(8), contains('audit_log'));
       expect(requiredBackupTablesForVersion(9), containsAll({'sports_interests', 'matches'}));
+      expect(requiredBackupTablesForVersion(11), isNot(contains('user_level_settings')));
+      expect(requiredBackupTablesForVersion(12), contains('user_level_settings'));
     });
 
     test('latest schema keeps the complete table set', () {
@@ -24,14 +26,14 @@ void main() {
         containsAll({
           'users', 'dp_entries', 'bonus_entries', 'potential_users',
           'contact_history', 'customer_issues', 'audit_log',
-          'sports_interests', 'matches',
+          'sports_interests', 'matches', 'user_level_settings',
         }),
       );
     });
 
     test('rejects unsupported database versions', () {
       expect(() => requiredBackupTablesForVersion(0), throwsArgumentError);
-      expect(() => requiredBackupTablesForVersion(12), throwsArgumentError);
+      expect(() => requiredBackupTablesForVersion(13), throwsArgumentError);
     });
   });
 }

@@ -467,7 +467,7 @@ class _UsersPageState extends State<UsersPage> {
                         title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                         subtitle: Text(_maskPhone(user['phone'] as String), style: const TextStyle(color: muted, fontSize: 12)),
                         trailing: SizedBox(width: 125, child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                          Text('L$lifetimeIndex · $lifetime', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: lifetimeIndex == 3 ? amber : emerald, fontWeight: FontWeight.w800, fontSize: 11)),
+                          Text('L${lifetimeIndex + 1} · $lifetime', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: lifetimeIndex == 3 ? amber : emerald, fontWeight: FontWeight.w800, fontSize: 11)),
                           Text('M${monthlyIndex + 1} · $monthly', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: muted, fontSize: 10)),
                         ])),
                         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: user['id'] as int, onChanged: () { load(); widget.onChanged(); }))),
@@ -501,6 +501,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
       AppDatabase.instance.getUserProfile(widget.userId),
       AppDatabase.instance.getUserTimeline(widget.userId),
       AppDatabase.instance.getUserDpInsights(widget.userId),
+      AppDatabase.instance.getUserLevelConfig(),
     ]);
   }
   Future<void> edit(Map<String, Object?> user) async {
@@ -524,6 +525,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
         final user = snap.data![0] as Map<String, Object?>;
         final timeline = snap.data![1] as List<Map<String, Object?>>;
         final insights = snap.data![2] as Map<String, Object?>;
+        final levelConfig = snap.data![3] as UserLevelConfig? ?? UserLevelConfig.defaults;
+        final lifetimeLevel = levelConfig.labelFor((user['lifetime_dp'] as num? ?? 0).toDouble(), monthly: false);
+        final monthlyLevel = levelConfig.labelFor((user['monthly_dp'] as num? ?? 0).toDouble(), monthly: true);
         final name = user['name'] as String? ?? 'User';
         final lastDp = user['last_dp_date'] as String?;
         final daysSinceLastDp = user['days_since_last_dp'] as int?;
@@ -569,6 +573,22 @@ class _UserProfilePageState extends State<UserProfilePage> {
               const SizedBox(width: 10),
               Expanded(child: MetricCard(label: 'Bonus records', value: '${user['bonus_transactions']}', icon: Icons.redeem_rounded)),
             ]),
+            const SizedBox(height: 12),
+            Card(child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('LIFETIME LEVEL', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 5),
+                  Text(lifetimeLevel, style: const TextStyle(color: emerald, fontWeight: FontWeight.w800, fontSize: 15)),
+                ])),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('MONTHLY LEVEL', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 5),
+                  Text(monthlyLevel, style: const TextStyle(color: emerald, fontWeight: FontWeight.w800, fontSize: 15)),
+                ])),
+              ]),
+            )),
             const SizedBox(height: 20),
             const SectionHeading('DP behaviour · Last 30 days', trailing: 'Recent pattern'),
             if ((insights['usual_time_records'] as int? ?? 0) >= 3 &&
