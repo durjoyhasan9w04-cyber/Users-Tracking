@@ -7,12 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'data/app_database.dart';
+import 'services/match_notification_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const UserHubApp());
   unawaited(AppDatabase.instance.createDailyBackupIfNeeded().catchError((_) {}));
+  unawaited(MatchNotificationService.initializeAndRestore().catchError((_) {}));
 }
 
 const emerald = Color(0xFF3DDC97);
@@ -1573,6 +1576,13 @@ class MoreHubPage extends StatelessWidget {
       ),
       const SizedBox(height: 10),
       _MoreTile(
+        icon: Icons.notifications_active_outlined,
+        title: 'Notifications & reminders',
+        subtitle: 'Local match alerts for opted-in users',
+        onTap: () => open(context, const MatchNotificationSettingsPage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
         icon: Icons.summarize_outlined,
         title: 'Reports & export',
         subtitle: 'Review period totals and export transaction history',
@@ -1598,6 +1608,139 @@ class _MoreTile extends StatelessWidget {
       subtitle: Text(subtitle),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
+    ),
+  );
+}
+
+class MatchNotificationSettingsPage extends StatefulWidget {
+  const MatchNotificationSettingsPage({super.key});
+  @override
+  State<MatchNotificationSettingsPage> createState() => _MatchNotificationSettingsPageState();
+}
+
+class _MatchNotificationSettingsPageState extends State<MatchNotificationSettingsPage> {
+  bool enabled = false;
+  bool loading = true;
+  bool busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      enabled = prefs.getBool('match_reminders_enabled') ?? false;
+      loading = false;
+    });
+  }
+
+  Future<void> _toggle(bool value) async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (value) {
+        final granted = await MatchNotificationService.requestPermission();
+        if (!granted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Notification permission was not granted. Enable it in Android settings to receive match reminders.')),
+            );
+          }
+          return;
+        }
+        await prefs.setBool('match_reminders_enabled', true);
+        await MatchNotificationService.rescheduleAllUpcoming();
+      } else {
+        await prefs.setBool('match_reminders_enabled', false);
+        await MatchNotificationService.cancelAll();
+      }
+      if (mounted) setState(() => enabled = value);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update notification settings: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _test() async {
+    try {
+      await MatchNotificationService.showTestNotification();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Test notification sent to this device.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not send test notification: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Notifications & reminders')),
+    body: ListView(
+      padding: const EdgeInsets.all(18),
+      children: [
+        Card(child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [
+              CircleAvatar(backgroundColor: Color(0xFF183B36), child: Icon(Icons.notifications_active_outlined, color: emerald)),
+              SizedBox(width: 12),
+              Expanded(child: Text('Local match reminders', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
+            ]),
+            const SizedBox(height: 12),
+            const Text(
+              'Get a reminder 30 minutes before a saved match when it matches a registered user’s saved sports interests and that user has opted in to match alerts. If the match is less than 30 minutes away, the reminder is scheduled for match time.',
+              style: TextStyle(color: muted, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Enable match reminders'),
+              subtitle: Text(enabled ? 'Reminders are enabled on this device' : 'Reminders are currently off'),
+              value: enabled,
+              onChanged: loading || busy ? null : _toggle,
+            ),
+            if (busy || loading) const LinearProgressIndicator(),
+          ]),
+        )),
+        const SizedBox(height: 12),
+        Card(child: Column(children: [
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined, color: emerald),
+            title: const Text('Operator-only notifications'),
+            subtitle: const Text('These alerts appear on this device. The app does not send messages to users. Only users with Match alerts opted in are considered.'),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.notifications_outlined, color: emerald),
+            title: const Text('Send test notification'),
+            subtitle: const Text('Check whether Android notifications are working.'),
+            enabled: !busy && enabled,
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: busy || !enabled ? null : _test,
+          ),
+        ])),
+        const SizedBox(height: 10),
+        const Text(
+          'Important: fixtures must be entered in the Match Calendar. The app does not automatically discover worldwide fixtures. Android notification permission and battery settings can affect delivery.',
+          style: TextStyle(color: muted, fontSize: 12, height: 1.5),
+        ),
+      ],
     ),
   );
 }
@@ -1893,6 +2036,7 @@ class _SportsMatchesPageState extends State<SportsMatchesPage> {
                       } else {
                         await AppDatabase.instance.updateMatchStatus(row['id'] as int, v);
                       }
+                      await MatchNotificationService.rescheduleAllUpcoming();
                       if (mounted) setState(load);
                     },
                     itemBuilder: (_) => const [
@@ -1969,6 +2113,7 @@ class _MatchDialogState extends State<MatchDialog> {
         startAt: DateTime(date.year, date.month, date.day, time.hour, time.minute),
         status: status, sourceUrl: source.text, notes: notes.text,
       );
+      await MatchNotificationService.rescheduleAllUpcoming();
       if (mounted) Navigator.pop(context, true);
     } catch (_) {
       if (mounted) setState(() => saving = false);
@@ -2056,6 +2201,7 @@ class _SportsInterestDialogState extends State<SportsInterestDialog> {
         notes: notes.text,
         matchAlerts: alerts,
       );
+      await MatchNotificationService.rescheduleAllUpcoming();
       if (mounted) Navigator.pop(context, true);
     } catch (_) {
       if (mounted) setState(() => saving = false);

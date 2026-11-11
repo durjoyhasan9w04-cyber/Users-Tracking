@@ -28,6 +28,28 @@ jobs:
       - name: Generate Android project files
         run: flutter create --platforms=android --project-name user_hub .
 
+      - name: Add Android notification permission
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          if not manifest.exists():
+              raise SystemExit('Android manifest not found after flutter create')
+          tree = ET.parse(manifest)
+          root = tree.getroot()
+          android = '{http://schemas.android.com/apk/res/android}'
+          permissions = {node.get(android + 'name') for node in root.findall('uses-permission')}
+          if 'android.permission.POST_NOTIFICATIONS' not in permissions:
+              permission = ET.Element('uses-permission')
+              permission.set(android + 'name', 'android.permission.POST_NOTIFICATIONS')
+              application = root.find('application')
+              root.insert(list(root).index(application), permission)
+          ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')
+          tree.write(manifest, encoding='utf-8', xml_declaration=True)
+          print('Added Android 13 notification permission')
+          PY
+
       - name: Enable Android core library desugaring
         shell: bash
         run: |
