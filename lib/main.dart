@@ -2646,9 +2646,8 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
       final rows = await AppDatabase.instance.getSportsInterests();
       if (!mounted) return;
       setState(() => interests = rows);
-      // Automatically look up saved favourite teams and competitions when
-      // this page opens. Results remain suggestions until the operator reviews them.
-      if (rows.isNotEmpty) await _searchSaved();
+      // Automatically discover upcoming fixtures from public schedule pages.
+      await _searchUpcoming();
     } catch (e) {
       if (mounted) setState(() => error = 'Could not load saved sports interests: $e');
     }
@@ -2661,6 +2660,10 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
 
   Future<void> _searchSaved() async {
     await _run(() => FixtureDiscoveryService.searchSavedInterests(interests));
+  }
+
+  Future<void> _searchUpcoming() async {
+    await _run(() => FixtureDiscoveryService.searchUpcomingFixtures(days: 7));
   }
 
   Future<void> _run(Future<List<FixtureSearchResult>> Function() action) async {
@@ -2709,12 +2712,12 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
               Expanded(child: Text('Search match fixtures', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
             ]),
             const SizedBox(height: 8),
-            const Text('Searches Google News results for fixture announcements and match schedules. Search results are suggestions, not verified fixtures.', style: TextStyle(color: muted, height: 1.45)),
+            const Text('Scrapes public sports schedule pages for actual match start times. Shows upcoming fixtures within the next 7 days, converted to Bangladesh time (UTC+6). Coverage depends on source availability.', style: TextStyle(color: muted, height: 1.45)),
             const SizedBox(height: 14),
             SizedBox(width: double.infinity, child: FilledButton.icon(
-              onPressed: loading || interests.isEmpty ? null : _searchSaved,
-              icon: const Icon(Icons.favorite_outline_rounded),
-              label: const Text('Search saved teams & leagues'),
+              onPressed: loading ? null : _searchUpcoming,
+              icon: const Icon(Icons.travel_explore_rounded),
+              label: const Text('Find all upcoming matches · 7 days'),
             )),
             if (interests.isEmpty) const Padding(
               padding: EdgeInsets.only(top: 8),
@@ -2755,9 +2758,15 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
             Card(child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (result.imageUrl.isNotEmpty)
+                  ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.network(
+                    result.imageUrl, height: 150, width: double.infinity, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  )),
+                if (result.imageUrl.isNotEmpty) const SizedBox(height: 10),
                 Text(result.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                 const SizedBox(height: 7),
-                Text('${result.source.isEmpty ? 'Google News result' : result.source} · ${result.publishedAt.isEmpty ? 'Publication date unavailable' : result.publishedAt}', style: const TextStyle(color: muted, fontSize: 11)),
+                Text('${result.source} · ${result.matchStartAt == null ? 'Match time unavailable' : DateFormat('EEE, d MMM · hh:mm a').format(result.matchStartAt!.toUtc().add(const Duration(hours: 6)))} BST', style: const TextStyle(color: muted, fontSize: 11)),
                 const SizedBox(height: 10),
                 Align(alignment: Alignment.centerRight, child: FilledButton.tonalIcon(
                   onPressed: () => _review(result),
@@ -2770,7 +2779,7 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
           ],
           const Padding(
             padding: EdgeInsets.only(bottom: 20),
-            child: Text('Important: the article publication date is not the match start time. Confirm the fixture date, time and teams before saving so reminders are accurate.', style: TextStyle(color: muted, fontSize: 12, height: 1.45)),
+            child: Text('Only structured event start times are accepted; article publication dates are ignored. Some websites block scraping or do not publish machine-readable fixtures, so complete worldwide coverage cannot be guaranteed. Verify important fixtures before saving.', style: TextStyle(color: muted, fontSize: 12, height: 1.45)),
           ),
         ],
       ],
