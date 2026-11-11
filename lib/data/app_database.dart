@@ -85,20 +85,46 @@ class AppDatabase {
 
   Future<void> restoreBackupFile(String sourcePath) async {
     final source = File(sourcePath);
-    if (!await source.exists()) throw ArgumentError('Backup file does not exist');
+    if (!await source.exists()) {
+      throw ArgumentError('Backup file does not exist');
+    }
+
+    // Validate the backup before touching the currently installed database.
     final candidate = await openDatabase(source.path, readOnly: true);
     try {
       final integrity = await candidate.rawQuery('PRAGMA integrity_check');
       if (integrity.isEmpty || integrity.first.values.first != 'ok') {
         throw StateError('The selected backup failed its integrity check');
       }
+
+      final versionRows = await candidate.rawQuery('PRAGMA user_version');
+      final backupVersion = (versionRows.first.values.first as num).toInt();
+      const supportedVersion = 10;
+      if (backupVersion < 1 || backupVersion > supportedVersion) {
+        throw StateError(
+          'This backup version is not supported by this version of User Hub.',
+        );
+      }
+
       final tables = await candidate.rawQuery(
         "SELECT name FROM sqlite_master WHERE type = 'table'",
       );
       final names = tables.map((row) => row['name'] as String).toSet();
-      const required = {'users', 'dp_entries', 'bonus_entries', 'potential_users', 'contact_history', 'customer_issues'};
+      final required = <String>{
+        'users',
+        'dp_entries',
+        'bonus_entries',
+        'potential_users',
+        'contact_history',
+        'customer_issues',
+        if (backupVersion >= 8) 'audit_log',
+        // Sports tables were introduced in database version 9. Older valid
+        // backups are accepted and upgraded by sqflite after restoration.
+        if (backupVersion >= 9) 'sports_interests',
+        if (backupVersion >= 9) 'matches',
+      };
       if (!names.containsAll(required)) {
-        throw StateError('This file is not a compatible User Hub backup');
+        throw StateError('This file is not a compatible User Hub backup.');
       }
     } finally {
       await candidate.close();
@@ -108,20 +134,38 @@ class AppDatabase {
     final destination = File(p.join(root, 'user_hub.db'));
     final temp = await getTemporaryDirectory();
     final rollback = File(p.join(temp.path, 'user-hub-before-restore.db'));
-    if (await destination.exists()) await destination.copy(rollback.path);
-    await _db?.close();
-    _db = null;
+    final hadExistingDatabase = await destination.exists();
+
+    // Flush WAL pages and close SQLite before copying the database file so
+    // the rollback copy contains a consistent, self-contained snapshot.
+    if (_db != null) {
+      await _db!.rawQuery('PRAGMA wal_checkpoint(FULL)');
+      await _db!.close();
+      _db = null;
+    }
+    if (hadExistingDatabase) {
+      await destination.copy(rollback.path);
+    }
+
     try {
       await source.copy(destination.path);
-      await database;
+      await database; // Runs any required migrations for older backups.
       final valid = await checkIntegrity();
-      if (!valid) throw StateError('Restored database failed its integrity check');
+      if (!valid) {
+        throw StateError('Restored database failed its integrity check');
+      }
     } catch (_) {
       await _db?.close();
       _db = null;
-      if (await rollback.exists()) await rollback.copy(destination.path);
-      await database;
+      if (hadExistingDatabase && await rollback.exists()) {
+        await rollback.copy(destination.path);
+        await database;
+      } else {
+        if (await destination.exists()) await destination.delete();
+      }
       rethrow;
+    } finally {
+      if (await rollback.exists()) await rollback.delete();
     }
   }
 
