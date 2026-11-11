@@ -3214,6 +3214,10 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
                   )),
                 if (result.imageUrl.isNotEmpty) const SizedBox(height: 10),
                 Text(result.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                if (result.matchedUsers.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text('For: ${result.matchedUsers.join(', ')}', style: const TextStyle(color: emerald, fontSize: 12, fontWeight: FontWeight.w700)),
+                ],
                 const SizedBox(height: 7),
                 Text('${result.source} · ${result.matchStartAt == null ? (result.publishedAt.isEmpty ? 'Schedule time not confirmed — open source to verify' : 'Article: ${result.publishedAt}') : DateFormat('EEE, d MMM · hh:mm a').format(result.matchStartAt!.toUtc().add(const Duration(hours: 6)))}${result.matchStartAt == null ? '' : ' Bangladesh time'}', style: const TextStyle(color: muted, fontSize: 11)),
                 const SizedBox(height: 10),
