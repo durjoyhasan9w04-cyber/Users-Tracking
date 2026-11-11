@@ -10,9 +10,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'data/app_database.dart';
 import 'services/match_notification_service.dart';
 import 'services/fixture_discovery_service.dart';
+import 'services/gemini_fixture_service.dart';
 import 'models/user_level_config.dart';
 
 void main() {
@@ -2229,6 +2231,14 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const Divider(height: 1),
           ListTile(
+            leading: const Icon(Icons.auto_awesome_rounded, color: emerald),
+            title: const Text('Google Gemini AI fixtures'),
+            subtitle: const Text('Add your free Google AI Studio key for seven-day multi-sport fixture searches'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => open(context, const GeminiApiSettingsPage()),
+          ),
+          const Divider(height: 1),
+          ListTile(
             leading: const Icon(Icons.backup_outlined, color: emerald),
             title: const Text('Backup & restore'),
             subtitle: const Text('Create a backup, restore a database or review local backups'),
@@ -2277,6 +2287,179 @@ class _SettingsPageState extends State<SettingsPage> {
       ],
     ),
   );
+}
+
+class GeminiApiSettingsPage extends StatefulWidget {
+  const GeminiApiSettingsPage({super.key});
+  @override
+  State<GeminiApiSettingsPage> createState() => _GeminiApiSettingsPageState();
+}
+
+class _GeminiApiSettingsPageState extends State<GeminiApiSettingsPage> {
+  static const _keyName = 'google_gemini_api_key';
+  final _storage = const FlutterSecureStorage();
+  final _keyController = TextEditingController();
+  bool _hasSavedKey = false;
+  bool _obscure = true;
+  bool _busy = false;
+  String? _status;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _keyController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final key = await _storage.read(key: _keyName);
+      if (!mounted) return;
+      setState(() => _hasSavedKey = key != null && key.isNotEmpty);
+    } catch (e) {
+      if (mounted) setState(() => _status = 'Secure storage is unavailable: $e');
+    }
+  }
+
+  Future<String> _currentKey() async {
+    final typed = _keyController.text.trim();
+    if (typed.isNotEmpty) return typed;
+    return (await _storage.read(key: _keyName)) ?? '';
+  }
+
+  Future<void> _save() async {
+    final key = _keyController.text.trim();
+    if (key.isEmpty) {
+      setState(() => _status = 'Paste your Google AI Studio API key first.');
+      return;
+    }
+    setState(() { _busy = true; _status = null; });
+    try {
+      await _storage.write(key: _keyName, value: key);
+      if (!mounted) return;
+      setState(() { _hasSavedKey = true; _keyController.clear(); _status = 'API key saved securely on this device.'; });
+    } catch (e) {
+      if (mounted) setState(() => _status = 'Could not save API key: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _test() async {
+    setState(() { _busy = true; _status = null; });
+    try {
+      final key = await _currentKey();
+      if (key.isEmpty) throw const FormatException('Enter or save your API key first.');
+      final ok = await GeminiFixtureService.testConnection(key);
+      if (mounted) setState(() => _status = ok ? 'Connection successful. Gemini is ready.' : 'Gemini did not confirm the connection.');
+    } catch (e) {
+      if (mounted) setState(() => _status = 'Connection failed: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _remove() async {
+    setState(() { _busy = true; _status = null; });
+    try {
+      await _storage.delete(key: _keyName);
+      if (mounted) setState(() { _hasSavedKey = false; _keyController.clear(); _status = 'Saved API key removed from this device.'; });
+    } catch (e) {
+      if (mounted) setState(() => _status = 'Could not remove key: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Google Gemini AI')),
+    body: ListView(
+      padding: const EdgeInsets.all(18),
+      children: [
+        Card(child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [
+              Icon(Icons.auto_awesome_rounded, color: emerald),
+              SizedBox(width: 9),
+              Expanded(child: Text('AI fixture discovery', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+            ]),
+            const SizedBox(height: 8),
+            const Text('Use your own Google AI Studio API key. Gemini searches Google for fixtures matching saved sports, teams, players and competitions, limited to the next seven days.', style: TextStyle(color: muted, height: 1.45)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _keyController,
+              obscureText: _obscure,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: InputDecoration(
+                labelText: 'Google Gemini API key',
+                hintText: _hasSavedKey ? 'A key is saved securely on this device' : 'Paste your API key',
+                prefixIcon: const Icon(Icons.key_rounded),
+                suffixIcon: IconButton(
+                  tooltip: _obscure ? 'Show key' : 'Hide key',
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(width: double.infinity, child: FilledButton.icon(
+              onPressed: _busy ? null : _save,
+              icon: const Icon(Icons.save_rounded),
+              label: const Text('Save API key securely'),
+            )),
+            const SizedBox(height: 8),
+            SizedBox(width: double.infinity, child: OutlinedButton.icon(
+              onPressed: _busy ? null : _test,
+              icon: _busy ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.wifi_tethering_rounded),
+              label: const Text('Test connection'),
+            )),
+            if (_hasSavedKey) ...[
+              const SizedBox(height: 8),
+              SizedBox(width: double.infinity, child: TextButton.icon(
+                onPressed: _busy ? null : _remove,
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: const Text('Remove saved key'),
+              )),
+            ],
+            if (_status != null) ...[
+              const SizedBox(height: 10),
+              Text(_status!, style: TextStyle(color: _status!.contains('successful') || _status!.contains('saved securely') ? emerald : amber, height: 1.4)),
+            ],
+          ]),
+        )),
+        const SizedBox(height: 14),
+        Card(child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Get a free API key', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            const SizedBox(height: 8),
+            const Text('1. Open Google AI Studio.\n2. Sign in with your Google account.\n3. Create an API key and paste it above.', style: TextStyle(color: muted, height: 1.6)),
+            const SizedBox(height: 10),
+            SizedBox(width: double.infinity, child: OutlinedButton.icon(
+              onPressed: () => launchGeminiKeyPage(context),
+              icon: const Icon(Icons.open_in_new_rounded),
+              label: const Text('Open Google AI Studio'),
+            )),
+          ]),
+        )),
+        const SizedBox(height: 12),
+        const Text('Free-tier quotas and model availability can change. Google Search grounding has usage limits. Search is only run when you ask the app to find fixtures; results are restricted to the next seven days and must include a source and exact kickoff time. Do not share this key with anyone. The free tier may allow Google to use API inputs and outputs to improve its products, so the app sends sports-interest terms only—not user names, phone numbers, DP or bonus records.', style: TextStyle(color: muted, fontSize: 12, height: 1.5)),
+      ],
+    ),
+  );
+}
+
+Future<void> launchGeminiKeyPage(BuildContext context) async {
+  const url = 'https://aistudio.google.com/app/apikey';
+  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 }
 
 class MatchNotificationSettingsPage extends StatefulWidget {
@@ -2853,6 +3036,8 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
   String? error;
   List<FixtureSearchResult> results = [];
   List<Map<String, Object?>> interests = [];
+  String? aiStatus;
+  final _geminiStorage = const FlutterSecureStorage();
   @override
   void initState() { super.initState(); _loadInterests(); }
   @override
@@ -2876,11 +3061,12 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
   }
 
   Future<void> _searchUpcoming() async {
+    aiStatus = null;
     await _run(() async {
       final combined = <FixtureSearchResult>[];
       final seen = <String>{};
       try {
-        for (final result in await FixtureDiscoveryService.searchUpcomingFixtures(days: 60)) {
+        for (final result in await FixtureDiscoveryService.searchUpcomingFixtures(days: 7)) {
           final key = '${result.title.toLowerCase()}|${result.matchStartAt?.toIso8601String() ?? result.url}';
           if (seen.add(key)) combined.add(result);
         }
@@ -2891,8 +3077,30 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
           if (seen.add(key)) combined.add(result);
         }
       } catch (_) {}
+      final apiKey = await _geminiStorage.read(key: 'google_gemini_api_key') ?? '';
+      if (apiKey.isEmpty) {
+        aiStatus = 'Gemini AI is not set up yet. Add your free API key in Settings to enable AI-powered seven-day searches.';
+      } else {
+        try {
+          for (final result in await GeminiFixtureService.searchSavedInterests(
+            apiKey: apiKey, interests: interests, days: 7,
+          )) {
+            final key = '${result.title.toLowerCase()}|${result.matchStartAt?.toIso8601String() ?? result.url}';
+            if (seen.add(key)) combined.add(result);
+          }
+          aiStatus = 'Gemini AI search completed for the next seven days.';
+        } catch (e) {
+          aiStatus = 'Gemini AI search unavailable: $e';
+        }
+      }
+      combined.sort((a, b) {
+        if (a.matchStartAt == null) return 1;
+        if (b.matchStartAt == null) return -1;
+        return a.matchStartAt!.compareTo(b.matchStartAt!);
+      });
       return combined;
     });
+    if (mounted) setState(() {});
   }
 
   Future<void> _run(Future<List<FixtureSearchResult>> Function() action) async {
@@ -2941,13 +3149,23 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
               Expanded(child: Text('Search match fixtures', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
             ]),
             const SizedBox(height: 8),
-            const Text('Checks public schedules from multi-sport and specialist sources, plus saved-team searches and TheSportsDB artwork. Shows structured fixtures up to 60 days ahead when a source exposes reliable event data. Match times are converted to Bangladesh time (UTC+6). Coverage depends on public data exposed by each source.', style: TextStyle(color: muted, height: 1.45)),
+            const Text('Searches public sports schedules, saved-team results and Google Gemini AI for fixtures in the next seven days. Gemini uses Google Search to discover matches across sports worldwide. Exact kickoff times are shown in Bangladesh time (UTC+6). Results depend on public source coverage.', style: TextStyle(color: muted, height: 1.45)),
             const SizedBox(height: 14),
             SizedBox(width: double.infinity, child: FilledButton.icon(
               onPressed: loading ? null : _searchUpcoming,
               icon: const Icon(Icons.travel_explore_rounded),
-              label: const Text('Find upcoming matches · 60 days'),
+              label: const Text('Find matches · next 7 days'),
             )),
+            const SizedBox(height: 8),
+            SizedBox(width: double.infinity, child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GeminiApiSettingsPage())),
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: const Text('Set up Google Gemini AI'),
+            )),
+            if (aiStatus != null) Padding(
+              padding: const EdgeInsets.only(top: 9),
+              child: Text(aiStatus!, style: TextStyle(color: aiStatus!.contains('completed') ? emerald : amber, fontSize: 12)),
+            ),
             if (interests.isEmpty) const Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text('Add favourite teams or competitions in User interests first.', style: TextStyle(color: amber, fontSize: 12)),
@@ -3008,7 +3226,7 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
           ],
           const Padding(
             padding: EdgeInsets.only(bottom: 20),
-            child: Text("Structured event times are preferred; article publication dates are never treated as match times. TheSportsDB free API has request and data limits, and some sites block scraping or do not expose machine-readable fixtures. Images use event artwork when available, then team artwork; verify important fixtures before saving.", style: TextStyle(color: muted, fontSize: 12, height: 1.45)),
+            child: Text("Gemini results are AI-assisted and must be checked against the linked source before saving. Search results may be incomplete or delayed. Only fixtures with an exact scheduled kickoff time are included in AI results.", style: TextStyle(color: muted, fontSize: 12, height: 1.45)),
           ),
         ],
       ],
