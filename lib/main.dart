@@ -2941,12 +2941,12 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
               Expanded(child: Text('Search match fixtures', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
             ]),
             const SizedBox(height: 8),
-            const Text('Checks public sports schedule pages, including official Premier League, Manchester City, Liverpool and Everton fixture pages. Shows structured upcoming fixtures within the next 30 days, converted to Bangladesh time (UTC+6). Coverage depends on what each site makes publicly readable.', style: TextStyle(color: muted, height: 1.45)),
+            const Text('Checks public schedules from multi-sport and specialist sources, plus saved-team searches and TheSportsDB artwork. Shows structured fixtures up to 60 days ahead when a source exposes reliable event data. Match times are converted to Bangladesh time (UTC+6). Coverage depends on each source's public data.', style: TextStyle(color: muted, height: 1.45)),
             const SizedBox(height: 14),
             SizedBox(width: double.infinity, child: FilledButton.icon(
               onPressed: loading ? null : _searchUpcoming,
               icon: const Icon(Icons.travel_explore_rounded),
-              label: const Text('Find all upcoming matches · 30 days'),
+              label: const Text('Find upcoming matches · 60 days'),
             )),
             if (interests.isEmpty) const Padding(
               padding: EdgeInsets.only(top: 8),
@@ -3008,7 +3008,7 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
           ],
           const Padding(
             padding: EdgeInsets.only(bottom: 20),
-            child: Text('Only structured event start times are accepted; article publication dates are ignored. Some websites block scraping or do not publish machine-readable fixtures, so complete worldwide coverage cannot be guaranteed. Verify important fixtures before saving.', style: TextStyle(color: muted, fontSize: 12, height: 1.45)),
+            child: Text('Structured event times are preferred; article publication dates are never treated as match times. TheSportsDB's free API has request and data limits, and some sites block scraping or do not expose machine-readable fixtures. Images use event artwork when available, then team artwork; verify important fixtures before saving.', style: TextStyle(color: muted, fontSize: 12, height: 1.45)),
           ),
         ],
       ],
