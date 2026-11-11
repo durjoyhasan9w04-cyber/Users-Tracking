@@ -55,9 +55,14 @@ class FixtureDiscoveryService {
     'ATP Tour': 'https://www.atptour.com/en/scores/current',
     'WTA Tennis': 'https://www.wtatennis.com/tournaments',
     'BWF Badminton': 'https://bwfbadminton.com/tournament/',
+    // Official football fixture pages improve coverage for popular saved clubs.
+    'Premier League Official': 'https://www.premierleague.com/en/matches',
+    'Manchester City Official': 'https://www.mancity.com/fixtures',
+    'Liverpool Official': 'https://www.liverpoolfc.com/fixtures',
+    'Everton Official': 'https://www.evertonfc.com/fixtures',
   };
 
-  static Future<List<FixtureSearchResult>> searchUpcomingFixtures({int days = 7}) async {
+  static Future<List<FixtureSearchResult>> searchUpcomingFixtures({int days = 30}) async {
     final nowUtc = DateTime.now().toUtc();
     final endUtc = nowUtc.add(Duration(days: days));
     final found = <FixtureSearchResult>[];
