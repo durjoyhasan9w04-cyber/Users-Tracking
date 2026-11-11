@@ -107,7 +107,11 @@ ${jsonEncode(selections)}
 
       final key = '${title.toLowerCase()}|${instant.toIso8601String()}';
       if (!seen.add(key)) continue;
-      if (event['timeConfirmed'] == false) continue;
+      final refs = event['matchedProfileRefs'] is List
+          ? (event['matchedProfileRefs'] as List).map((value) => value.toString())
+          : const <String>[];
+      final matchedUsers = refs.map((ref) => profileNames[ref] ?? '')
+          .where((name) => name.isNotEmpty).toSet().toList();
       found.add(FixtureSearchResult(
         title: title,
         url: url,
