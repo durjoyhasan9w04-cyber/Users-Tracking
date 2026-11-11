@@ -12,6 +12,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'data/app_database.dart';
 import 'services/match_notification_service.dart';
+import 'services/fixture_discovery_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -2322,6 +2323,154 @@ class _ReportsPageState extends State<ReportsPage> {
   );
 }
 
+class FixtureDiscoveryPage extends StatefulWidget {
+  const FixtureDiscoveryPage({super.key});
+  @override
+  State<FixtureDiscoveryPage> createState() => _FixtureDiscoveryPageState();
+}
+
+class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
+  final query = TextEditingController();
+  bool loading = false;
+  String? error;
+  List<FixtureSearchResult> results = [];
+  List<Map<String, Object?>> interests = [];
+  @override
+  void initState() { super.initState(); _loadInterests(); }
+  @override
+  void dispose() { query.dispose(); super.dispose(); }
+
+  Future<void> _loadInterests() async {
+    try {
+      final rows = await AppDatabase.instance.getSportsInterests();
+      if (mounted) setState(() => interests = rows);
+    } catch (_) {}
+  }
+
+  Future<void> _searchCustom() async {
+    if (query.text.trim().isEmpty) return;
+    await _run(() => FixtureDiscoveryService.search(query.text.trim()));
+  }
+
+  Future<void> _searchSaved() async {
+    await _run(() => FixtureDiscoveryService.searchSavedInterests(interests));
+  }
+
+  Future<void> _run(Future<List<FixtureSearchResult>> Function() action) async {
+    setState(() { loading = true; error = null; results = []; });
+    try {
+      final found = await action();
+      if (mounted) setState(() => results = found);
+      if (found.isEmpty && mounted) {
+        setState(() => error = 'No results were found. Try a team name, league or a broader search.');
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = 'Fixture search failed: $e');
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> _review(FixtureSearchResult result) async {
+    final pair = FixtureDiscoveryService.parseTeams(result.title);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => MatchDialog(
+        initialHomeTeam: pair?['home'] ?? '',
+        initialAwayTeam: pair?['away'] ?? '',
+        sourceUrl: result.url,
+        notes: 'Found by online fixture search. Verify the official fixture date and local start time before saving.\n${result.title}',
+      ),
+    );
+    if (saved == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fixture saved to your match calendar.')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Find fixtures online')),
+    body: ListView(
+      padding: const EdgeInsets.all(18),
+      children: [
+        Card(child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [
+              Icon(Icons.travel_explore_rounded, color: emerald),
+              SizedBox(width: 9),
+              Expanded(child: Text('Search match fixtures', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
+            ]),
+            const SizedBox(height: 8),
+            const Text('Searches Google News results for fixture announcements and match schedules. Search results are suggestions, not verified fixtures.', style: TextStyle(color: muted, height: 1.45)),
+            const SizedBox(height: 14),
+            SizedBox(width: double.infinity, child: FilledButton.icon(
+              onPressed: loading || interests.isEmpty ? null : _searchSaved,
+              icon: const Icon(Icons.favorite_outline_rounded),
+              label: const Text('Search saved teams & leagues'),
+            )),
+            if (interests.isEmpty) const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('Add favourite teams or competitions in User interests first.', style: TextStyle(color: amber, fontSize: 12)),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: query,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _searchCustom(),
+              decoration: InputDecoration(
+                hintText: 'Search any team, league or match',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(onPressed: query.clear, icon: const Icon(Icons.close)),
+              ),
+            ),
+            const SizedBox(height: 9),
+            SizedBox(width: double.infinity, child: OutlinedButton.icon(
+              onPressed: loading ? null : _searchCustom,
+              icon: const Icon(Icons.search_rounded),
+              label: const Text('Search the web'),
+            )),
+            if (loading) const Padding(
+              padding: EdgeInsets.only(top: 14),
+              child: LinearProgressIndicator(),
+            ),
+          ]),
+        )),
+        if (error != null) Padding(
+          padding: const EdgeInsets.only(top: 14),
+          child: Text(error!, style: const TextStyle(color: amber)),
+        ),
+        if (results.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          SectionHeading('Search results', trailing: '${results.length} found'),
+          const SizedBox(height: 10),
+          for (final result in results) ...[
+            Card(child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(result.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                const SizedBox(height: 7),
+                Text('${result.source.isEmpty ? 'Google News result' : result.source} · ${result.publishedAt.isEmpty ? 'Publication date unavailable' : result.publishedAt}', style: const TextStyle(color: muted, fontSize: 11)),
+                const SizedBox(height: 10),
+                Align(alignment: Alignment.centerRight, child: FilledButton.tonalIcon(
+                  onPressed: () => _review(result),
+                  icon: const Icon(Icons.playlist_add_check_rounded),
+                  label: const Text('Review & add fixture'),
+                )),
+              ]),
+            )),
+            const SizedBox(height: 8),
+          ],
+          const Padding(
+            padding: EdgeInsets.only(bottom: 20),
+            child: Text('Important: the article publication date is not the match start time. Confirm the fixture date, time and teams before saving so reminders are accurate.', style: TextStyle(color: muted, fontSize: 12, height: 1.45)),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
 class SportsMatchesPage extends StatefulWidget {
   const SportsMatchesPage({super.key});
   @override
@@ -2334,13 +2483,14 @@ class _SportsMatchesPageState extends State<SportsMatchesPage> {
   late Future<List<Map<String, Object?>>> matches;
   late Future<List<Map<String, Object?>>> interests;
   @override
-  void initState() { super.initState(); load(); search.addListener(load); }
+  void initState() { super.initState(); load(); search.addListener(_reload); }
+  void _reload() { if (mounted) setState(load); }
   void load() {
     matches = AppDatabase.instance.getMatches(search: search.text);
     interests = AppDatabase.instance.getSportsInterests();
   }
   @override
-  void dispose() { search.removeListener(load); search.dispose(); super.dispose(); }
+  void dispose() { search.removeListener(_reload); search.dispose(); super.dispose(); }
   Future<void> addMatch() async {
     final saved = await showDialog<bool>(context: context, builder: (_) => const MatchDialog());
     if (saved == true && mounted) setState(load);
@@ -2357,7 +2507,16 @@ class _SportsMatchesPageState extends State<SportsMatchesPage> {
   }
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Sports & matches')),
+    appBar: AppBar(
+      title: const Text('Sports & matches'),
+      actions: [
+        IconButton(
+          tooltip: 'Find fixtures online',
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FixtureDiscoveryPage())),
+          icon: const Icon(Icons.travel_explore_rounded, color: emerald),
+        ),
+      ],
+    ),
     floatingActionButton: FloatingActionButton.extended(
       onPressed: section == 'matches' ? addMatch : addInterest,
       icon: const Icon(Icons.add),
@@ -2382,7 +2541,7 @@ class _SportsMatchesPageState extends State<SportsMatchesPage> {
             if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
             if (snap.hasError) return const EmptyState(title: 'Could not load matches', subtitle: 'Please try again.');
             final rows = snap.data ?? [];
-            if (rows.isEmpty) return const EmptyState(title: 'No matches saved', subtitle: 'Add fixtures manually. Match coverage is not automatically sourced.');
+            if (rows.isEmpty) return const EmptyState(title: 'No matches saved', subtitle: 'Use the search icon above to discover fixtures online, or add a fixture manually.');
             return ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
               itemCount: rows.length,
@@ -2443,7 +2602,8 @@ class _SportsMatchesPageState extends State<SportsMatchesPage> {
 }
 
 class MatchDialog extends StatefulWidget {
-  const MatchDialog({super.key});
+  const MatchDialog({super.key, this.initialHomeTeam = '', this.initialAwayTeam = '', this.sourceUrl = '', this.notes = ''});
+  final String initialHomeTeam, initialAwayTeam, sourceUrl, notes;
   @override
   State<MatchDialog> createState() => _MatchDialogState();
 }
@@ -2459,6 +2619,14 @@ class _MatchDialogState extends State<MatchDialog> {
   DateTime date = DateTime.now();
   TimeOfDay time = TimeOfDay.now();
   bool saving = false;
+  @override
+  void initState() {
+    super.initState();
+    home.text = widget.initialHomeTeam;
+    away.text = widget.initialAwayTeam;
+    source.text = widget.sourceUrl;
+    notes.text = widget.notes;
+  }
   @override
   void dispose() { competition.dispose(); home.dispose(); away.dispose(); source.dispose(); notes.dispose(); super.dispose(); }
   Future<void> chooseDate() async {
