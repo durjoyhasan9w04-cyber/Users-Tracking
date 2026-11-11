@@ -125,6 +125,19 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Normalize logo image
+        run: |
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          path = Path("assets/app_logo.png")
+          image = Image.open(path).convert("RGBA")
+          image.save(path, format="PNG", optimize=True)
+          Image.open(path).verify()
+          print("Logo PNG normalized and verified")
+          PY
+
       - name: Generate app launcher icons
         run: dart run flutter_launcher_icons
 
