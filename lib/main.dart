@@ -185,6 +185,8 @@ class DashboardPage extends StatelessWidget {
         AppDatabase.instance.getReportTotals(monthStart, nextMonth),
         AppDatabase.instance.getReportTotals(previousStart, monthStart),
         AppDatabase.instance.todayContactMetrics(),
+        AppDatabase.instance.todayBonusTotal(),
+        AppDatabase.instance.getActivityStatusUsers(),
       ]),
       builder: (context, snap) {
         final data = snap.data;
@@ -201,6 +203,12 @@ class DashboardPage extends StatelessWidget {
         final currentTotals = data?[10] as Map<String, num>?;
         final previousTotals = data?[11] as Map<String, num>?;
         final contactMetrics = data?[12] as Map<String, int>? ?? const <String, int>{};
+        final bonusToday = (data?[13] as num?) ?? 0;
+        final activityRows = data?[14] as List<Map<String, Object?>>? ?? const [];
+        final activeUsers = activityRows.where((r) => r['activity_status'] == 'Active').length;
+        final dpFollowUpUsers = activityRows.where((r) => r['activity_status'] == 'Follow-up').length;
+        final inactiveUsers = activityRows.where((r) => const ['Inactive', 'Long inactive', 'Very long inactive'].contains(r['activity_status'])).length;
+        final neverDpUsers = activityRows.where((r) => r['activity_status'] == 'Never DP').length;
         final contactedToday = contactMetrics['contacted'] ?? 0;
         final notContactedToday = contactMetrics['not_contacted'] ?? 0;
         final multipleDpToday = contactMetrics['multiple_dp'] ?? 0;
@@ -223,7 +231,25 @@ class DashboardPage extends StatelessWidget {
           Row(children: [
             Expanded(child: MetricCard(label: 'DP today', value: dpToday.toStringAsFixed(dpToday % 1 == 0 ? 0 : 2), icon: Icons.bolt_rounded, dotColor: emerald)),
             const SizedBox(width: 12),
-            Expanded(child: MetricCard(label: 'Bonus this month', value: bonusMonth.toStringAsFixed(bonusMonth % 1 == 0 ? 0 : 2), icon: Icons.card_giftcard_rounded, dotColor: amber, amberValue: true)),
+            Expanded(child: MetricCard(label: 'Bonus today', value: bonusToday.toStringAsFixed(bonusToday % 1 == 0 ? 0 : 2), icon: Icons.card_giftcard_rounded, dotColor: amber, amberValue: true)),
+          ]),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: MetricCard(label: 'Bonus this month', value: bonusMonth.toStringAsFixed(bonusMonth % 1 == 0 ? 0 : 2), icon: Icons.redeem_rounded, dotColor: amber, amberValue: true)),
+            const SizedBox(width: 12),
+            Expanded(child: MetricCard(label: 'Active DP users', value: '$activeUsers', icon: Icons.bolt_rounded, dotColor: emerald)),
+          ]),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: MetricCard(label: 'DP follow-up', value: '$dpFollowUpUsers', icon: Icons.event_available_rounded, dotColor: const Color(0xFF72A8FF))),
+            const SizedBox(width: 12),
+            Expanded(child: MetricCard(label: 'Inactive users', value: '$inactiveUsers', icon: Icons.pause_circle_outline_rounded, dotColor: amber, amberValue: true)),
+          ]),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: MetricCard(label: 'Never DP', value: '$neverDpUsers', icon: Icons.person_off_outlined)),
+            const SizedBox(width: 12),
+            Expanded(child: MetricCard(label: 'Multiple DP today', value: '$multipleDpToday', icon: Icons.bolt_rounded, dotColor: const Color(0xFF72A8FF))),
           ]),
           const SizedBox(height: 12),
           Row(children: [
@@ -231,8 +257,6 @@ class DashboardPage extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(child: MetricCard(label: 'Not contacted', value: '$notContactedToday', icon: Icons.mark_chat_unread_rounded, dotColor: amber, amberValue: true)),
           ]),
-          const SizedBox(height: 12),
-          MetricCard(label: 'Users with multiple DP today', value: '$multipleDpToday', icon: Icons.bolt_rounded, dotColor: const Color(0xFF72A8FF)),
           const SizedBox(height: 27),
           const SectionHeading('Recent activity', trailing: 'Latest'),
           const SizedBox(height: 12),

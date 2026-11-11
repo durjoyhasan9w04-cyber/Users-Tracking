@@ -834,6 +834,16 @@ class AppDatabase {
     return (rows.first['total'] as num).toDouble();
   }
 
+  Future<double> todayBonusTotal() async {
+    final db = await database;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final rows = await db.rawQuery(
+      'SELECT COALESCE(SUM(amount), 0) AS total FROM bonus_entries WHERE entry_date = ?',
+      [today],
+    );
+    return (rows.first['total'] as num).toDouble();
+  }
+
   Future<int> todayDpTransactions() async {
     final db = await database;
     final today = DateTime.now().toIso8601String().substring(0, 10);
