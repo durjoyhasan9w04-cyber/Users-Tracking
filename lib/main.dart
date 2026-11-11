@@ -2658,10 +2658,6 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
     await _run(() => FixtureDiscoveryService.search(query.text.trim()));
   }
 
-  Future<void> _searchSaved() async {
-    await _run(() => FixtureDiscoveryService.searchSavedInterests(interests));
-  }
-
   Future<void> _searchUpcoming() async {
     await _run(() => FixtureDiscoveryService.searchUpcomingFixtures(days: 7));
   }
