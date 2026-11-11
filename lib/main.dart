@@ -420,49 +420,64 @@ class _UsersPageState extends State<UsersPage> {
       ]))),
     ]),
   );
-  @override Widget build(BuildContext context) => Column(children: [
-    Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 8), child: TextField(controller: search, decoration: const InputDecoration(hintText: 'Search by name or phone', prefixIcon: Icon(Icons.search_rounded)))),
-    Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 10), child: Column(children: [
-      filterRow('LIFETIME', lifetimeFilter, (v) => setState(() => lifetimeFilter = v), levelLabels),
-      filterRow('MONTHLY', monthlyFilter, (v) => setState(() => monthlyFilter = v), levelLabels),
-    ])),
-    Expanded(child: FutureBuilder<List<Object?>>(future: future, builder: (context, snap) {
-      if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-      final allRows = (snap.data?[0] as List<Map<String, Object?>>?) ?? const [];
+  @override Widget build(BuildContext context) => FutureBuilder<List<Object?>>(
+    future: future,
+    builder: (context, snap) {
       final config = snap.data?[1] as UserLevelConfig? ?? UserLevelConfig.defaults;
+      final allRows = (snap.data?[0] as List<Map<String, Object?>>?) ?? const [];
       final levelLabels = config.tiers.reversed.map((tier) => tier.label).toList();
       final rows = allRows.where((user) {
         final lifetime = dpLevel((user['lifetime_dp'] as num).toDouble(), monthly: false, config: config);
         final monthly = dpLevel((user['monthly_dp'] as num).toDouble(), monthly: true, config: config);
-        return (lifetimeFilter == 'All' || lifetime == lifetimeFilter) && (monthlyFilter == 'All' || monthly == monthlyFilter);
+        return (lifetimeFilter == 'All' || lifetime == lifetimeFilter) &&
+            (monthlyFilter == 'All' || monthly == monthlyFilter);
       }).toList();
-      if (rows.isEmpty) return EmptyState(title: search.text.isEmpty ? 'No users yet' : 'No matching users', subtitle: search.text.isEmpty ? 'Add your first profile to start building your user list.' : 'Try another name or phone number.', icon: Icons.group_add_rounded, action: search.text.isEmpty ? () => edit(null) : null);
-      return ListView.separated(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 34), itemCount: rows.length, separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (context, i) {
-          final user = rows[i]; final name = user['name'] as String;
-          final lifetimeIndex = config.indexFor((user['lifetime_dp'] as num).toDouble(), monthly: false);
-          final monthlyIndex = config.indexFor((user['monthly_dp'] as num).toDouble(), monthly: true);
-          final lifetime = config.tiers[lifetimeIndex].label;
-          final monthly = config.tiers[monthlyIndex].label;
-          final lifetimeNumber = lifetimeIndex + 1;
-          final monthlyNumber = monthlyIndex + 1;
-          return Card(child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-            leading: CircleAvatar(radius: 23, backgroundColor: const Color(0xFF172820), child: Text(_initials(name), style: const TextStyle(color: emerald, fontWeight: FontWeight.w800))),
-            title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-            subtitle: Text(_maskPhone(user['phone'] as String), style: const TextStyle(color: muted, fontSize: 12)),
-            trailing: SizedBox(width: 108, child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text('Lifetime $lifetimeNumber · $lifetime', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: lifetimeIndex == 3 ? amber : emerald, fontWeight: FontWeight.w800, fontSize: 11)),
-              Text('Monthly $monthlyNumber · $monthly', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: muted, fontSize: 10)),
-            ])),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: user['id'] as int, onChanged: () { load(); widget.onChanged(); }))),
-            onLongPress: () => archive(user),
-          ));
-        },
-      );
-    })),
-  ]);
+      return Column(children: [
+        Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 8), child: TextField(
+          controller: search,
+          decoration: const InputDecoration(hintText: 'Search by name or phone', prefixIcon: Icon(Icons.search_rounded)),
+        )),
+        Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 10), child: Column(children: [
+          filterRow('LIFETIME', lifetimeFilter, (v) => setState(() => lifetimeFilter = v), levelLabels),
+          filterRow('MONTHLY', monthlyFilter, (v) => setState(() => monthlyFilter = v), levelLabels),
+        ])),
+        Expanded(child: snap.connectionState == ConnectionState.waiting
+            ? const Center(child: CircularProgressIndicator())
+            : rows.isEmpty
+                ? EmptyState(
+                    title: search.text.isEmpty ? 'No users yet' : 'No matching users',
+                    subtitle: search.text.isEmpty ? 'Add your first profile to start building your user list.' : 'Try another name or phone number.',
+                    icon: Icons.group_add_rounded,
+                    action: search.text.isEmpty ? () => edit(null) : null,
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 34),
+                    itemCount: rows.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, i) {
+                      final user = rows[i];
+                      final name = user['name'] as String;
+                      final lifetimeIndex = config.indexFor((user['lifetime_dp'] as num).toDouble(), monthly: false);
+                      final monthlyIndex = config.indexFor((user['monthly_dp'] as num).toDouble(), monthly: true);
+                      final lifetime = config.tiers[lifetimeIndex].label;
+                      final monthly = config.tiers[monthlyIndex].label;
+                      return Card(child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                        leading: CircleAvatar(radius: 23, backgroundColor: const Color(0xFF172820), child: Text(_initials(name), style: const TextStyle(color: emerald, fontWeight: FontWeight.w800))),
+                        title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                        subtitle: Text(_maskPhone(user['phone'] as String), style: const TextStyle(color: muted, fontSize: 12)),
+                        trailing: SizedBox(width: 125, child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                          Text('L$lifetimeIndex · $lifetime', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: lifetimeIndex == 3 ? amber : emerald, fontWeight: FontWeight.w800, fontSize: 11)),
+                          Text('M${monthlyIndex + 1} · $monthly', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: muted, fontSize: 10)),
+                        ])),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: user['id'] as int, onChanged: () { load(); widget.onChanged(); }))),
+                        onLongPress: () => archive(user),
+                      ));
+                    },
+                  )),
+      ]);
+    },
+  );
 }
 
 String _maskPhone(String phone) {
