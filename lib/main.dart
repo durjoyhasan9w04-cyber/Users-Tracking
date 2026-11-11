@@ -15,7 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'data/app_database.dart';
 import 'services/match_notification_service.dart';
 import 'services/fixture_discovery_service.dart';
-import 'services/gemini_fixture_service.dart';
+import 'services/groq_fixture_service.dart';
 import 'models/user_level_config.dart';
 
 void main() {
@@ -2233,10 +2233,10 @@ class _SettingsPageState extends State<SettingsPage> {
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.auto_awesome_rounded, color: emerald),
-            title: const Text('Google Gemini AI fixtures'),
-            subtitle: const Text('Add your free Google AI Studio key for seven-day multi-sport fixture searches'),
+            title: const Text('Groq AI fixture search'),
+            subtitle: const Text('Configure your Groq API key and free browser-search model'),
             trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => open(context, const GeminiApiSettingsPage()),
+            onTap: () => open(context, const GroqApiSettingsPage()),
           ),
           const Divider(height: 1),
           ListTile(
@@ -2290,177 +2290,113 @@ class _SettingsPageState extends State<SettingsPage> {
   );
 }
 
-class GeminiApiSettingsPage extends StatefulWidget {
-  const GeminiApiSettingsPage({super.key});
-  @override
-  State<GeminiApiSettingsPage> createState() => _GeminiApiSettingsPageState();
-}
 
-class _GeminiApiSettingsPageState extends State<GeminiApiSettingsPage> {
-  static const _keyName = 'google_gemini_api_key';
+class GroqApiSettingsPage extends StatefulWidget {
+  const GroqApiSettingsPage({super.key});
+  @override
+  State<GroqApiSettingsPage> createState() => _GroqApiSettingsPageState();
+}
+class _GroqApiSettingsPageState extends State<GroqApiSettingsPage> {
+  static const _keyName = 'groq_api_key';
+  static const _modelName = 'groq_fixture_model';
   final _storage = const FlutterSecureStorage();
   final _keyController = TextEditingController();
-  bool _hasSavedKey = false;
-  bool _obscure = true;
-  bool _busy = false;
+  bool _hasSavedKey = false, _obscure = true, _busy = false;
+  String _model = 'openai/gpt-oss-20b';
   String? _status;
-
   @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
+  void initState() { super.initState(); _load(); }
   @override
-  void dispose() {
-    _keyController.dispose();
-    super.dispose();
-  }
-
+  void dispose() { _keyController.dispose(); super.dispose(); }
   Future<void> _load() async {
     try {
-      final key = await _storage.read(key: _keyName);
+      await _storage.delete(key: 'google_gemini_api_key');
+      final values = await Future.wait([_storage.read(key: _keyName), _storage.read(key: _modelName)]);
       if (!mounted) return;
-      setState(() => _hasSavedKey = key != null && key.isNotEmpty);
-    } catch (e) {
-      if (mounted) setState(() => _status = 'Secure storage is unavailable: $e');
-    }
+      setState(() {
+        _hasSavedKey = values[0] != null && values[0]!.isNotEmpty;
+        if (values[1] == 'openai/gpt-oss-120b') _model = values[1]!;
+      });
+    } catch (e) { if (mounted) setState(() => _status = 'Secure storage error: $e'); }
   }
-
-  Future<String> _currentKey() async {
-    final typed = _keyController.text.trim();
-    if (typed.isNotEmpty) return typed;
-    return (await _storage.read(key: _keyName)) ?? '';
-  }
-
+  Future<String> _currentKey() async => _keyController.text.trim().isNotEmpty
+      ? _keyController.text.trim() : (await _storage.read(key: _keyName) ?? '');
   Future<void> _save() async {
     final key = _keyController.text.trim();
-    if (key.isEmpty) {
-      setState(() => _status = 'Paste your Google AI Studio API key first.');
-      return;
-    }
+    if (key.isEmpty) { setState(() => _status = 'Paste your Groq API key first.'); return; }
     setState(() { _busy = true; _status = null; });
     try {
       await _storage.write(key: _keyName, value: key);
-      if (!mounted) return;
-      setState(() { _hasSavedKey = true; _keyController.clear(); _status = 'API key saved securely on this device.'; });
-    } catch (e) {
-      if (mounted) setState(() => _status = 'Could not save API key: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+      await _storage.write(key: _modelName, value: _model);
+      if (mounted) setState(() { _hasSavedKey = true; _keyController.clear(); _status = 'Groq API key saved securely on this device.'; });
+    } catch (e) { if (mounted) setState(() => _status = 'Could not save key: $e'); }
+    finally { if (mounted) setState(() => _busy = false); }
   }
-
   Future<void> _test() async {
     setState(() { _busy = true; _status = null; });
     try {
       final key = await _currentKey();
       if (key.isEmpty) throw const FormatException('Enter or save your API key first.');
-      final ok = await GeminiFixtureService.testConnection(key);
-      if (mounted) setState(() => _status = ok ? 'Connection successful. Gemini is ready.' : 'Gemini did not confirm the connection.');
-    } catch (e) {
-      if (mounted) setState(() => _status = 'Connection failed: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+      await GroqFixtureService.testConnection(key, model: _model);
+      if (mounted) setState(() => _status = 'Connection successful. Groq is ready.');
+    } catch (e) { if (mounted) setState(() => _status = 'Connection failed: $e'); }
+    finally { if (mounted) setState(() => _busy = false); }
   }
-
   Future<void> _remove() async {
     setState(() { _busy = true; _status = null; });
     try {
-      await _storage.delete(key: _keyName);
-      if (mounted) setState(() { _hasSavedKey = false; _keyController.clear(); _status = 'Saved API key removed from this device.'; });
-    } catch (e) {
-      if (mounted) setState(() => _status = 'Could not remove key: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+      await _storage.delete(key: _keyName); await _storage.delete(key: _modelName);
+      if (mounted) setState(() { _hasSavedKey = false; _keyController.clear(); _status = 'Saved Groq key removed from this device.'; });
+    } catch (e) { if (mounted) setState(() => _status = 'Could not remove key: $e'); }
+    finally { if (mounted) setState(() => _busy = false); }
   }
-
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Google Gemini AI')),
-    body: ListView(
-      padding: const EdgeInsets.all(18),
-      children: [
-        Card(child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Row(children: [
-              Icon(Icons.auto_awesome_rounded, color: emerald),
-              SizedBox(width: 9),
-              Expanded(child: Text('AI fixture discovery', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
-            ]),
-            const SizedBox(height: 8),
-            const Text('Use your own Google AI Studio API key. Gemini searches Google for fixtures matching saved sports, teams, players and competitions, limited to the next seven days.', style: TextStyle(color: muted, height: 1.45)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _keyController,
-              obscureText: _obscure,
-              autocorrect: false,
-              enableSuggestions: false,
-              decoration: InputDecoration(
-                labelText: 'Google Gemini API key',
-                hintText: _hasSavedKey ? 'A key is saved securely on this device' : 'Paste your API key',
-                prefixIcon: const Icon(Icons.key_rounded),
-                suffixIcon: IconButton(
-                  tooltip: _obscure ? 'Show key' : 'Hide key',
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(width: double.infinity, child: FilledButton.icon(
-              onPressed: _busy ? null : _save,
-              icon: const Icon(Icons.save_rounded),
-              label: const Text('Save API key securely'),
-            )),
-            const SizedBox(height: 8),
-            SizedBox(width: double.infinity, child: OutlinedButton.icon(
-              onPressed: _busy ? null : _test,
-              icon: _busy ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.wifi_tethering_rounded),
-              label: const Text('Test connection'),
-            )),
-            if (_hasSavedKey) ...[
-              const SizedBox(height: 8),
-              SizedBox(width: double.infinity, child: TextButton.icon(
-                onPressed: _busy ? null : _remove,
-                icon: const Icon(Icons.delete_outline_rounded),
-                label: const Text('Remove saved key'),
-              )),
-            ],
-            if (_status != null) ...[
-              const SizedBox(height: 10),
-              Text(_status!, style: TextStyle(color: _status!.contains('successful') || _status!.contains('saved securely') ? emerald : amber, height: 1.4)),
-            ],
-          ]),
-        )),
-        const SizedBox(height: 14),
-        Card(child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Get a free API key', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-            const SizedBox(height: 8),
-            const Text('1. Open Google AI Studio.\n2. Sign in with your Google account.\n3. Create an API key and paste it above.', style: TextStyle(color: muted, height: 1.6)),
-            const SizedBox(height: 10),
-            SizedBox(width: double.infinity, child: OutlinedButton.icon(
-              onPressed: () => launchGeminiKeyPage(context),
-              icon: const Icon(Icons.open_in_new_rounded),
-              label: const Text('Open Google AI Studio'),
-            )),
-          ]),
-        )),
+    appBar: AppBar(title: const Text('Groq AI fixtures')),
+    body: ListView(padding: const EdgeInsets.all(18), children: [
+      Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('AI fixture discovery', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        const Text('Use Groq browser search to find fixtures for saved sports, teams, players and competitions over the next seven days.', style: TextStyle(color: muted, height: 1.45)),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          value: _model, decoration: const InputDecoration(labelText: 'Free browser-search model'),
+          items: const [
+            DropdownMenuItem(value: 'openai/gpt-oss-20b', child: Text('GPT-OSS 20B · recommended')),
+            DropdownMenuItem(value: 'openai/gpt-oss-120b', child: Text('GPT-OSS 120B')),
+          ],
+          onChanged: _busy ? null : (v) => setState(() => _model = v ?? 'openai/gpt-oss-20b'),
+        ),
         const SizedBox(height: 12),
-        const Text('Free-tier quotas and model availability can change. Google Search grounding has usage limits. Search is only run when you ask the app to find fixtures; results are restricted to the next seven days and must include a source and exact kickoff time. Do not share this key with anyone. The free tier may allow Google to use API inputs and outputs to improve its products, so the app sends sports-interest terms only—not user names, phone numbers, DP or bonus records.', style: TextStyle(color: muted, fontSize: 12, height: 1.5)),
-      ],
-    ),
+        TextField(controller: _keyController, obscureText: _obscure, autocorrect: false, enableSuggestions: false,
+          decoration: InputDecoration(labelText: 'Groq API key', hintText: _hasSavedKey ? 'A key is saved securely on this device' : 'Paste your API key',
+            prefixIcon: const Icon(Icons.key_rounded), suffixIcon: IconButton(
+              onPressed: () => setState(() => _obscure = !_obscure),
+              icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined)))),
+        const SizedBox(height: 12),
+        SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: _busy ? null : _save, icon: const Icon(Icons.save_rounded), label: const Text('Save API key securely'))),
+        const SizedBox(height: 8),
+        SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _busy ? null : _test,
+          icon: _busy ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.wifi_tethering_rounded), label: const Text('Test connection'))),
+        if (_hasSavedKey) TextButton.icon(onPressed: _busy ? null : _remove, icon: const Icon(Icons.delete_outline_rounded), label: const Text('Remove saved key')),
+        if (_status != null) Text(_status!, style: TextStyle(color: _status!.contains('successful') || _status!.contains('saved securely') ? emerald : amber)),
+      ]))),
+      const SizedBox(height: 14),
+      Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Get a free Groq API key', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        const SizedBox(height: 8),
+        const Text('1. Open Groq Console.\n2. Sign in or create an account.\n3. Open API Keys, create a key and paste it above.', style: TextStyle(color: muted, height: 1.6)),
+        const SizedBox(height: 10),
+        SizedBox(width: double.infinity, child: OutlinedButton.icon(
+          onPressed: () => launchGroqKeyPage(context), icon: const Icon(Icons.open_in_new_rounded), label: const Text('Open Groq API Keys'))),
+      ]))),
+      const SizedBox(height: 12),
+      const Text('Free-plan models have request and token limits that vary by model and account. Groq browser search supports GPT-OSS 20B and 120B. Search is manual, limited to the next seven days, and depends on public sources. Verify fixtures before saving. Only sports-interest terms and anonymous profile references are sent—not user names, phone numbers, DP or bonus records.', style: TextStyle(color: muted, fontSize: 12, height: 1.5)),
+    ]),
   );
 }
-
-Future<void> launchGeminiKeyPage(BuildContext context) async {
-  const url = 'https://aistudio.google.com/app/apikey';
-  await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+Future<void> launchGroqKeyPage(BuildContext context) async {
+  await launchUrl(Uri.parse('https://console.groq.com/keys'), mode: LaunchMode.externalApplication);
 }
 
 class MatchNotificationSettingsPage extends StatefulWidget {
@@ -3038,7 +2974,7 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
   List<FixtureSearchResult> results = [];
   List<Map<String, Object?>> interests = [];
   String? aiStatus;
-  final _geminiStorage = const FlutterSecureStorage();
+  final _groqStorage = const FlutterSecureStorage();
   @override
   void initState() { super.initState(); _loadInterests(); }
   @override
@@ -3078,21 +3014,21 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
           if (seen.add(key)) combined.add(result);
         }
       } catch (_) {}
-      final apiKey = await _geminiStorage.read(key: 'google_gemini_api_key') ?? '';
+
+      final apiKey = await _groqStorage.read(key: 'groq_api_key') ?? '';
+      final selectedModel = await _groqStorage.read(key: 'groq_fixture_model') ?? 'openai/gpt-oss-20b';
       if (apiKey.isEmpty) {
-        aiStatus = 'Gemini AI is not set up yet. Add your free API key in Settings to enable AI-powered seven-day searches.';
+        aiStatus = 'Groq AI is not set up yet. Add your API key in Settings to enable seven-day AI searches.';
       } else {
         try {
-          for (final result in await GeminiFixtureService.searchSavedInterests(
-            apiKey: apiKey, interests: interests, days: 7,
+          for (final result in await GroqFixtureService.searchSavedInterests(
+            apiKey: apiKey, interests: interests, days: 7, model: selectedModel,
           )) {
-            final key = '${result.title.toLowerCase()}|${result.matchStartAt?.toIso8601String() ?? result.url}';
+            final key = result.title.toLowerCase() + '|' + (result.matchStartAt?.toIso8601String() ?? result.url);
             if (seen.add(key)) combined.add(result);
           }
-          aiStatus = 'Gemini AI search completed for the next seven days.';
-        } catch (e) {
-          aiStatus = 'Gemini AI search unavailable: $e';
-        }
+          aiStatus = 'Groq AI browser search completed for the next seven days.';
+        } catch (e) { aiStatus = 'Groq AI search unavailable: $e'; }
       }
       combined.sort((a, b) {
         if (a.matchStartAt == null && b.matchStartAt == null) return 0;
@@ -3151,7 +3087,7 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
               Expanded(child: Text('Search match fixtures', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
             ]),
             const SizedBox(height: 8),
-            const Text('Searches public sports schedules, saved-team results and Google Gemini AI for fixtures in the next seven days. Gemini uses Google Search to discover matches across sports worldwide. Exact kickoff times are shown in Bangladesh time (UTC+6). Results depend on public source coverage.', style: TextStyle(color: muted, height: 1.45)),
+            const Text('Searches public sports schedules, saved-team results and Groq AI browser search for fixtures in the next seven days. Exact kickoff times are shown in Bangladesh time (UTC+6). Results depend on public source coverage.', style: TextStyle(color: muted, height: 1.45)),
             const SizedBox(height: 14),
             SizedBox(width: double.infinity, child: FilledButton.icon(
               onPressed: loading ? null : _searchUpcoming,
@@ -3160,9 +3096,9 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
             )),
             const SizedBox(height: 8),
             SizedBox(width: double.infinity, child: OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GeminiApiSettingsPage())),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GroqApiSettingsPage())),
               icon: const Icon(Icons.auto_awesome_rounded),
-              label: const Text('Set up Google Gemini AI'),
+              label: const Text('Set up Groq AI'),
             )),
             if (aiStatus != null) Padding(
               padding: const EdgeInsets.only(top: 9),
@@ -3232,7 +3168,7 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
           ],
           const Padding(
             padding: EdgeInsets.only(bottom: 20),
-            child: Text("Gemini results are AI-assisted and must be checked against the linked source before saving. Search results may be incomplete or delayed. Only fixtures with an exact scheduled kickoff time are included in AI results.", style: TextStyle(color: muted, fontSize: 12, height: 1.45)),
+            child: Text("Groq AI results must be checked against the linked source before saving. Search results may be incomplete or delayed. Only fixtures with an exact scheduled kickoff time are included in AI results.", style: TextStyle(color: muted, fontSize: 12, height: 1.45)),
           ),
         ],
       ],
