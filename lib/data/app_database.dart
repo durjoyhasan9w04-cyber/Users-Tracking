@@ -553,7 +553,7 @@ class AppDatabase {
     final contactedUsers = Sqflite.firstIntValue(contacted) ?? 0;
     return {
       'contacted': contactedUsers,
-      'not_contacted': (totalUsers - contactedUsers).clamp(0, totalUsers),
+      'not_contacted': (totalUsers - contactedUsers).clamp(0, totalUsers).toInt(),
       'multiple_dp': Sqflite.firstIntValue(multipleDp) ?? 0,
     };
   }
