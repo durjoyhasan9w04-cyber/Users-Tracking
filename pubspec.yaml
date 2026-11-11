@@ -35,3 +35,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+dependency_overrides:
+  # image 4.11.0 allowed an incompatible archive 4.0.x; 4.11.1 fixes the constraint.
+  image: ^4.11.1
