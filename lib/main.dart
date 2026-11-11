@@ -3153,7 +3153,7 @@ class _SportsMatchesPageState extends State<SportsMatchesPage> {
                   isThreeLine: true,
                   trailing: IconButton(tooltip: 'Edit interests', icon: const Icon(Icons.edit_outlined, color: emerald), onPressed: () async {
                     final users = await AppDatabase.instance.getUsers();
-                    if (!mounted) return;
+                    if (!context.mounted) return;
                     final saved = await showDialog<bool>(context: context, builder: (_) => SportsInterestDialog(users: users, existing: row));
                     if (saved == true && mounted) setState(load);
                   }),
