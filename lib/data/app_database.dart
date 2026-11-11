@@ -3,6 +3,29 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+List<double> validateDpAmounts(List<double> amounts) {
+  if (amounts.length > 5) {
+    throw ArgumentError('A daily DP entry can contain at most five amounts');
+  }
+  if (amounts.any((value) => !value.isFinite || value < 0)) {
+    throw ArgumentError('DP amounts must be finite and cannot be negative');
+  }
+  final values = List<double>.generate(5, (i) => i < amounts.length ? amounts[i] : 0);
+  if (!values.any((value) => value > 0)) {
+    throw ArgumentError('Enter at least one DP amount');
+  }
+  return values;
+}
+
+void validateBonusAmounts(double amount, double? relatedDp) {
+  if (!amount.isFinite || amount <= 0) {
+    throw ArgumentError('Bonus amount must be a finite value greater than zero');
+  }
+  if (relatedDp != null && (!relatedDp.isFinite || relatedDp < 0)) {
+    throw ArgumentError('Related DP must be finite and cannot be negative');
+  }
+}
+
 class DuplicatePhoneException implements Exception {
   const DuplicatePhoneException(this.message);
   final String message;
@@ -538,7 +561,7 @@ class AppDatabase {
     double? relatedDp,
     String notes = '',
   }) async {
-    if (amount <= 0) throw ArgumentError('Bonus amount must be greater than zero');
+    validateBonusAmounts(amount, relatedDp);
     final db = await database;
     return db.insert('bonus_entries', {
       'user_id': userId,
@@ -778,10 +801,9 @@ class AppDatabase {
     bool contacted = false,
     String notes = '',
   }) async {
-    final values = List<double>.generate(5, (i) => i < amounts.length ? amounts[i] : 0);
+    final values = validateDpAmounts(amounts);
     final count = values.where((v) => v > 0).length;
     final total = values.fold<double>(0, (sum, value) => sum + value);
-    if (count == 0) throw ArgumentError('Enter at least one DP amount');
     final db = await database;
     return db.insert('dp_entries', {
       'user_id': userId,
@@ -997,10 +1019,9 @@ class AppDatabase {
     required int id, required int userId, required List<double> amounts,
     required bool contacted, required String notes,
   }) async {
-    final values = List<double>.generate(5, (i) => i < amounts.length ? amounts[i] : 0);
+    final values = validateDpAmounts(amounts);
     final count = values.where((v) => v > 0).length;
     final total = values.fold<double>(0, (sum, value) => sum + value);
-    if (count == 0) throw ArgumentError('Enter at least one DP amount');
     final db = await database;
     return db.transaction((txn) async {
       final oldRows = await txn.query('dp_entries', where: 'id = ?', whereArgs: [id], limit: 1);
@@ -1025,7 +1046,7 @@ class AppDatabase {
     required int id, required int userId, required double amount, required String reason,
     double? relatedDp, required String notes,
   }) async {
-    if (amount <= 0) throw ArgumentError('Bonus amount must be greater than zero');
+    validateBonusAmounts(amount, relatedDp);
     final db = await database;
     return db.transaction((txn) async {
       final oldRows = await txn.query('bonus_entries', where: 'id = ?', whereArgs: [id], limit: 1);
