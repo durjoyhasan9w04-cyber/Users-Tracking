@@ -5,7 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import 'dart:convert';
 import '../models/user_level_config.dart';
 
-const int supportedUserHubDatabaseVersion = 13;
+const int supportedUserHubDatabaseVersion = 14;
 
 Set<String> requiredBackupTablesForVersion(int version) {
   if (version < 1 || version > supportedUserHubDatabaseVersion) {
@@ -22,6 +22,7 @@ Set<String> requiredBackupTablesForVersion(int version) {
     if (version >= 9) 'sports_interests',
     if (version >= 9) 'matches',
     if (version >= 12) 'user_level_settings',
+    if (version >= 14) 'contact_reminders',
   };
 }
 
@@ -72,6 +73,7 @@ class AppDatabase {
         await _createBonusEntries(db);
         await _createPotentialUsers(db);
         await _createContactHistory(db);
+        await _createContactReminders(db);
         await _createCustomerIssues(db);
         await _createAuditLog(db);
         await _createSportsTables(db);
@@ -93,6 +95,7 @@ class AppDatabase {
         }
         if (oldVersion < 12) await _createUserLevelSettings(db);
         if (oldVersion < 13) await db.execute("ALTER TABLE users ADD COLUMN previous_dp_at TEXT");
+        if (oldVersion < 14) await _createContactReminders(db);
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -324,6 +327,23 @@ class AppDatabase {
     await db.execute('CREATE INDEX idx_potential_status ON potential_users(status)');
   }
 
+  Future<void> _createContactReminders(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE contact_reminders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        remind_at TEXT NOT NULL,
+        reason TEXT NOT NULL DEFAULT '',
+        completed INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        completed_at TEXT,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_contact_reminders_user ON contact_reminders(user_id)');
+    await db.execute('CREATE INDEX idx_contact_reminders_due ON contact_reminders(completed, remind_at)');
+  }
+
   Future<void> _createContactHistory(DatabaseExecutor db) async {
     await db.execute('''
       CREATE TABLE contact_history (
@@ -450,6 +470,64 @@ class AppDatabase {
     });
   }
 
+  Future<int> addContactReminder({
+    required int userId,
+    required DateTime remindAt,
+    String reason = '',
+  }) async {
+    final db = await database;
+    if (!remindAt.isAfter(DateTime.now())) {
+      throw ArgumentError('Choose a reminder time in the future.');
+    }
+    return db.insert('contact_reminders', {
+      'user_id': userId,
+      'remind_at': remindAt.toIso8601String(),
+      'reason': reason.trim(),
+      'completed': 0,
+      'created_at': DateTime.now().toIso8601String(),
+      'completed_at': null,
+    });
+  }
+
+  Future<List<Map<String, Object?>>> getContactReminders({int? userId, bool includeCompleted = false}) async {
+    final db = await database;
+    final where = <String>[];
+    final args = <Object?>[];
+    if (userId != null) { where.add('r.user_id = ?'); args.add(userId); }
+    if (!includeCompleted) where.add('r.completed = 0');
+    return db.rawQuery('''
+      SELECT r.*, u.name AS user_name, u.phone AS user_phone
+      FROM contact_reminders r JOIN users u ON u.id = r.user_id
+      ${where.isEmpty ? '' : 'WHERE ${where.join(' AND ')}'}
+      ORDER BY r.remind_at ASC, r.id ASC
+    ''', args);
+  }
+
+  Future<List<Map<String, Object?>>> getDueContactReminders() async {
+    final db = await database;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return db.rawQuery('''
+      SELECT r.id, r.user_id, r.remind_at AS due_at, r.reason,
+        u.name AS user_name, u.phone AS user_phone
+      FROM contact_reminders r JOIN users u ON u.id = r.user_id
+      WHERE r.completed = 0 AND substr(r.remind_at, 1, 10) <= ? AND u.archived = 0
+      ORDER BY r.remind_at ASC, u.name COLLATE NOCASE
+    ''', [today]);
+  }
+
+  Future<int> deleteContactReminder(int id) async {
+    final db = await database;
+    return db.delete('contact_reminders', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> completeContactReminder(int id) async {
+    final db = await database;
+    return db.update('contact_reminders', {
+      'completed': 1,
+      'completed_at': DateTime.now().toIso8601String(),
+    }, where: 'id = ? AND completed = 0', whereArgs: [id]);
+  }
+
   Future<List<Map<String, Object?>>> getUsualDpTimePatterns() async {
     final db = await database;
     return db.rawQuery("""
@@ -515,7 +593,15 @@ class AppDatabase {
       "SELECT COUNT(*) AS total FROM potential_users WHERE follow_up_date IS NOT NULL AND follow_up_date <= ? AND contact_permission = 1 AND status NOT IN ('Registered', 'Do Not Contact', 'Not Interested')",
       [today],
     );
-    return (Sqflite.firstIntValue(contacts) ?? 0) + (Sqflite.firstIntValue(prospects) ?? 0);
+    final reminders = await db.rawQuery(
+      """SELECT COUNT(*) AS total FROM contact_reminders r
+         JOIN users u ON u.id = r.user_id
+         WHERE r.completed = 0 AND substr(r.remind_at, 1, 10) <= ? AND u.archived = 0""",
+      [DateTime.now().toIso8601String()],
+    );
+    return (Sqflite.firstIntValue(contacts) ?? 0) +
+        (Sqflite.firstIntValue(prospects) ?? 0) +
+        (Sqflite.firstIntValue(reminders) ?? 0);
   }
 
   Future<int> countPotentialUsers() async {
@@ -957,7 +1043,7 @@ class AppDatabase {
     final tables = <String>[
       'users', 'dp_entries', 'bonus_entries', 'potential_users',
       'contact_history', 'customer_issues', 'audit_log',
-      'sports_interests', 'matches', 'user_level_settings',
+      'sports_interests', 'matches', 'user_level_settings', 'contact_reminders',
     ];
     final data = <String, Object?>{
       'app': 'User Hub',
@@ -978,6 +1064,7 @@ class AppDatabase {
       'users', 'dp_entries', 'bonus_entries', 'potential_users',
       'contact_history', 'customer_issues', 'audit_log',
       'sports_interests', 'matches',
+      if (data['contact_reminders'] is List) 'contact_reminders',
     ];
     final tables = <String>[
       ...requiredTables,
@@ -994,7 +1081,7 @@ class AppDatabase {
     final db = await database;
     await db.transaction((txn) async {
       for (final table in [
-        'user_level_settings', 'matches', 'audit_log', 'customer_issues', 'contact_history',
+        'contact_reminders', 'user_level_settings', 'matches', 'audit_log', 'customer_issues', 'contact_history',
         'sports_interests', 'bonus_entries', 'dp_entries', 'potential_users', 'users',
       ]) {
         if (table == 'user_level_settings' && !tables.contains(table)) continue;

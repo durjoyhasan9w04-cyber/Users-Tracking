@@ -51,11 +51,7 @@ class MatchNotificationService {
 
   static Future<void> initializeAndRestore() async {
     await initialize();
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool('match_reminders_enabled') == true ||
-        prefs.getBool('dp_time_reminders_enabled') == true) {
-      await rescheduleAllUpcoming();
-    }
+    await rescheduleAllUpcoming();
   }
 
   static Future<void> cancelAll() async {
@@ -153,6 +149,59 @@ class MatchNotificationService {
           matchDateTimeComponents: DateTimeComponents.time,
         );
       }
+    }
+
+    // Contact reminders are independent of match and DP-time reminder settings.
+    await restoreContactReminders();
+  }
+
+  static int contactReminderNotificationId(int reminderId) => 1500000000 + reminderId;
+
+  static Future<bool> scheduleContactReminder({
+    required int reminderId,
+    required String userName,
+    required DateTime remindAt,
+    String reason = '',
+  }) async {
+    await initialize();
+    final now = DateTime.now();
+    var firstAt = remindAt;
+    if (!firstAt.isAfter(now)) {
+      firstAt = DateTime(now.year, now.month, now.day, remindAt.hour, remindAt.minute);
+      if (!firstAt.isAfter(now)) firstAt = firstAt.add(const Duration(days: 1));
+    }
+    final body = reason.trim().isEmpty
+        ? 'Follow up with $userName. This reminder repeats daily until completed.'
+        : '$reason · Follow up with $userName. Repeats daily until completed.';
+    await _plugin.zonedSchedule(
+      contactReminderNotificationId(reminderId),
+      'Contact reminder: $userName',
+      body,
+      tz.TZDateTime.from(firstAt, tz.local),
+      _details,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+    return true;
+  }
+
+  static Future<void> cancelContactReminder(int reminderId) async {
+    await initialize();
+    await _plugin.cancel(contactReminderNotificationId(reminderId));
+  }
+
+  static Future<void> restoreContactReminders() async {
+    final rows = await AppDatabase.instance.getContactReminders();
+    for (final row in rows) {
+      final id = row['id'] as int;
+      final remindAt = DateTime.tryParse(row['remind_at'] as String? ?? '');
+      if (remindAt == null) continue;
+      await scheduleContactReminder(
+        reminderId: id,
+        userName: row['user_name'] as String? ?? 'User',
+        remindAt: remindAt,
+        reason: row['reason'] as String? ?? '',
+      );
     }
   }
 

@@ -118,7 +118,7 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      DashboardPage(key: ValueKey('home-$revision')),
+      DashboardPage(key: ValueKey('home-$revision'), onChanged: refresh),
       UsersPage(key: ValueKey('users-$revision'), onChanged: refresh),
       const ActivityPage(),
       const ContactHistoryPage(),
@@ -164,7 +164,8 @@ class _MainShellState extends State<MainShell> {
 }
 
 class DashboardPage extends StatelessWidget {
-  const DashboardPage({super.key});
+  const DashboardPage({super.key, required this.onChanged});
+  final VoidCallback onChanged;
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
@@ -222,6 +223,28 @@ class DashboardPage extends StatelessWidget {
         final trend = dpRows.take(7).toList().reversed.map((r) => (r['total'] as num?)?.toDouble() ?? 0).toList();
         return ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 132), children: [
           HeroKpiCard(label: 'DP this month', value: dpMonth, delta: delta, sparkline: trend, loading: snap.connectionState == ConnectionState.waiting),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: FilledButton.icon(
+              onPressed: () async {
+                final saved = await showDialog<bool>(context: context, builder: (_) => const DpEntryDialog());
+                if (saved == true) onChanged();
+              },
+              icon: const Icon(Icons.add_circle_outline_rounded),
+              label: const Text('Record Daily DP'),
+              style: FilledButton.styleFrom(backgroundColor: emerald, foregroundColor: bg, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15)),
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: FilledButton.icon(
+              onPressed: () async {
+                final saved = await showDialog<bool>(context: context, builder: (_) => const BonusEntryDialog());
+                if (saved == true) onChanged();
+              },
+              icon: const Icon(Icons.card_giftcard_rounded),
+              label: const Text('Add Daily Bonus'),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF355C91), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15)),
+            )),
+          ]),
           const SizedBox(height: 16),
           Row(children: [
             Expanded(child: MetricCard(label: 'Registered users', value: '$count', icon: Icons.people_alt_rounded, dotColor: emerald)),
@@ -514,11 +537,36 @@ class _UserProfilePageState extends State<UserProfilePage> {
       AppDatabase.instance.getUserTimeline(widget.userId),
       AppDatabase.instance.getUserDpInsights(widget.userId),
       AppDatabase.instance.getUserLevelConfig(),
+      AppDatabase.instance.getContactReminders(userId: widget.userId),
     ]);
   }
   Future<void> edit(Map<String, Object?> user) async {
     final saved = await showDialog<bool>(context: context, builder: (_) => UserFormDialog(user: user));
     if (saved == true && mounted) { setState(load); widget.onChanged(); }
+  }
+  Future<void> recordContact(Map<String, Object?> user) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => ContactLogDialog(users: [user], initialUserId: widget.userId),
+    );
+    if (saved == true && mounted) { setState(load); widget.onChanged(); }
+  }
+  Future<void> setContactReminder(Map<String, Object?> user) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => ContactReminderDialog(userId: widget.userId, userName: user['name'] as String? ?? 'User'),
+    );
+    if (saved == true && mounted) { setState(load); widget.onChanged(); }
+  }
+  Future<void> completeReminder(int id) async {
+    await AppDatabase.instance.completeContactReminder(id);
+    await MatchNotificationService.cancelContactReminder(id);
+    if (mounted) { setState(load); widget.onChanged(); }
+  }
+  Future<void> cancelReminder(int id) async {
+    await AppDatabase.instance.deleteContactReminder(id);
+    await MatchNotificationService.cancelContactReminder(id);
+    if (mounted) { setState(load); widget.onChanged(); }
   }
   String amount(Object? value) {
     final n = (value as num?)?.toDouble() ?? 0;
@@ -538,6 +586,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
         final timeline = snap.data![1] as List<Map<String, Object?>>;
         final insights = snap.data![2] as Map<String, Object?>;
         final levelConfig = snap.data![3] as UserLevelConfig? ?? UserLevelConfig.defaults;
+        final reminders = snap.data![4] as List<Map<String, Object?>>? ?? const [];
         final lifetimeLevel = levelConfig.labelFor((user['lifetime_dp'] as num? ?? 0).toDouble(), monthly: false);
         final monthlyLevel = levelConfig.labelFor((user['monthly_dp'] as num? ?? 0).toDouble(), monthly: true);
         final name = user['name'] as String? ?? 'User';
@@ -573,6 +622,50 @@ class _UserProfilePageState extends State<UserProfilePage> {
                   Text('Preferred contact: ${user['preferred_contact_method']}', style: const TextStyle(color: muted, fontSize: 12)),
               ]),
             )),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: FilledButton.icon(
+                onPressed: () => recordContact(user),
+                icon: const Icon(Icons.add_comment_outlined),
+                label: const Text('Record Contact'),
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: OutlinedButton.icon(
+                onPressed: () => setContactReminder(user),
+                icon: const Icon(Icons.notifications_active_outlined),
+                label: const Text('Set Reminder'),
+              )),
+            ]),
+            if (reminders.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              const SectionHeading('Contact reminders', trailing: 'Repeats daily'),
+              const SizedBox(height: 8),
+              ...reminders.map((reminder) {
+                final when = DateTime.tryParse(reminder['remind_at'] as String? ?? '');
+                final reminderId = reminder['id'] as int;
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: const CircleAvatar(backgroundColor: Color(0xFF3A3020), child: Icon(Icons.notifications_active_outlined, color: amber)),
+                    title: Text(when == null ? 'Scheduled reminder' : DateFormat('EEE, d MMM · h:mm a').format(when.toLocal())),
+                    subtitle: Text('${(reminder['reason'] as String? ?? '').isEmpty ? 'Contact this user' : reminder['reason']}\nRepeats daily until completed'),
+                    isThreeLine: true,
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      IconButton(
+                        tooltip: 'Mark reminder completed',
+                        onPressed: () => completeReminder(reminderId),
+                        icon: const Icon(Icons.check_circle_outline_rounded, color: emerald),
+                      ),
+                      IconButton(
+                        tooltip: 'Cancel reminder',
+                        onPressed: () => cancelReminder(reminderId),
+                        icon: const Icon(Icons.close_rounded, color: muted),
+                      ),
+                    ]),
+                  ),
+                );
+              }),
+            ],
             const SizedBox(height: 12),
             Row(children: [
               Expanded(child: MetricCard(label: 'Lifetime DP', value: amount(user['lifetime_dp']), icon: Icons.account_balance_wallet_rounded)),
@@ -1342,6 +1435,7 @@ class _FollowUpsPageState extends State<FollowUpsPage> {
     due = Future.wait<Object>([
       AppDatabase.instance.getDueContactFollowUps(),
       AppDatabase.instance.getDuePotentialFollowUps(),
+      AppDatabase.instance.getDueContactReminders(),
     ]);
   }
   Future<void> complete(bool prospect, int id) async {
@@ -1350,6 +1444,11 @@ class _FollowUpsPageState extends State<FollowUpsPage> {
     } else {
       await AppDatabase.instance.completeContactFollowUp(id);
     }
+    if (mounted) setState(load);
+  }
+  Future<void> completeReminder(int id) async {
+    await AppDatabase.instance.completeContactReminder(id);
+    await MatchNotificationService.cancelContactReminder(id);
     if (mounted) setState(load);
   }
   @override
@@ -1362,7 +1461,8 @@ class _FollowUpsPageState extends State<FollowUpsPage> {
         if (snap.hasError) return const EmptyState(title: 'Could not load follow-ups', subtitle: 'Please reopen this page and try again.');
         final contacts = snap.data?[0] as List<Map<String, Object?>>? ?? [];
         final prospects = snap.data?[1] as List<Map<String, Object?>>? ?? [];
-        if (contacts.isEmpty && prospects.isEmpty) return const EmptyState(title: 'You are all caught up', subtitle: 'There are no overdue or due follow-ups.');
+        final reminders = snap.data?[2] as List<Map<String, Object?>>? ?? [];
+        if (contacts.isEmpty && prospects.isEmpty && reminders.isEmpty) return const EmptyState(title: 'You are all caught up', subtitle: 'There are no overdue or due follow-ups.');
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
           children: [
@@ -1388,6 +1488,21 @@ class _FollowUpsPageState extends State<FollowUpsPage> {
                 detail: row['status'] as String? ?? '',
                 onDone: () => complete(true, row['id'] as int),
               )),
+            ],
+            if (reminders.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              const SectionHeading('Scheduled contact reminders', trailing: 'Repeating until done'),
+              const SizedBox(height: 8),
+              ...reminders.map((row) {
+                final at = DateTime.tryParse(row['due_at'] as String? ?? '');
+                return _FollowUpTile(
+                  name: row['user_name'] as String? ?? 'User',
+                  phone: row['user_phone'] as String? ?? '',
+                  date: at?.toIso8601String().substring(0, 10) ?? '',
+                  detail: row['reason'] as String? ?? 'Contact reminder',
+                  onDone: () => completeReminder(row['id'] as int),
+                );
+              }),
             ],
           ],
         );
@@ -1551,9 +1666,101 @@ class _ContactHistoryPageState extends State<ContactHistoryPage> {
   );
 }
 
+class ContactReminderDialog extends StatefulWidget {
+  const ContactReminderDialog({super.key, required this.userId, required this.userName});
+  final int userId;
+  final String userName;
+  @override
+  State<ContactReminderDialog> createState() => _ContactReminderDialogState();
+}
+
+class _ContactReminderDialogState extends State<ContactReminderDialog> {
+  final reason = TextEditingController();
+  DateTime remindAt = DateTime.now().add(const Duration(hours: 1));
+  bool saving = false;
+
+  @override
+  void dispose() { reason.dispose(); super.dispose(); }
+
+  Future<void> chooseDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: remindAt,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 3650)),
+    );
+    if (picked != null && mounted) {
+      setState(() => remindAt = DateTime(picked.year, picked.month, picked.day, remindAt.hour, remindAt.minute));
+    }
+  }
+
+  Future<void> chooseTime() async {
+    final picked = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(remindAt));
+    if (picked != null && mounted) {
+      setState(() => remindAt = DateTime(remindAt.year, remindAt.month, remindAt.day, picked.hour, picked.minute));
+    }
+  }
+
+  Future<void> save() async {
+    if (!remindAt.isAfter(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Choose a future date and time.')));
+      return;
+    }
+    setState(() => saving = true);
+    try {
+      final permissionGranted = await MatchNotificationService.requestPermission();
+      final id = await AppDatabase.instance.addContactReminder(
+        userId: widget.userId, remindAt: remindAt, reason: reason.text,
+      );
+      await MatchNotificationService.scheduleContactReminder(
+        reminderId: id, userName: widget.userName, remindAt: remindAt, reason: reason.text,
+      );
+      if (!permissionGranted && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reminder saved. Enable Android notifications to receive alerts.')));
+      }
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save reminder: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text('Remind me to contact ${widget.userName}'),
+    content: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.calendar_today_outlined, color: emerald),
+        title: const Text('Reminder date'),
+        subtitle: Text(DateFormat('EEEE, d MMMM yyyy').format(remindAt)),
+        onTap: saving ? null : chooseDate,
+      ),
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.schedule_rounded, color: emerald),
+        title: const Text('Reminder time'),
+        subtitle: Text(TimeOfDay.fromDateTime(remindAt).format(context)),
+        onTap: saving ? null : chooseTime,
+      ),
+      TextField(controller: reason, maxLines: 2, decoration: const InputDecoration(labelText: 'Reason or note (optional)')),
+      const SizedBox(height: 10),
+      const Text('You will receive a notification every day at this time until you mark the reminder completed.', style: TextStyle(color: muted, fontSize: 12)),
+    ]))),
+    actions: [
+      TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save reminder')),
+    ],
+  );
+}
+
 class ContactLogDialog extends StatefulWidget {
-  const ContactLogDialog({super.key, required this.users});
+  const ContactLogDialog({super.key, required this.users, this.initialUserId});
   final List<Map<String, Object?>> users;
+  final int? initialUserId;
   @override
   State<ContactLogDialog> createState() => _ContactLogDialogState();
 }
@@ -1583,7 +1790,7 @@ class _ContactLogDialogState extends State<ContactLogDialog> {
   void initState() {
     super.initState();
     if (widget.users.isNotEmpty) {
-      userId = widget.users.first['id'] as int;
+      userId = widget.initialUserId ?? widget.users.first['id'] as int;
       channel = _preferredChannelFor(userId);
     }
   }
