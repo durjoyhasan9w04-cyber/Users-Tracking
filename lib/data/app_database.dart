@@ -5,7 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import 'dart:convert';
 import '../models/user_level_config.dart';
 
-const int supportedUserHubDatabaseVersion = 12;
+const int supportedUserHubDatabaseVersion = 13;
 
 Set<String> requiredBackupTablesForVersion(int version) {
   if (version < 1 || version > supportedUserHubDatabaseVersion) {
@@ -92,6 +92,7 @@ class AppDatabase {
           await db.execute("ALTER TABLE users ADD COLUMN preferred_contact_method TEXT NOT NULL DEFAULT ''");
         }
         if (oldVersion < 12) await _createUserLevelSettings(db);
+        if (oldVersion < 13) await db.execute("ALTER TABLE users ADD COLUMN previous_dp_at TEXT");
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -257,7 +258,8 @@ class AppDatabase {
         preferred_language TEXT NOT NULL DEFAULT '',
         preferred_contact_method TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL,
-        archived INTEGER NOT NULL DEFAULT 0
+        archived INTEGER NOT NULL DEFAULT 0,
+        previous_dp_at TEXT
       )
     ''');
   }
@@ -729,10 +731,12 @@ class AppDatabase {
     return db.rawQuery('''
       SELECT u.*,
         COALESCE((SELECT SUM(d.total) FROM dp_entries d WHERE d.user_id = u.id), 0) AS lifetime_dp,
-        COALESCE((SELECT SUM(d.total) FROM dp_entries d WHERE d.user_id = u.id AND d.entry_date >= ? AND d.entry_date < ?), 0) AS monthly_dp
+        COALESCE((SELECT SUM(d.total) FROM dp_entries d WHERE d.user_id = u.id AND d.entry_date >= ? AND d.entry_date < ?), 0) AS monthly_dp,
+      COALESCE((SELECT MAX(COALESCE(d.created_at, d.entry_date || 'T00:00:00')) FROM dp_entries d WHERE d.user_id = u.id), u.previous_dp_at) AS latest_dp_at
       FROM users u
       WHERE (u.archived = 0 OR u.id = ?) AND (? = '' OR u.name LIKE ? OR u.phone LIKE ?)
-      ORDER BY u.name COLLATE NOCASE
+      ORDER BY CASE WHEN latest_dp_at IS NULL THEN 1 ELSE 0 END,
+        latest_dp_at DESC, u.name COLLATE NOCASE
     ''', [start, end, includeArchivedId, term, '%$term%', '%$term%']);
   }
 
@@ -1198,7 +1202,7 @@ class AppDatabase {
     return db.query('audit_log', orderBy: 'created_at DESC', limit: 200);
   }
 
-  Future<int> addUser({required String name, required String phone, String notes = '', bool doNotContact = false, String preferredLanguage = '', String preferredContactMethod = ''}) async {
+  Future<int> addUser({required String name, required String phone, String notes = '', bool doNotContact = false, String preferredLanguage = '', String preferredContactMethod = '', bool hasPreviousDp = false, DateTime? previousDpAt}) async {
     final db = await database;
     final cleanPhone = phone.trim();
     return db.transaction((txn) async {
@@ -1212,6 +1216,7 @@ class AppDatabase {
         'do_not_contact': doNotContact ? 1 : 0,
         'preferred_language': preferredLanguage.trim(),
         'preferred_contact_method': preferredContactMethod.trim(),
+        'previous_dp_at': hasPreviousDp ? previousDpAt?.toIso8601String() : null,
         'created_at': DateTime.now().toIso8601String(),
       });
     });

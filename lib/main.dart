@@ -385,15 +385,16 @@ class UsersPage extends StatefulWidget {
 }
 class _UsersPageState extends State<UsersPage> {
   final search = TextEditingController();
+  late final Timer _relativeClock;
   String lifetimeFilter = 'All';
   String monthlyFilter = 'All';
   late Future<List<Object?>> future;
-  @override void initState() { super.initState(); load(); search.addListener(load); }
+  @override void initState() { super.initState(); load(); search.addListener(load); _relativeClock = Timer.periodic(const Duration(seconds: 30), (_) { if (mounted) setState(() {}); }); }
   void load() => setState(() => future = Future.wait<Object?>([
     AppDatabase.instance.getUsers(search: search.text),
     AppDatabase.instance.getUserLevelConfig(),
   ]));
-  @override void dispose() { search.removeListener(load); search.dispose(); super.dispose(); }
+  @override void dispose() { _relativeClock.cancel(); search.removeListener(load); search.dispose(); super.dispose(); }
   Future<void> edit(Map<String, Object?>? user) async {
     final ok = await showDialog<bool>(context: context, builder: (_) => UserFormDialog(user: user));
     if (ok == true) { load(); widget.onChanged(); }
@@ -465,7 +466,7 @@ class _UsersPageState extends State<UsersPage> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                         leading: CircleAvatar(radius: 23, backgroundColor: const Color(0xFF172820), child: Text(_initials(name), style: const TextStyle(color: emerald, fontWeight: FontWeight.w800))),
                         title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                        subtitle: Text(_maskPhone(user['phone'] as String), style: const TextStyle(color: muted, fontSize: 12)),
+                        subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [ Text(_maskPhone(user['phone'] as String), style: const TextStyle(color: muted, fontSize: 12)), const SizedBox(height: 3), Text(user['latest_dp_at'] == null ? 'No DP history' : 'DP ${_timeSinceDp(user['latest_dp_at'] as String)}', style: TextStyle(color: user['latest_dp_at'] == null ? muted : emerald, fontSize: 11, fontWeight: FontWeight.w600)), ]),
                         trailing: SizedBox(width: 125, child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
                           Text('L${lifetimeIndex + 1} · $lifetime', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: lifetimeIndex == 3 ? amber : emerald, fontWeight: FontWeight.w800, fontSize: 11)),
                           Text('M${monthlyIndex + 1} · $monthly', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: muted, fontSize: 10)),
@@ -478,6 +479,17 @@ class _UsersPageState extends State<UsersPage> {
       ]);
     },
   );
+}
+
+String _timeSinceDp(String value) {
+  final parsed = DateTime.tryParse(value)?.toLocal();
+  if (parsed == null) return 'time unavailable';
+  final elapsed = DateTime.now().difference(parsed);
+  if (elapsed.isNegative) return 'just now';
+  if (elapsed.inDays >= 1) return '${elapsed.inDays} ${elapsed.inDays == 1 ? 'day' : 'days'} ago';
+  if (elapsed.inHours >= 1) return '${elapsed.inHours} ${elapsed.inHours == 1 ? 'hour' : 'hours'} ago';
+  if (elapsed.inMinutes >= 1) return '${elapsed.inMinutes} ${elapsed.inMinutes == 1 ? 'minute' : 'minutes'} ago';
+  return 'just now';
 }
 
 String _maskPhone(String phone) {
@@ -662,15 +674,29 @@ class _UserFormDialogState extends State<UserFormDialog> {
   late final preferredLanguage = TextEditingController(text: widget.user?['preferred_language'] as String? ?? '');
   late final preferredContactMethod = TextEditingController(text: widget.user?['preferred_contact_method'] as String? ?? '');
   bool saving = false;
+  bool hasPreviousDp = false;
+  DateTime? previousDpAt;
   late bool doNotContact = (widget.user?['do_not_contact'] as int? ?? 0) == 1;
   @override
   void dispose() { name.dispose(); phone.dispose(); notes.dispose(); preferredLanguage.dispose(); preferredContactMethod.dispose(); super.dispose(); }
+  Future<void> choosePreviousDpAt() async {
+    final now = DateTime.now();
+    final initial = previousDpAt ?? now;
+    final date = await showDatePicker(context: context, initialDate: initial, firstDate: DateTime(2000), lastDate: now);
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(initial));
+    if (time == null || !mounted) return;
+    final chosen = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    if (chosen.isAfter(now)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Previous DP time cannot be in the future.'))); return; }
+    setState(() => previousDpAt = chosen);
+  }
   Future<void> save() async {
     if (!form.currentState!.validate()) return;
+    if (widget.user == null && hasPreviousDp && previousDpAt == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Choose the previous DP date and time.'))); return; }
     setState(() => saving = true);
     try {
       if (widget.user == null) {
-        await AppDatabase.instance.addUser(name: name.text, phone: phone.text, notes: notes.text, doNotContact: doNotContact, preferredLanguage: preferredLanguage.text, preferredContactMethod: preferredContactMethod.text);
+        await AppDatabase.instance.addUser(name: name.text, phone: phone.text, notes: notes.text, doNotContact: doNotContact, preferredLanguage: preferredLanguage.text, preferredContactMethod: preferredContactMethod.text, hasPreviousDp: hasPreviousDp, previousDpAt: hasPreviousDp ? previousDpAt : null);
       } else {
         await AppDatabase.instance.updateUser(id: widget.user!['id'] as int, name: name.text, phone: phone.text, notes: notes.text, doNotContact: doNotContact, preferredLanguage: preferredLanguage.text, preferredContactMethod: preferredContactMethod.text);
         unawaited(MatchNotificationService.rescheduleAllUpcoming().catchError((_) {}));
@@ -695,6 +721,14 @@ class _UserFormDialogState extends State<UserFormDialog> {
       TextFormField(controller: name, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Full name'), validator: (v) => v == null || v.trim().isEmpty ? 'Enter a name' : null),
       const SizedBox(height: 12),
       TextFormField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number'), validator: (v) => v == null || v.trim().length < 5 ? 'Enter a valid phone number' : null),
+      if (widget.user == null) ...[
+        const SizedBox(height: 12),
+        SwitchListTile(contentPadding: EdgeInsets.zero, value: hasPreviousDp, onChanged: saving ? null : (value) => setState(() { hasPreviousDp = value; if (!value) previousDpAt = null; }), title: const Text('Has deposited before?'), subtitle: const Text('Record the date and time of their previous DP.')),
+        if (hasPreviousDp) ...[
+          Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: saving ? null : choosePreviousDpAt, icon: const Icon(Icons.schedule_rounded), label: Text(previousDpAt == null ? 'Choose previous DP date & time' : DateFormat('dd MMM yyyy · hh:mm a').format(previousDpAt!)))),
+          if (previousDpAt == null) const Align(alignment: Alignment.centerLeft, child: Text('Please select when the previous DP happened.', style: TextStyle(color: amber, fontSize: 12))),
+        ],
+      ],
       const SizedBox(height: 12),
       TextFormField(controller: preferredLanguage, decoration: const InputDecoration(labelText: 'Preferred language (optional)', hintText: 'e.g. Bangla, English')),
       const SizedBox(height: 12),
