@@ -996,6 +996,7 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
   final relatedDp = TextEditingController();
   final notes = TextEditingController();
   int? userId;
+  String userSearch = '';
   String reason = 'Deposit';
   bool saving = false;
   late Future<List<Map<String, Object?>>> users;
@@ -1060,12 +1061,16 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
         if (snap.connectionState == ConnectionState.waiting) return const SizedBox(height: 90, child: Center(child: CircularProgressIndicator()));
         if (rows.isEmpty) return const Text('Add a registered user before recording a bonus.');
         userId ??= rows.first['id'] as int;
+        final filteredUsers = rows.where((u) => '${u['name']} ${u['phone']}'.toLowerCase().contains(userSearch.toLowerCase())).toList();
+        if (!filteredUsers.any((u) => u['id'] == userId) && filteredUsers.isNotEmpty) userId = filteredUsers.first['id'] as int;
         return Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(onChanged: (value) => setState(() => userSearch = value), decoration: const InputDecoration(labelText: 'Search user by name or number', prefixIcon: Icon(Icons.search))),
+          const SizedBox(height: 8),
           DropdownButtonFormField<int>(
-            initialValue: userId,
+            initialValue: filteredUsers.any((u) => u['id'] == userId) ? userId : null,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'User'),
-            items: rows.map((u) => DropdownMenuItem<int>(value: u['id'] as int, child: Text(u['name'] as String, overflow: TextOverflow.ellipsis))).toList(),
+            items: filteredUsers.map((u) => DropdownMenuItem<int>(value: u['id'] as int, child: Text('${u['name']} · ${u['phone']}', overflow: TextOverflow.ellipsis))).toList(),
             onChanged: saving ? null : (v) => setState(() => userId = v),
           ),
           const SizedBox(height: 12),
@@ -1119,6 +1124,7 @@ class _DpEntryDialogState extends State<DpEntryDialog> {
   final amounts = List.generate(5, (_) => TextEditingController());
   final notes = TextEditingController();
   int? userId;
+  String userSearch = '';
   bool contacted = false;
   bool saving = false;
   late Future<List<Map<String, Object?>>> users;
@@ -1170,12 +1176,16 @@ class _DpEntryDialogState extends State<DpEntryDialog> {
         if (snap.connectionState == ConnectionState.waiting) return const SizedBox(height: 90, child: Center(child: CircularProgressIndicator()));
         if (rows.isEmpty) return const Text('Add a registered user before recording DP.');
         userId ??= rows.first['id'] as int;
+        final filteredUsers = rows.where((u) => '${u['name']} ${u['phone']}'.toLowerCase().contains(userSearch.toLowerCase())).toList();
+        if (!filteredUsers.any((u) => u['id'] == userId) && filteredUsers.isNotEmpty) userId = filteredUsers.first['id'] as int;
         return Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(onChanged: (value) => setState(() => userSearch = value), decoration: const InputDecoration(labelText: 'Search user by name or number', prefixIcon: Icon(Icons.search))),
+          const SizedBox(height: 8),
           DropdownButtonFormField<int>(
-            initialValue: userId,
+            initialValue: filteredUsers.any((u) => u['id'] == userId) ? userId : null,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'User'),
-            items: rows.map((u) => DropdownMenuItem<int>(value: u['id'] as int, child: Text(u['name'] as String, overflow: TextOverflow.ellipsis))).toList(),
+            items: filteredUsers.map((u) => DropdownMenuItem<int>(value: u['id'] as int, child: Text('${u['name']} · ${u['phone']}', overflow: TextOverflow.ellipsis))).toList(),
             onChanged: saving ? null : (v) => setState(() => userId = v),
           ),
           const SizedBox(height: 12),
@@ -2866,7 +2876,23 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
   }
 
   Future<void> _searchUpcoming() async {
-    await _run(() => FixtureDiscoveryService.searchUpcomingFixtures(days: 30));
+    await _run(() async {
+      final combined = <FixtureSearchResult>[];
+      final seen = <String>{};
+      try {
+        for (final result in await FixtureDiscoveryService.searchUpcomingFixtures(days: 60)) {
+          final key = '${result.title.toLowerCase()}|${result.matchStartAt?.toIso8601String() ?? result.url}';
+          if (seen.add(key)) combined.add(result);
+        }
+      } catch (_) {}
+      try {
+        for (final result in await FixtureDiscoveryService.searchSavedInterests(interests)) {
+          final key = result.url.isEmpty ? result.title : result.url;
+          if (seen.add(key)) combined.add(result);
+        }
+      } catch (_) {}
+      return combined;
+    });
   }
 
   Future<void> _run(Future<List<FixtureSearchResult>> Function() action) async {
@@ -2969,7 +2995,7 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
                 if (result.imageUrl.isNotEmpty) const SizedBox(height: 10),
                 Text(result.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                 const SizedBox(height: 7),
-                Text('${result.source} · ${result.matchStartAt == null ? 'Match time unavailable' : DateFormat('EEE, d MMM · hh:mm a').format(result.matchStartAt!.toUtc().add(const Duration(hours: 6)))} BST', style: const TextStyle(color: muted, fontSize: 11)),
+                Text('${result.source} · ${result.matchStartAt == null ? (result.publishedAt.isEmpty ? 'Schedule time not confirmed — open source to verify' : 'Article: ${result.publishedAt}') : DateFormat('EEE, d MMM · hh:mm a').format(result.matchStartAt!.toUtc().add(const Duration(hours: 6)))}${result.matchStartAt == null ? '' : ' Bangladesh time'}', style: const TextStyle(color: muted, fontSize: 11)),
                 const SizedBox(height: 10),
                 Align(alignment: Alignment.centerRight, child: FilledButton.tonalIcon(
                   onPressed: () => _review(result),
@@ -3125,7 +3151,12 @@ class _SportsMatchesPageState extends State<SportsMatchesPage> {
                   title: Text(row['user_name'] as String, style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: Text('Sports: ${row['sports']}\nTeams: ${row['teams']}\nCompetitions: ${row['competitions']}'),
                   isThreeLine: true,
-                  trailing: Icon(row['match_alerts'] == 1 ? Icons.notifications_active_outlined : Icons.notifications_off_outlined, color: row['match_alerts'] == 1 ? emerald : muted),
+                  trailing: IconButton(tooltip: 'Edit interests', icon: const Icon(Icons.edit_outlined, color: emerald), onPressed: () async {
+                    final users = await AppDatabase.instance.getUsers();
+                    if (!mounted) return;
+                    final saved = await showDialog<bool>(context: context, builder: (_) => SportsInterestDialog(users: users, existing: row));
+                    if (saved == true && mounted) setState(load);
+                  }),
                 ));
               },
             );
@@ -3228,8 +3259,9 @@ class _MatchDialogState extends State<MatchDialog> {
 }
 
 class SportsInterestDialog extends StatefulWidget {
-  const SportsInterestDialog({super.key, required this.users});
+  const SportsInterestDialog({super.key, required this.users, this.existing});
   final List<Map<String, Object?>> users;
+  final Map<String, Object?>? existing;
 
   @override
   State<SportsInterestDialog> createState() => _SportsInterestDialogState();
@@ -3244,6 +3276,21 @@ class _SportsInterestDialogState extends State<SportsInterestDialog> {
   int? userId;
   bool alerts = false;
   bool saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final row = widget.existing;
+    if (row != null) {
+      userId = row['user_id'] as int?;
+      sports.text = row['sports'] as String? ?? '';
+      teams.text = row['teams'] as String? ?? '';
+      players.text = row['players'] as String? ?? '';
+      competitions.text = row['competitions'] as String? ?? '';
+      notes.text = row['notes'] as String? ?? '';
+      alerts = (row['match_alerts'] as num? ?? 0) == 1;
+    }
+  }
 
   @override
   void dispose() {
@@ -3278,7 +3325,7 @@ class _SportsInterestDialogState extends State<SportsInterestDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Save sports interests'),
+      title: Text(widget.existing == null ? 'Save sports interests' : 'Edit sports interests'),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -3294,7 +3341,7 @@ class _SportsInterestDialogState extends State<SportsInterestDialog> {
                     child: Text(user['name'] as String),
                   );
                 }).toList(),
-                onChanged: saving ? null : (value) => setState(() => userId = value),
+                onChanged: saving || widget.existing != null ? null : (value) => setState(() => userId = value),
               ),
               const SizedBox(height: 10),
               TextField(controller: sports, decoration: const InputDecoration(labelText: 'Sports (e.g. Cricket, Football)')),
@@ -3323,7 +3370,7 @@ class _SportsInterestDialogState extends State<SportsInterestDialog> {
         ),
         FilledButton(
           onPressed: saving || userId == null ? null : save,
-          child: Text(saving ? 'Saving…' : 'Save interests'),
+          child: Text(saving ? 'Saving…' : widget.existing == null ? 'Save interests' : 'Update interests'),
         ),
       ],
     );
