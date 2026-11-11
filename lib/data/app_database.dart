@@ -43,7 +43,7 @@ class AppDatabase {
     final root = await getDatabasesPath();
     _db = await openDatabase(
       p.join(root, 'user_hub.db'),
-      version: 10,
+      version: 11,
       onCreate: (db, version) async {
         await _createUsers(db);
         await _createDpEntries(db);
@@ -64,6 +64,10 @@ class AppDatabase {
         if (oldVersion < 8) await _createAuditLog(db);
         if (oldVersion < 9) await _createSportsTables(db);
         if (oldVersion < 10) await db.execute('ALTER TABLE users ADD COLUMN do_not_contact INTEGER NOT NULL DEFAULT 0');
+        if (oldVersion < 11) {
+          await db.execute("ALTER TABLE users ADD COLUMN preferred_language TEXT NOT NULL DEFAULT ''");
+          await db.execute("ALTER TABLE users ADD COLUMN preferred_contact_method TEXT NOT NULL DEFAULT ''");
+        }
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -129,7 +133,7 @@ class AppDatabase {
 
       final versionRows = await candidate.rawQuery('PRAGMA user_version');
       final backupVersion = (versionRows.first.values.first as num).toInt();
-      const supportedVersion = 10;
+      const supportedVersion = 11;
       if (backupVersion < 1 || backupVersion > supportedVersion) {
         throw StateError(
           'This backup version is not supported by this version of User Hub.',
@@ -207,6 +211,8 @@ class AppDatabase {
         phone TEXT NOT NULL UNIQUE,
         notes TEXT NOT NULL DEFAULT '',
         do_not_contact INTEGER NOT NULL DEFAULT 0,
+        preferred_language TEXT NOT NULL DEFAULT '',
+        preferred_contact_method TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL,
         archived INTEGER NOT NULL DEFAULT 0
       )
@@ -526,7 +532,9 @@ class AppDatabase {
       if (existing.isNotEmpty) throw StateError('This phone number is already registered');
       await txn.insert('users', {
         'name': prospect['name'], 'phone': prospect['phone'],
-        'notes': prospect['notes'], 'created_at': DateTime.now().toIso8601String(),
+        'notes': prospect['notes'],
+        'preferred_language': prospect['language'] ?? '',
+        'created_at': DateTime.now().toIso8601String(),
       });
       return txn.update('potential_users', {'status': 'Registered'}, where: 'id = ?', whereArgs: [id]);
     });
@@ -1100,7 +1108,7 @@ class AppDatabase {
     return db.query('audit_log', orderBy: 'created_at DESC', limit: 200);
   }
 
-  Future<int> addUser({required String name, required String phone, String notes = '', bool doNotContact = false}) async {
+  Future<int> addUser({required String name, required String phone, String notes = '', bool doNotContact = false, String preferredLanguage = '', String preferredContactMethod = ''}) async {
     final db = await database;
     final cleanPhone = phone.trim();
     return db.transaction((txn) async {
@@ -1112,12 +1120,14 @@ class AppDatabase {
       return txn.insert('users', {
         'name': name.trim(), 'phone': cleanPhone, 'notes': notes.trim(),
         'do_not_contact': doNotContact ? 1 : 0,
+        'preferred_language': preferredLanguage.trim(),
+        'preferred_contact_method': preferredContactMethod.trim(),
         'created_at': DateTime.now().toIso8601String(),
       });
     });
   }
 
-  Future<int> updateUser({required int id, required String name, required String phone, String notes = '', bool doNotContact = false}) async {
+  Future<int> updateUser({required int id, required String name, required String phone, String notes = '', bool doNotContact = false, String preferredLanguage = '', String preferredContactMethod = ''}) async {
     final db = await database;
     final cleanPhone = phone.trim();
     return db.transaction((txn) async {
@@ -1129,6 +1139,8 @@ class AppDatabase {
       return txn.update('users', {
         'name': name.trim(), 'phone': cleanPhone, 'notes': notes.trim(),
         'do_not_contact': doNotContact ? 1 : 0,
+        'preferred_language': preferredLanguage.trim(),
+        'preferred_contact_method': preferredContactMethod.trim(),
       }, where: 'id = ?', whereArgs: [id]);
     });
   }

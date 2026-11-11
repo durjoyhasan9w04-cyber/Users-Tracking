@@ -494,6 +494,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 Text('Added: ${(user['created_at'] as String? ?? '').split('T').first}', style: const TextStyle(color: muted, fontSize: 12)),
                 Text('Last DP: ${lastDp == null ? 'Never' : daysSinceLastDp == 0 ? 'Today' : daysSinceLastDp == 1 ? 'Yesterday' : '$daysSinceLastDp days ago · $lastDp'}', style: const TextStyle(color: muted, fontSize: 12)),
                 Text('Last contact: ${lastContact ?? 'Not recorded'}', style: const TextStyle(color: muted, fontSize: 12)),
+                if ((user['preferred_language'] as String? ?? '').isNotEmpty)
+                  Text('Preferred language: ${user['preferred_language']}', style: const TextStyle(color: muted, fontSize: 12)),
+                if ((user['preferred_contact_method'] as String? ?? '').isNotEmpty)
+                  Text('Preferred contact: ${user['preferred_contact_method']}', style: const TextStyle(color: muted, fontSize: 12)),
               ]),
             )),
             const SizedBox(height: 12),
@@ -569,18 +573,20 @@ class _UserFormDialogState extends State<UserFormDialog> {
   late final name = TextEditingController(text: widget.user?['name'] as String? ?? '');
   late final phone = TextEditingController(text: widget.user?['phone'] as String? ?? '');
   late final notes = TextEditingController(text: widget.user?['notes'] as String? ?? '');
+  late final preferredLanguage = TextEditingController(text: widget.user?['preferred_language'] as String? ?? '');
+  late final preferredContactMethod = TextEditingController(text: widget.user?['preferred_contact_method'] as String? ?? '');
   bool saving = false;
   late bool doNotContact = (widget.user?['do_not_contact'] as int? ?? 0) == 1;
   @override
-  void dispose() { name.dispose(); phone.dispose(); notes.dispose(); super.dispose(); }
+  void dispose() { name.dispose(); phone.dispose(); notes.dispose(); preferredLanguage.dispose(); preferredContactMethod.dispose(); super.dispose(); }
   Future<void> save() async {
     if (!form.currentState!.validate()) return;
     setState(() => saving = true);
     try {
       if (widget.user == null) {
-        await AppDatabase.instance.addUser(name: name.text, phone: phone.text, notes: notes.text, doNotContact: doNotContact);
+        await AppDatabase.instance.addUser(name: name.text, phone: phone.text, notes: notes.text, doNotContact: doNotContact, preferredLanguage: preferredLanguage.text, preferredContactMethod: preferredContactMethod.text);
       } else {
-        await AppDatabase.instance.updateUser(id: widget.user!['id'] as int, name: name.text, phone: phone.text, notes: notes.text, doNotContact: doNotContact);
+        await AppDatabase.instance.updateUser(id: widget.user!['id'] as int, name: name.text, phone: phone.text, notes: notes.text, doNotContact: doNotContact, preferredLanguage: preferredLanguage.text, preferredContactMethod: preferredContactMethod.text);
         unawaited(MatchNotificationService.rescheduleAllUpcoming().catchError((_) {}));
       }
       if (mounted) Navigator.pop(context, true);
@@ -603,6 +609,10 @@ class _UserFormDialogState extends State<UserFormDialog> {
       TextFormField(controller: name, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Full name'), validator: (v) => v == null || v.trim().isEmpty ? 'Enter a name' : null),
       const SizedBox(height: 12),
       TextFormField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number'), validator: (v) => v == null || v.trim().length < 5 ? 'Enter a valid phone number' : null),
+      const SizedBox(height: 12),
+      TextFormField(controller: preferredLanguage, decoration: const InputDecoration(labelText: 'Preferred language (optional)', hintText: 'e.g. Bangla, English')),
+      const SizedBox(height: 12),
+      TextFormField(controller: preferredContactMethod, decoration: const InputDecoration(labelText: 'Preferred contact method (optional)', hintText: 'e.g. WhatsApp, Phone call, SMS, IMO')),
       const SizedBox(height: 12),
       TextFormField(controller: notes, maxLines: 3, decoration: const InputDecoration(labelText: 'Notes (optional)')),
       const SizedBox(height: 8),
