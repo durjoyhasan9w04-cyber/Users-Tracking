@@ -17,7 +17,7 @@ class MatchNotificationService {
       AndroidNotificationDetails(
     'user_hub_match_reminders',
     'Match reminders',
-    channelDescription: 'Local reminders for matches related to saved user interests',
+    channelDescription: 'Local reminders for match interests and usual DP activity times',
     importance: Importance.high,
     priority: Priority.high,
   );
@@ -150,6 +150,7 @@ class MatchNotificationService {
           tz.TZDateTime.from(reminderAt, tz.local),
           _details,
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.time,
         );
       }
     }
