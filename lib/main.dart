@@ -1667,9 +1667,11 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() { checking = true; integrityResult = null; });
     try {
       final valid = await AppDatabase.instance.checkIntegrity();
-      if (mounted) setState(() => integrityResult = valid
-          ? 'Database integrity check passed.'
-          : 'Database integrity check reported a problem.');
+      if (mounted) {
+        setState(() => integrityResult = valid
+            ? 'Database integrity check passed.'
+            : 'Database integrity check reported a problem.');
+      }
     } catch (e) {
       if (mounted) setState(() => integrityResult = 'Check failed: $e');
     } finally {
