@@ -125,7 +125,7 @@ class FixtureDiscoveryService {
         for (final child in value.values) { visit(child); }
       }
     }
-    final scripts = RegExp(r'<script[^>]*application/ld\\+json[^>]*>([\\s\\S]*?)</script>', caseSensitive: false);
+    final scripts = RegExp(r'<script[^>]*application/ld\+json[^>]*>([\s\S]*?)</script>', caseSensitive: false);
     for (final match in scripts.allMatches(html)) {
       final raw = match.group(1)?.trim() ?? '';
       if (raw.isNotEmpty) { try { visit(jsonDecode(raw)); } catch (_) {} }
