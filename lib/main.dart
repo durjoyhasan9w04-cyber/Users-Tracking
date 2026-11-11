@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'data/app_database.dart';
 import 'services/match_notification_service.dart';
@@ -2117,6 +2119,95 @@ class _ReportsPageState extends State<ReportsPage> {
     }
   }
 
+  Future<void> exportPdf(
+    List<Map<String, Object?>> rows,
+    Map<String, num> totals,
+  ) async {
+    setState(() => exporting = true);
+    try {
+      final pdf = pw.Document();
+      final monthLabel = DateFormat('MMMM yyyy').format(month);
+      final headers = [
+        'Type', 'Date', 'User', 'Phone', 'Amount', 'DP count', 'Reason', 'Notes',
+      ];
+      final tableRows = <List<String>>[
+        headers,
+        ...rows.map((row) => [
+          row['type']?.toString() ?? '',
+          row['transaction_date']?.toString() ?? '',
+          row['user_name']?.toString() ?? '',
+          row['phone']?.toString() ?? '',
+          row['amount']?.toString() ?? '0',
+          row['item_count']?.toString() ?? '',
+          row['reason']?.toString() ?? '',
+          row['notes']?.toString() ?? '',
+        ]),
+      ];
+      pdf.addPage(pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(24),
+        build: (context) => [
+          pw.Header(
+            level: 0,
+            child: pw.Text('User Hub · Monthly Report',
+                style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
+          ),
+          pw.Text('Period: $monthLabel'),
+          pw.SizedBox(height: 8),
+          pw.Wrap(spacing: 24, runSpacing: 6, children: [
+            pw.Text('DP total: ${totals['dp'] ?? 0} coins'),
+            pw.Text('Bonus total: ${totals['bonus'] ?? 0} coins'),
+            pw.Text('DP records: ${totals['dp_count'] ?? 0}'),
+            pw.Text('Bonus records: ${totals['bonus_count'] ?? 0}'),
+            pw.Text('Transactions: ${rows.length}'),
+          ]),
+          pw.SizedBox(height: 14),
+          pw.TableHelper.fromTextArray(
+            headers: headers,
+            data: tableRows.skip(1).toList(),
+            headerStyle: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.white,
+              fontSize: 8,
+            ),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey800),
+            cellStyle: const pw.TextStyle(fontSize: 7),
+            cellAlignment: pw.Alignment.centerLeft,
+            cellPadding: const pw.EdgeInsets.all(4),
+            border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.4),
+            columnWidths: {
+              0: const pw.FlexColumnWidth(0.8),
+              1: const pw.FlexColumnWidth(1.0),
+              2: const pw.FlexColumnWidth(1.2),
+              3: const pw.FlexColumnWidth(1.2),
+              4: const pw.FlexColumnWidth(0.8),
+              5: const pw.FlexColumnWidth(0.6),
+              6: const pw.FlexColumnWidth(1.0),
+              7: const pw.FlexColumnWidth(1.5),
+            },
+          ),
+        ],
+      ));
+      final directory = await getTemporaryDirectory();
+      final file = File(
+        '${directory.path}/user-hub-report-${month.year}-${month.month.toString().padLeft(2, '0')}.pdf',
+      );
+      await file.writeAsBytes(await pdf.save(), flush: true);
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path)],
+        text: 'User Hub monthly report · $monthLabel',
+      ));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not create the PDF report.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => exporting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Reports & export')),
@@ -2149,7 +2240,13 @@ class _ReportsPageState extends State<ReportsPage> {
             FilledButton.icon(
               onPressed: exporting ? null : () => exportCsv(rows),
               icon: const Icon(Icons.file_download_outlined),
-              label: Text(exporting ? 'Preparing CSV…' : 'Export transaction CSV'),
+              label: Text(exporting ? 'Preparing export…' : 'Export transaction CSV'),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: exporting ? null : () => exportPdf(rows, totals),
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: Text(exporting ? 'Preparing export…' : 'Export monthly PDF report'),
             ),
             const SizedBox(height: 18),
             const SectionHeading('Transactions', trailing: 'Selected month'),
@@ -2522,7 +2619,9 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
     setState(() { busy = true; status = 'Checking and restoring backup…'; });
     try {
       await AppDatabase.instance.restoreBackupFile(picked.files.single.path!);
-      if (mounted) setState(() => status = 'Backup restored successfully. Your saved records are now loaded.');
+      // Rebuild local reminders against the restored match and interest data.
+      await MatchNotificationService.rescheduleAllUpcoming();
+      if (mounted) setState(() => status = 'Backup restored successfully. Your saved records and eligible match reminders are refreshed.');
     } catch (e) {
       if (mounted) setState(() => status = 'Restore failed: ${e.toString()}');
     } finally {
