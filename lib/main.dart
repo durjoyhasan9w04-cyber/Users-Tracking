@@ -584,6 +584,10 @@ class _UserFormDialogState extends State<UserFormDialog> {
         unawaited(MatchNotificationService.rescheduleAllUpcoming().catchError((_) {}));
       }
       if (mounted) Navigator.pop(context, true);
+    } on DuplicatePhoneException catch (e) {
+      if (!mounted) return;
+      setState(() => saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } on DatabaseException catch (e) {
       if (!mounted) return;
       setState(() => saving = false);
@@ -1134,6 +1138,10 @@ class _PotentialUserDialogState extends State<PotentialUserDialog> {
         );
       }
       if (mounted) Navigator.pop(context, true);
+    } on DuplicatePhoneException catch (e) {
+      if (!mounted) return;
+      setState(() => saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } on DatabaseException catch (e) {
       if (!mounted) return;
       setState(() => saving = false);

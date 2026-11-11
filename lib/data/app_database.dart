@@ -3,6 +3,13 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+class DuplicatePhoneException implements Exception {
+  const DuplicatePhoneException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
 class AppDatabase {
   AppDatabase._();
   static final AppDatabase instance = AppDatabase._();
@@ -439,13 +446,21 @@ class AppDatabase {
     String status = 'New Lead', DateTime? followUpDate, bool contactPermission = false,
   }) async {
     final db = await database;
-    return db.insert('potential_users', {
-      'name': name.trim(), 'phone': phone.trim(), 'source': source.trim(),
-      'language': language.trim(), 'sports': sports.trim(), 'notes': notes.trim(),
-      'status': status,
-      'follow_up_date': followUpDate?.toIso8601String().substring(0, 10),
-      'contact_permission': contactPermission ? 1 : 0,
-      'created_at': DateTime.now().toIso8601String(),
+    final cleanPhone = phone.trim();
+    return db.transaction((txn) async {
+      final registered = await txn.query('users', columns: ['id'],
+        where: 'phone = ?', whereArgs: [cleanPhone], limit: 1);
+      if (registered.isNotEmpty) {
+        throw const DuplicatePhoneException('This phone number already belongs to a registered user.');
+      }
+      return txn.insert('potential_users', {
+        'name': name.trim(), 'phone': cleanPhone, 'source': source.trim(),
+        'language': language.trim(), 'sports': sports.trim(), 'notes': notes.trim(),
+        'status': status,
+        'follow_up_date': followUpDate?.toIso8601String().substring(0, 10),
+        'contact_permission': contactPermission ? 1 : 0,
+        'created_at': DateTime.now().toIso8601String(),
+      });
     });
   }
 
@@ -456,13 +471,21 @@ class AppDatabase {
     required bool contactPermission,
   }) async {
     final db = await database;
-    return db.update('potential_users', {
-      'name': name.trim(), 'phone': phone.trim(), 'source': source.trim(),
-      'language': language.trim(), 'sports': sports.trim(), 'notes': notes.trim(),
-      'status': status,
-      'follow_up_date': followUpDate?.toIso8601String().substring(0, 10),
-      'contact_permission': contactPermission ? 1 : 0,
-    }, where: 'id = ?', whereArgs: [id]);
+    final cleanPhone = phone.trim();
+    return db.transaction((txn) async {
+      final registered = await txn.query('users', columns: ['id'],
+        where: 'phone = ?', whereArgs: [cleanPhone], limit: 1);
+      if (registered.isNotEmpty) {
+        throw const DuplicatePhoneException('This phone number already belongs to a registered user.');
+      }
+      return txn.update('potential_users', {
+        'name': name.trim(), 'phone': cleanPhone, 'source': source.trim(),
+        'language': language.trim(), 'sports': sports.trim(), 'notes': notes.trim(),
+        'status': status,
+        'follow_up_date': followUpDate?.toIso8601String().substring(0, 10),
+        'contact_permission': contactPermission ? 1 : 0,
+      }, where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   Future<int> updatePotentialStatus(int id, String status) async {
@@ -1047,16 +1070,35 @@ class AppDatabase {
 
   Future<int> addUser({required String name, required String phone, String notes = '', bool doNotContact = false}) async {
     final db = await database;
-    return db.insert('users', {
-      'name': name.trim(), 'phone': phone.trim(), 'notes': notes.trim(),
-      'do_not_contact': doNotContact ? 1 : 0,
-      'created_at': DateTime.now().toIso8601String(),
+    final cleanPhone = phone.trim();
+    return db.transaction((txn) async {
+      final prospect = await txn.query('potential_users', columns: ['id'],
+        where: "phone = ? AND status != 'Registered'", whereArgs: [cleanPhone], limit: 1);
+      if (prospect.isNotEmpty) {
+        throw const DuplicatePhoneException('This phone number already exists in potential users. Convert that profile instead.');
+      }
+      return txn.insert('users', {
+        'name': name.trim(), 'phone': cleanPhone, 'notes': notes.trim(),
+        'do_not_contact': doNotContact ? 1 : 0,
+        'created_at': DateTime.now().toIso8601String(),
+      });
     });
   }
 
   Future<int> updateUser({required int id, required String name, required String phone, String notes = '', bool doNotContact = false}) async {
     final db = await database;
-    return db.update('users', {'name': name.trim(), 'phone': phone.trim(), 'notes': notes.trim(), 'do_not_contact': doNotContact ? 1 : 0}, where: 'id = ?', whereArgs: [id]);
+    final cleanPhone = phone.trim();
+    return db.transaction((txn) async {
+      final prospect = await txn.query('potential_users', columns: ['id'],
+        where: "phone = ? AND status != 'Registered'", whereArgs: [cleanPhone], limit: 1);
+      if (prospect.isNotEmpty) {
+        throw const DuplicatePhoneException('This phone number already exists in potential users. Resolve that profile before changing this number.');
+      }
+      return txn.update('users', {
+        'name': name.trim(), 'phone': cleanPhone, 'notes': notes.trim(),
+        'do_not_contact': doNotContact ? 1 : 0,
+      }, where: 'id = ?', whereArgs: [id]);
+    });
   }
 
   Future<List<Map<String, Object?>>> getArchivedUsers() async {
