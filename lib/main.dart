@@ -2866,7 +2866,7 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
   }
 
   Future<void> _searchUpcoming() async {
-    await _run(() => FixtureDiscoveryService.searchUpcomingFixtures(days: 7));
+    await _run(() => FixtureDiscoveryService.searchUpcomingFixtures(days: 30));
   }
 
   Future<void> _run(Future<List<FixtureSearchResult>> Function() action) async {
@@ -2915,12 +2915,12 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
               Expanded(child: Text('Search match fixtures', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
             ]),
             const SizedBox(height: 8),
-            const Text('Scrapes public sports schedule pages for actual match start times. Shows upcoming fixtures within the next 7 days, converted to Bangladesh time (UTC+6). Coverage depends on source availability.', style: TextStyle(color: muted, height: 1.45)),
+            const Text('Checks public sports schedule pages, including official Premier League, Manchester City, Liverpool and Everton fixture pages. Shows structured upcoming fixtures within the next 30 days, converted to Bangladesh time (UTC+6). Coverage depends on what each site makes publicly readable.', style: TextStyle(color: muted, height: 1.45)),
             const SizedBox(height: 14),
             SizedBox(width: double.infinity, child: FilledButton.icon(
               onPressed: loading ? null : _searchUpcoming,
               icon: const Icon(Icons.travel_explore_rounded),
-              label: const Text('Find all upcoming matches · 7 days'),
+              label: const Text('Find all upcoming matches · 30 days'),
             )),
             if (interests.isEmpty) const Padding(
               padding: EdgeInsets.only(top: 8),
