@@ -2360,7 +2360,7 @@ class _GroqApiSettingsPageState extends State<GroqApiSettingsPage> {
         const Text('Use Groq browser search to find fixtures for saved sports, teams, players and competitions over the next seven days.', style: TextStyle(color: muted, height: 1.45)),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
-          value: _model, decoration: const InputDecoration(labelText: 'Free browser-search model'),
+          initialValue: _model, decoration: const InputDecoration(labelText: 'Free browser-search model'),
           items: const [
             DropdownMenuItem(value: 'openai/gpt-oss-20b', child: Text('GPT-OSS 20B · recommended')),
             DropdownMenuItem(value: 'openai/gpt-oss-120b', child: Text('GPT-OSS 120B')),
@@ -3024,7 +3024,7 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
           for (final result in await GroqFixtureService.searchSavedInterests(
             apiKey: apiKey, interests: interests, days: 7, model: selectedModel,
           )) {
-            final key = result.title.toLowerCase() + '|' + (result.matchStartAt?.toIso8601String() ?? result.url);
+            final key = '${result.title.toLowerCase()}|${result.matchStartAt?.toIso8601String() ?? result.url}';
             if (seen.add(key)) combined.add(result);
           }
           aiStatus = 'Groq AI browser search completed for the next seven days.';
