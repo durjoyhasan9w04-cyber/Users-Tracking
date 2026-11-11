@@ -31,16 +31,25 @@ class FixtureDiscoveryService {
       final teams = _tokens(interest['teams']);
       final competitions = _tokens(interest['competitions']);
       for (final team in teams) {
-        queries.add('"$team" (fixtures OR schedule OR upcoming match)');
+        final normalized = team.toLowerCase().replaceAll(RegExp(r'[^a-z0-9 ]'), '').trim();
+        final aliases = <String>{team};
+        if (normalized == 'man city' || normalized == 'manchester city') aliases.add('Manchester City');
+        if (normalized == 'india') { aliases.add('India cricket team'); aliases.add('India national cricket team'); }
+        if (normalized == 'uae bulls' || normalized == 'uae bull') { aliases.add('UAE Bulls'); aliases.add('UAE Bulls T10'); }
+        if (normalized == 'liverpool' || normalized == 'liverpool fc') aliases.add('Liverpool FC');
+        if (normalized == 'everton' || normalized == 'everton fc') aliases.add('Everton FC');
+        for (final alias in aliases) {
+          queries.add('"$alias" (fixtures OR schedule OR upcoming match OR next match)');
+        }
       }
       for (final competition in competitions) {
-        queries.add('"$competition" (fixtures OR schedule OR match)');
+        queries.add('"$competition" (fixtures OR schedule OR upcoming match)');
       }
       if (teams.isEmpty && competitions.isEmpty && sport.isNotEmpty) {
         queries.add('"$sport" upcoming fixtures schedule');
       }
     }
-    return queries.take(10).toList();
+    return queries.take(24).toList();
   }
 
 
@@ -60,6 +69,7 @@ class FixtureDiscoveryService {
     'Manchester City Official': 'https://www.mancity.com/fixtures',
     'Liverpool Official': 'https://www.liverpoolfc.com/fixtures',
     'Everton Official': 'https://www.evertonfc.com/fixtures',
+    'Abu Dhabi T10': 'https://www.t10league.com/',
   };
 
   static Future<List<FixtureSearchResult>> searchUpcomingFixtures({int days = 30}) async {
