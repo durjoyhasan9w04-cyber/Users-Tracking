@@ -489,12 +489,43 @@ class AppDatabase {
         COALESCE((SELECT SUM(total) FROM dp_entries WHERE user_id = u.id), 0) AS lifetime_dp,
         COALESCE((SELECT SUM(amount) FROM bonus_entries WHERE user_id = u.id), 0) AS lifetime_bonus,
         (SELECT MAX(entry_date) FROM dp_entries WHERE user_id = u.id) AS last_dp_date,
+        CAST(julianday(date('now','localtime')) - julianday((SELECT MAX(entry_date) FROM dp_entries WHERE user_id = u.id)) AS INTEGER) AS days_since_last_dp,
         (SELECT MAX(contact_date) FROM contact_history WHERE user_id = u.id) AS last_contact_date,
         (SELECT COUNT(*) FROM dp_entries WHERE user_id = u.id) AS dp_transactions,
         (SELECT COUNT(*) FROM bonus_entries WHERE user_id = u.id) AS bonus_transactions
       FROM users u WHERE u.id = ? LIMIT 1
     """, [userId]);
     return rows.isEmpty ? null : rows.first;
+  }
+
+  Future<Map<String, Object?>> getUserDpInsights(int userId) async {
+    final db = await database;
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 29));
+    final startDate = start.toIso8601String().substring(0, 10);
+    final endDate = now.toIso8601String().substring(0, 10);
+    final rows = await db.rawQuery("""
+      SELECT entry_date, SUM(total) AS day_total
+      FROM dp_entries
+      WHERE user_id = ? AND entry_date >= ? AND entry_date <= ?
+      GROUP BY entry_date
+      ORDER BY entry_date ASC
+    """, [userId, startDate, endDate]);
+    final totals = rows.map((r) => (r['day_total'] as num).toDouble()).toList();
+    final dates = rows.map((r) => DateTime.parse(r['entry_date'] as String)).toList();
+    final total = totals.fold<double>(0, (sum, value) => sum + value);
+    final highest = totals.isEmpty ? 0.0 : totals.reduce((a, b) => a > b ? a : b);
+    var gapTotal = 0;
+    for (var i = 1; i < dates.length; i++) {
+      gapTotal += dates[i].difference(dates[i - 1]).inDays;
+    }
+    return {
+      'total': total,
+      'active_days': rows.length,
+      'average_per_day': rows.isEmpty ? 0.0 : total / rows.length,
+      'highest_day': highest,
+      'average_gap': dates.length < 2 ? null : gapTotal / (dates.length - 1),
+    };
   }
 
   Future<List<Map<String, Object?>>> getUserTimeline(int userId) async {

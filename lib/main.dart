@@ -441,6 +441,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
     data = Future.wait<Object?>([
       AppDatabase.instance.getUserProfile(widget.userId),
       AppDatabase.instance.getUserTimeline(widget.userId),
+      AppDatabase.instance.getUserDpInsights(widget.userId),
     ]);
   }
   Future<void> edit(Map<String, Object?> user) async {
@@ -463,8 +464,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
         }
         final user = snap.data![0] as Map<String, Object?>;
         final timeline = snap.data![1] as List<Map<String, Object?>>;
+        final insights = snap.data![2] as Map<String, Object?>;
         final name = user['name'] as String? ?? 'User';
         final lastDp = user['last_dp_date'] as String?;
+        final daysSinceLastDp = user['days_since_last_dp'] as int?;
         final lastContact = user['last_contact_date'] as String?;
         return ListView(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 32),
@@ -487,7 +490,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 ],
                 const SizedBox(height: 14),
                 Text('Added: ${(user['created_at'] as String? ?? '').split('T').first}', style: const TextStyle(color: muted, fontSize: 12)),
-                Text('Last DP: ${lastDp ?? 'Never'}', style: const TextStyle(color: muted, fontSize: 12)),
+                Text('Last DP: ${lastDp == null ? 'Never' : daysSinceLastDp == 0 ? 'Today' : daysSinceLastDp == 1 ? 'Yesterday' : '$daysSinceLastDp days ago · $lastDp'}', style: const TextStyle(color: muted, fontSize: 12)),
                 Text('Last contact: ${lastContact ?? 'Not recorded'}', style: const TextStyle(color: muted, fontSize: 12)),
               ]),
             )),
@@ -504,7 +507,27 @@ class _UserProfilePageState extends State<UserProfilePage> {
               Expanded(child: MetricCard(label: 'Bonus records', value: '${user['bonus_transactions']}', icon: Icons.redeem_rounded)),
             ]),
             const SizedBox(height: 20),
+            const SectionHeading('DP behaviour · Last 30 days', trailing: 'Recent pattern'),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: MetricCard(label: 'DP total · 30 days', value: amount(insights['total']), icon: Icons.account_balance_wallet_rounded)),
+              const SizedBox(width: 10),
+              Expanded(child: MetricCard(label: 'Active DP days', value: '${insights['active_days']}', icon: Icons.calendar_today_rounded)),
+            ]),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: MetricCard(label: 'Average per DP day', value: amount(insights['average_per_day']), icon: Icons.trending_up_rounded)),
+              const SizedBox(width: 10),
+              Expanded(child: MetricCard(label: 'Highest DP day', value: amount(insights['highest_day']), icon: Icons.emoji_events_outlined)),
+            ]),
             const SizedBox(height: 8),
+            Text(
+              insights['average_gap'] == null
+                  ? 'Average gap between DP days: Not enough activity yet'
+                  : 'Average gap between DP days: ${(insights['average_gap'] as num).toStringAsFixed(1)} days',
+              style: const TextStyle(color: muted, fontSize: 12),
+            ),
+            const SizedBox(height: 20),
             const SectionHeading('Activity timeline', trailing: 'Newest first'),
             const SizedBox(height: 10),
             if (timeline.isEmpty)
