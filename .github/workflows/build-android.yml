@@ -195,7 +195,7 @@ jobs:
                   "signingConfig signingConfigs.debug",
                   "signingConfig signingConfigs.release"
               )
-          if "user-hub-release.jks" not in text or "signingConfigs.release" not in text:
+          if "user-hub-release.jks" not in text or ('create("release")' not in text and "release {" not in text):
               raise SystemExit("Could not configure the release signing configuration")
           gradle_file.write_text(text)
           print("Configured permanent release signing")
