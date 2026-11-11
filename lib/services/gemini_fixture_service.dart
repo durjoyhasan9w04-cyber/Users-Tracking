@@ -40,14 +40,14 @@ class GeminiFixtureService {
     final prompt = '''
 You are a sports fixture research assistant. Use Google Search to find REAL scheduled sports fixtures for the saved interests below.
 Search across sports worldwide: cricket, football/soccer, kabaddi, tennis, badminton, esports, basketball, hockey and any other sport named.
-Only include matches scheduled from \${now.toIso8601String()} through \${end.toIso8601String()} (UTC).
+Only include matches scheduled from ${now.toIso8601String()} through ${end.toIso8601String()} (UTC).
 Prioritize official league, tournament, team and governing-body schedules. Search each saved team/competition carefully, including common aliases.
 Never invent a fixture, opponent, date, exact kickoff time, venue or URL. Do not treat article publication dates as match dates. Do not include live scores or completed matches. Only include events where the source confirms both match date and exact local kickoff time; otherwise omit the event.
 Return ONLY valid JSON in this exact shape:
 {"events":[{"title":"Team A vs Team B","sport":"Football","competition":"League name","startAt":"2026-11-12T15:00:00Z","timeConfirmed":true,"sourceUrl":"https://official-source.example/fixture","venue":"optional"}]}
 For every event, sourceUrl must be a real source page found through Google Search. Set timeConfirmed to true. No markdown fences, explanations, predictions or fabricated image URLs.
 Saved user interests:
-\${jsonEncode(selections)}
+${jsonEncode(selections)}
 ''';
 
     final response = await _request(apiKey, prompt, useSearch: true);
@@ -97,15 +97,14 @@ Saved user interests:
           : (groundedUrls.isEmpty ? '' : groundedUrls.first);
       if (url.isEmpty) continue;
 
-      final key = '\${title.toLowerCase()}|\${instant.toIso8601String()}';
+      final key = '${title.toLowerCase()}|${instant.toIso8601String()}';
       if (!seen.add(key)) continue;
       if (event['timeConfirmed'] == false) continue;
-      final timeConfirmed = true;
       found.add(FixtureSearchResult(
         title: title,
         url: url,
         publishedAt: '',
-        source: 'Gemini AI · Google Search\${timeConfirmed ? '' : ' · time unconfirmed'}',
+        source: 'Gemini AI · Google Search',
         query: (event['competition'] ?? event['sport'] ?? 'Saved interests').toString(),
         matchStartAt: instant,
       ));
@@ -151,7 +150,7 @@ Saved user interests:
       final response = await request.close().timeout(const Duration(seconds: 60));
       final body = await response.transform(utf8.decoder).join().timeout(const Duration(seconds: 60));
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        String message = 'Gemini API returned HTTP \${response.statusCode}.';
+        String message = 'Gemini API returned HTTP ${response.statusCode}.';
         try {
           final data = jsonDecode(body);
           message = (data['error']?['message'] ?? message).toString();
