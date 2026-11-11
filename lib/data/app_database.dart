@@ -1060,7 +1060,7 @@ class AppDatabase {
     if (data['app'] != 'User Hub' || data['format_version'] != 1) {
       throw const FormatException('This is not a supported User Hub backup.');
     }
-    const requiredTables = <String>[
+    final requiredTables = <String>[
       'users', 'dp_entries', 'bonus_entries', 'potential_users',
       'contact_history', 'customer_issues', 'audit_log',
       'sports_interests', 'matches',
