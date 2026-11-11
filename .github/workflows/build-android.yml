@@ -28,7 +28,7 @@ jobs:
       - name: Generate Android project files
         run: flutter create --platforms=android --project-name user_hub .
 
-      - name: Add Android notification permission
+      - name: Configure Android local notification permissions and receivers
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -40,14 +40,39 @@ jobs:
           root = tree.getroot()
           android = '{http://schemas.android.com/apk/res/android}'
           permissions = {node.get(android + 'name') for node in root.findall('uses-permission')}
-          if 'android.permission.POST_NOTIFICATIONS' not in permissions:
-              permission = ET.Element('uses-permission')
-              permission.set(android + 'name', 'android.permission.POST_NOTIFICATIONS')
-              application = root.find('application')
-              root.insert(list(root).index(application), permission)
+          for name in ('android.permission.POST_NOTIFICATIONS', 'android.permission.RECEIVE_BOOT_COMPLETED'):
+              if name not in permissions:
+                  permission = ET.Element('uses-permission')
+                  permission.set(android + 'name', name)
+                  application = root.find('application')
+                  root.insert(list(root).index(application), permission)
+          application = root.find('application')
+          if application is None:
+              raise SystemExit('Android application element not found')
+          receiver_names = {node.get(android + 'name') for node in application.findall('receiver')}
+          scheduled = 'com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver'
+          if scheduled not in receiver_names:
+              ET.SubElement(application, 'receiver', {
+                  android + 'name': scheduled,
+                  android + 'exported': 'false',
+              })
+          boot = 'com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver'
+          if boot not in receiver_names:
+              receiver = ET.SubElement(application, 'receiver', {
+                  android + 'name': boot,
+                  android + 'exported': 'false',
+              })
+              intent_filter = ET.SubElement(receiver, 'intent-filter')
+              for action_name in (
+                  'android.intent.action.BOOT_COMPLETED',
+                  'android.intent.action.MY_PACKAGE_REPLACED',
+                  'android.intent.action.QUICKBOOT_POWERON',
+                  'com.htc.intent.action.QUICKBOOT_POWERON',
+              ):
+                  ET.SubElement(intent_filter, 'action', {android + 'name': action_name})
           ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')
           tree.write(manifest, encoding='utf-8', xml_declaration=True)
-          print('Added Android 13 notification permission')
+          print('Configured Android notification permission and reboot receivers')
           PY
 
       - name: Enable Android core library desugaring
