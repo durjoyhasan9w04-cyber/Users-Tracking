@@ -11,6 +11,7 @@ class FixtureSearchResult {
     required this.query,
     this.matchStartAt,
     this.imageUrl = '',
+    this.matchedUsers = const [],
   });
   final String title;
   final String url;
@@ -19,6 +20,7 @@ class FixtureSearchResult {
   final String query;
   final DateTime? matchStartAt;
   final String imageUrl;
+  final List<String> matchedUsers;
 }
 
 class FixtureDiscoveryService {
