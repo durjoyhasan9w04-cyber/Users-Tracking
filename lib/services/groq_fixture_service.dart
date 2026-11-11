@@ -1,3 +1,6 @@
+// Groq prompts are assembled from multiple optional fields for readability.
+// ignore_for_file: prefer_interpolation_to_compose_strings, prefer_adjacent_string_concatenation
+
 import 'dart:convert';
 import 'dart:io';
 import 'fixture_discovery_service.dart';
