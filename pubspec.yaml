@@ -37,5 +37,5 @@ flutter:
   uses-material-design: true
 
 dependency_overrides:
-  # image 4.11.0 allowed an incompatible archive 4.0.x; 4.11.1 fixes the constraint.
-  image: ^4.11.1
+  # pdf 3.12.x requires archive <4.1.0; image 4.10.2 remains compatible.
+  image: 4.10.2
