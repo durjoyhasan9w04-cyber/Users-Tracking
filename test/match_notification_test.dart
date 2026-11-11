@@ -58,6 +58,48 @@ void main() {
     expect(MatchNotificationService.isEligibleForMatchAlerts(interest), isTrue);
   });
 
+  test('moves an overnight quiet-hours reminder to the configured end', () {
+    final reminder = DateTime(2026, 11, 11, 23, 15);
+    final match = DateTime(2026, 11, 12, 9);
+    expect(
+      MatchNotificationService.applyQuietHours(
+        reminder,
+        match,
+        enabled: true,
+        quietStartMinute: 22 * 60,
+        quietEndMinute: 7 * 60,
+      ),
+      DateTime(2026, 11, 12, 7),
+    );
+  });
+
+  test('skips a reminder when quiet hours end after match start', () {
+    final reminder = DateTime(2026, 11, 11, 23, 15);
+    final match = DateTime(2026, 11, 12, 6, 30);
+    expect(
+      MatchNotificationService.applyQuietHours(
+        reminder,
+        match,
+        enabled: true,
+        quietStartMinute: 22 * 60,
+        quietEndMinute: 7 * 60,
+      ),
+      isNull,
+    );
+  });
+
+  test('leaves reminders unchanged outside quiet hours', () {
+    final reminder = DateTime(2026, 11, 11, 14);
+    expect(
+      MatchNotificationService.applyQuietHours(
+        reminder,
+        DateTime(2026, 11, 11, 18),
+        enabled: true,
+      ),
+      reminder,
+    );
+  });
+
   test('does not match an unrelated sport or team', () {
     const interest = <String, Object?>{
       'match_alerts': 1,

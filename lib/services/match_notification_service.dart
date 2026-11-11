@@ -97,6 +97,14 @@ class MatchNotificationService {
 
       var reminderAt = startAt.subtract(const Duration(minutes: 30));
       if (!reminderAt.isAfter(now)) reminderAt = startAt;
+      reminderAt = applyQuietHours(
+        reminderAt,
+        startAt,
+        enabled: prefs.getBool('quiet_hours_enabled') ?? false,
+        quietStartMinute: prefs.getInt('quiet_hours_start_minute') ?? 1320,
+        quietEndMinute: prefs.getInt('quiet_hours_end_minute') ?? 420,
+      ) ?? DateTime(0);
+      if (reminderAt.year == 0) continue;
       final scheduled = tz.TZDateTime.from(reminderAt, tz.local);
       final names = matchingUsers
           .map((interest) => interest['user_name'] as String? ?? 'User')
@@ -116,6 +124,36 @@ class MatchNotificationService {
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
     }
+  }
+
+  /// Moves a reminder to the end of quiet hours when possible.
+  /// Returns null when the quiet period would extend beyond match start.
+  static DateTime? applyQuietHours(
+    DateTime reminderAt,
+    DateTime matchStart, {
+    required bool enabled,
+    int quietStartMinute = 1320,
+    int quietEndMinute = 420,
+  }) {
+    if (!enabled || quietStartMinute == quietEndMinute) return reminderAt;
+    final minute = reminderAt.hour * 60 + reminderAt.minute;
+    final overnight = quietStartMinute > quietEndMinute;
+    final inQuietHours = overnight
+        ? minute >= quietStartMinute || minute < quietEndMinute
+        : minute >= quietStartMinute && minute < quietEndMinute;
+    if (!inQuietHours) return reminderAt;
+
+    var end = DateTime(
+      reminderAt.year,
+      reminderAt.month,
+      reminderAt.day,
+      quietEndMinute ~/ 60,
+      quietEndMinute % 60,
+    );
+    if (overnight && minute >= quietStartMinute) {
+      end = end.add(const Duration(days: 1));
+    }
+    return end.isBefore(matchStart) ? end : null;
   }
 
   static bool isEligibleForMatchAlerts(Map<String, Object?> interest) =>

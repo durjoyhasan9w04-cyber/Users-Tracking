@@ -1621,6 +1621,13 @@ class MoreHubPage extends StatelessWidget {
         subtitle: 'Review period totals and export transaction history',
         onTap: () => open(context, const ReportsPage()),
       ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.settings_outlined,
+        title: 'Settings',
+        subtitle: 'App preferences, data checks and workspace information',
+        onTap: () => open(context, const SettingsPage()),
+      ),
     ],
   );
 }
@@ -1645,6 +1652,105 @@ class _MoreTile extends StatelessWidget {
   );
 }
 
+class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  bool checking = false;
+  String? integrityResult;
+
+  Future<void> checkDatabase() async {
+    setState(() { checking = true; integrityResult = null; });
+    try {
+      final valid = await AppDatabase.instance.checkIntegrity();
+      if (mounted) setState(() => integrityResult = valid
+          ? 'Database integrity check passed.'
+          : 'Database integrity check reported a problem.');
+    } catch (e) {
+      if (mounted) setState(() => integrityResult = 'Check failed: $e');
+    } finally {
+      if (mounted) setState(() => checking = false);
+    }
+  }
+
+  void open(BuildContext context, Widget page) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Settings')),
+    body: ListView(
+      padding: const EdgeInsets.all(18),
+      children: [
+        const Text('Workspace preferences', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 6),
+        const Text('Manage local reminders and protect your records.', style: TextStyle(color: muted)),
+        const SizedBox(height: 16),
+        Card(child: Column(children: [
+          ListTile(
+            leading: const Icon(Icons.notifications_active_outlined, color: emerald),
+            title: const Text('Notifications & quiet hours'),
+            subtitle: const Text('Match alerts, reminder schedule and quiet-time settings'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => open(context, const MatchNotificationSettingsPage()),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.backup_outlined, color: emerald),
+            title: const Text('Backup & restore'),
+            subtitle: const Text('Create a backup, restore a database or review local backups'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => open(context, const BackupRestorePage()),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.summarize_outlined, color: emerald),
+            title: const Text('Reports & export'),
+            subtitle: const Text('Monthly DP and bonus totals with transaction export'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => open(context, const ReportsPage()),
+          ),
+        ])),
+        const SizedBox(height: 14),
+        Card(child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Database health', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            const SizedBox(height: 6),
+            const Text('Run SQLite’s integrity check on the local workspace database.', style: TextStyle(color: muted, height: 1.4)),
+            const SizedBox(height: 12),
+            SizedBox(width: double.infinity, child: OutlinedButton.icon(
+              onPressed: checking ? null : checkDatabase,
+              icon: checking
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.fact_check_outlined),
+              label: Text(checking ? 'Checking…' : 'Check database integrity'),
+            )),
+            if (integrityResult != null) ...[
+              const SizedBox(height: 8),
+              Text(integrityResult!, style: TextStyle(
+                color: integrityResult!.contains('passed') ? emerald : amber,
+                fontWeight: FontWeight.w600,
+              )),
+            ],
+          ]),
+        )),
+        const SizedBox(height: 14),
+        const Card(child: ListTile(
+          leading: Icon(Icons.phone_android_rounded, color: emerald),
+          title: Text('User Hub · Local workspace'),
+          subtitle: Text('Offline-first storage. Your records remain in this app’s local SQLite database. No user messages are sent automatically.'),
+        )),
+      ],
+    ),
+  );
+}
+
 class MatchNotificationSettingsPage extends StatefulWidget {
   const MatchNotificationSettingsPage({super.key});
   @override
@@ -1655,6 +1761,9 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
   bool enabled = false;
   bool loading = true;
   bool busy = false;
+  bool quietHoursEnabled = false;
+  TimeOfDay quietStart = const TimeOfDay(hour: 22, minute: 0);
+  TimeOfDay quietEnd = const TimeOfDay(hour: 7, minute: 0);
 
   @override
   void initState() {
@@ -1667,6 +1776,11 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
     if (!mounted) return;
     setState(() {
       enabled = prefs.getBool('match_reminders_enabled') ?? false;
+      quietHoursEnabled = prefs.getBool('quiet_hours_enabled') ?? false;
+      final start = prefs.getInt('quiet_hours_start_minute') ?? 1320;
+      final end = prefs.getInt('quiet_hours_end_minute') ?? 420;
+      quietStart = TimeOfDay(hour: start ~/ 60, minute: start % 60);
+      quietEnd = TimeOfDay(hour: end ~/ 60, minute: end % 60);
       loading = false;
     });
   }
@@ -1702,6 +1816,41 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
     } finally {
       if (mounted) setState(() => busy = false);
     }
+  }
+
+  int _minuteOfDay(TimeOfDay time) => time.hour * 60 + time.minute;
+
+  String _timeLabel(TimeOfDay time) => time.format(context);
+
+  Future<void> _toggleQuietHours(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('quiet_hours_enabled', value);
+    if (!mounted) return;
+    setState(() => quietHoursEnabled = value);
+    if (enabled) await MatchNotificationService.rescheduleAllUpcoming();
+  }
+
+  Future<void> _chooseQuietTime({required bool isStart}) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: isStart ? quietStart : quietEnd,
+      helpText: isStart ? 'Quiet hours start' : 'Quiet hours end',
+    );
+    if (picked == null || !mounted) return;
+    final nextStart = isStart ? picked : quietStart;
+    final nextEnd = isStart ? quietEnd : picked;
+    if (_minuteOfDay(nextStart) == _minuteOfDay(nextEnd)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Quiet hours start and end must be different.')),
+      );
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('quiet_hours_start_minute', _minuteOfDay(nextStart));
+    await prefs.setInt('quiet_hours_end_minute', _minuteOfDay(nextEnd));
+    if (!mounted) return;
+    setState(() { quietStart = nextStart; quietEnd = nextEnd; });
+    if (enabled) await MatchNotificationService.rescheduleAllUpcoming();
   }
 
   Future<void> _test() async {
@@ -1749,6 +1898,39 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
               onChanged: loading || busy ? null : _toggle,
             ),
             if (busy || loading) const LinearProgressIndicator(),
+          ]),
+        )),
+        const SizedBox(height: 12),
+        const SizedBox(height: 12),
+        Card(child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Quiet hours', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            const SizedBox(height: 4),
+            const Text('Avoid match reminder notifications during your chosen rest period. If quiet hours end after a match starts, that reminder is skipped.', style: TextStyle(color: muted, height: 1.4)),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Enable quiet hours'),
+              subtitle: Text(quietHoursEnabled ? 'Reminders are paused during this time' : 'Quiet hours are off'),
+              value: quietHoursEnabled,
+              onChanged: loading ? null : _toggleQuietHours,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Start'),
+              subtitle: Text(_timeLabel(quietStart)),
+              trailing: const Icon(Icons.access_time_rounded, color: emerald),
+              enabled: !loading,
+              onTap: loading ? null : () => _chooseQuietTime(isStart: true),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('End'),
+              subtitle: Text(_timeLabel(quietEnd)),
+              trailing: const Icon(Icons.access_time_rounded, color: emerald),
+              enabled: !loading,
+              onTap: loading ? null : () => _chooseQuietTime(isStart: false),
+            ),
           ]),
         )),
         const SizedBox(height: 12),
