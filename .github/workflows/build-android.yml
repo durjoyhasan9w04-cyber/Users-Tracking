@@ -131,7 +131,81 @@ jobs:
       - name: Run tests
         run: flutter test
 
+      - name: Configure permanent release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+
+          required = ("KEYSTORE_BASE64", "KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD")
+          missing = [name for name in required if not os.environ.get(name)]
+          if missing:
+              raise SystemExit(
+                  "Missing GitHub Actions secrets: " + ", ".join(missing)
+                  + ". Add the four release-signing secrets in repository Settings."
+              )
+
+          android_dir = Path("android/app")
+          keystore = android_dir / "user-hub-release.jks"
+          keystore.write_bytes(base64.b64decode(os.environ["KEYSTORE_BASE64"], validate=True))
+
+          gradle_file = next(
+              (p for p in (android_dir / "build.gradle.kts", android_dir / "build.gradle") if p.exists()),
+              None,
+          )
+          if gradle_file is None:
+              raise SystemExit("Android app Gradle file not found")
+
+          text = gradle_file.read_text()
+          if gradle_file.suffix == ".kts":
+              signing = '''
+              signingConfigs {
+                  create("release") {
+                      storeFile = file("user-hub-release.jks")
+                      storePassword = System.getenv("KEYSTORE_PASSWORD")
+                      keyAlias = System.getenv("KEY_ALIAS")
+                      keyPassword = System.getenv("KEY_PASSWORD")
+                  }
+              }
+              '''
+              text = text.replace("android {", "android {\\n" + signing, 1)
+              text = text.replace(
+                  'signingConfig = signingConfigs.getByName("debug")',
+                  'signingConfig = signingConfigs.getByName("release")'
+              )
+          else:
+              signing = '''
+              signingConfigs {
+                  release {
+                      storeFile file("user-hub-release.jks")
+                      storePassword System.getenv("KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("KEY_ALIAS")
+                      keyPassword System.getenv("KEY_PASSWORD")
+                  }
+              }
+              '''
+              text = text.replace("android {", "android {\\n" + signing, 1)
+              text = text.replace(
+                  "signingConfig signingConfigs.debug",
+                  "signingConfig signingConfigs.release"
+              )
+          if "user-hub-release.jks" not in text or "signingConfigs.release" not in text:
+              raise SystemExit("Could not configure the release signing configuration")
+          gradle_file.write_text(text)
+          print("Configured permanent release signing")
+          PY
+
       - name: Build release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: flutter build apk --release
 
       - name: Upload APK
