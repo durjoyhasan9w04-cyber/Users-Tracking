@@ -70,6 +70,14 @@ class FixtureDiscoveryService {
     'Liverpool Official': 'https://www.liverpoolfc.com/fixtures',
     'Everton Official': 'https://www.evertonfc.com/fixtures',
     'Abu Dhabi T10': 'https://www.t10league.com/',
+    // Additional public schedule pages; only exposed structured event data is parsed.
+    'Sofascore': 'https://www.sofascore.com/football',
+    '365Scores': 'https://www.365scores.com/football',
+    'LiveScore': 'https://www.livescore.com/en/football/',
+    'Soccerway': 'https://int.soccerway.com/matches/',
+    'OneFootball': 'https://onefootball.com/en/matches',
+    'BBC Sport Football': 'https://www.bbc.com/sport/football/scores-fixtures',
+    'ESPNcricinfo': 'https://www.espncricinfo.com/cricket-fixtures',
   };
 
   static Future<List<FixtureSearchResult>> searchUpcomingFixtures({int days = 30}) async {
