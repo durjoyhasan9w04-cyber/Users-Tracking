@@ -125,6 +125,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Generate app launcher icons
+        run: dart run flutter_launcher_icons
+
       - name: Analyze
         run: flutter analyze
 
@@ -174,7 +177,8 @@ jobs:
                   }
               }
               '''
-              text = text.replace("android {", "android {\n" + signing, 1)
+              text = text.replace("android {", "android {
+" + signing, 1)
               text = text.replace(
                   'signingConfig = signingConfigs.getByName("debug")',
                   'signingConfig = signingConfigs.getByName("release")'
@@ -190,7 +194,8 @@ jobs:
                   }
               }
               '''
-              text = text.replace("android {", "android {\n" + signing, 1)
+              text = text.replace("android {", "android {
+" + signing, 1)
               text = text.replace(
                   "signingConfig signingConfigs.debug",
                   "signingConfig signingConfigs.release"
