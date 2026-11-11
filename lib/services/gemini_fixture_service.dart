@@ -23,11 +23,16 @@ class GeminiFixtureService {
     int days = 7,
   }) async {
     final selections = <Map<String, String>>[];
-    for (final row in interests) {
+    final profileNames = <String, String>{};
+    for (var rowIndex = 0; rowIndex < interests.length; rowIndex++) {
+      final row = interests[rowIndex];
+      final profileRef = 'profile_${row['user_id'] ?? rowIndex}';
+      final userName = (row['user_name'] ?? row['name'] ?? 'User').toString();
+      profileNames[profileRef] = userName;
       for (final field in ['sports', 'teams', 'players', 'competitions']) {
         final raw = (row[field] ?? '').toString();
         for (final item in raw.split(RegExp(r'[,;\n]')).map((e) => e.trim()).where((e) => e.isNotEmpty)) {
-          selections.add({'type': field, 'interest': item});
+          selections.add({'profileRef': profileRef, 'type': field, 'interest': item});
         }
       }
     }
@@ -44,7 +49,8 @@ Only include matches scheduled from ${now.toIso8601String()} through ${end.toIso
 Prioritize official league, tournament, team and governing-body schedules. Search each saved team/competition carefully, including common aliases.
 Never invent a fixture, opponent, date, exact kickoff time, venue or URL. Do not treat article publication dates as match dates. Do not include live scores or completed matches. Only include events where the source confirms both match date and exact local kickoff time; otherwise omit the event.
 Return ONLY valid JSON in this exact shape:
-{"events":[{"title":"Team A vs Team B","sport":"Football","competition":"League name","startAt":"2026-11-12T15:00:00Z","timeConfirmed":true,"sourceUrl":"https://official-source.example/fixture","venue":"optional"}]}
+{"events":[{"title":"Team A vs Team B","sport":"Football","competition":"League name","startAt":"2026-11-12T15:00:00Z","timeConfirmed":true,"sourceUrl":"https://official-source.example/fixture","matchedProfileRefs":["profile_1"]}]}
+For each event include matchedProfileRefs containing only profileRef values whose saved interests match one or both teams, players, sport or competition. Never return or infer personal names.
 For every event, sourceUrl must be a real source page found through Google Search. Set timeConfirmed to true. No markdown fences, explanations, predictions or fabricated image URLs.
 Saved user interests:
 ${jsonEncode(selections)}
@@ -86,16 +92,18 @@ ${jsonEncode(selections)}
       final title = (event['title'] ?? '').toString().trim();
       final startText = (event['startAt'] ?? '').toString();
       final start = DateTime.tryParse(startText);
-      if (title.isEmpty || start == null) continue;
+      if (title.isEmpty || start == null || event['timeConfirmed'] != true) continue;
       final instant = start.toUtc();
       if (instant.isBefore(now) || instant.isAfter(end)) continue;
 
       final rawUrl = (event['sourceUrl'] ?? '').toString().trim();
       final parsedUrl = Uri.tryParse(rawUrl);
-      final url = parsedUrl != null && parsedUrl.hasScheme && parsedUrl.host.isNotEmpty
-          ? rawUrl
-          : (groundedUrls.isEmpty ? '' : groundedUrls.first);
-      if (url.isEmpty) continue;
+      final isGrounded = parsedUrl != null && groundedUrls.any((grounded) {
+        final groundedUri = Uri.tryParse(grounded);
+        return grounded == rawUrl || (groundedUri != null && groundedUri.host == parsedUrl.host);
+      });
+      if (!isGrounded) continue;
+      final url = rawUrl;
 
       final key = '${title.toLowerCase()}|${instant.toIso8601String()}';
       if (!seen.add(key)) continue;
@@ -107,6 +115,7 @@ ${jsonEncode(selections)}
         source: 'Gemini AI · Google Search',
         query: (event['competition'] ?? event['sport'] ?? 'Saved interests').toString(),
         matchStartAt: instant,
+        matchedUsers: matchedUsers,
       ));
     }
     found.sort((a, b) => a.matchStartAt!.compareTo(b.matchStartAt!));
