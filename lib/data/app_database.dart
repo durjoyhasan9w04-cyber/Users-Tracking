@@ -597,7 +597,7 @@ class AppDatabase {
       """SELECT COUNT(*) AS total FROM contact_reminders r
          JOIN users u ON u.id = r.user_id
          WHERE r.completed = 0 AND substr(r.remind_at, 1, 10) <= ? AND u.archived = 0""",
-      [DateTime.now().toIso8601String()],
+      [today],
     );
     return (Sqflite.firstIntValue(contacts) ?? 0) +
         (Sqflite.firstIntValue(prospects) ?? 0) +
