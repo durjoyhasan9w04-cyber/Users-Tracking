@@ -568,6 +568,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
   late final phone = TextEditingController(text: widget.user?['phone'] as String? ?? '');
   late final notes = TextEditingController(text: widget.user?['notes'] as String? ?? '');
   bool saving = false;
+  late bool doNotContact = (widget.user?['do_not_contact'] as int? ?? 0) == 1;
   @override
   void dispose() { name.dispose(); phone.dispose(); notes.dispose(); super.dispose(); }
   Future<void> save() async {
@@ -575,9 +576,10 @@ class _UserFormDialogState extends State<UserFormDialog> {
     setState(() => saving = true);
     try {
       if (widget.user == null) {
-        await AppDatabase.instance.addUser(name: name.text, phone: phone.text, notes: notes.text);
+        await AppDatabase.instance.addUser(name: name.text, phone: phone.text, notes: notes.text, doNotContact: doNotContact);
       } else {
-        await AppDatabase.instance.updateUser(id: widget.user!['id'] as int, name: name.text, phone: phone.text, notes: notes.text);
+        await AppDatabase.instance.updateUser(id: widget.user!['id'] as int, name: name.text, phone: phone.text, notes: notes.text, doNotContact: doNotContact);
+        unawaited(MatchNotificationService.rescheduleAllUpcoming().catchError((_) {}));
       }
       if (mounted) Navigator.pop(context, true);
     } on DatabaseException catch (e) {
@@ -597,6 +599,14 @@ class _UserFormDialogState extends State<UserFormDialog> {
       TextFormField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number'), validator: (v) => v == null || v.trim().length < 5 ? 'Enter a valid phone number' : null),
       const SizedBox(height: 12),
       TextFormField(controller: notes, maxLines: 3, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+      const SizedBox(height: 8),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: doNotContact,
+        onChanged: saving ? null : (value) => setState(() => doNotContact = value),
+        title: const Text('Do not contact'),
+        subtitle: const Text('Exclude this user from match reminders and contact prompts.'),
+      ),
     ]))),
     actions: [
       TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),

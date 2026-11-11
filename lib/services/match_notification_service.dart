@@ -91,7 +91,7 @@ class MatchNotificationService {
       if (startAt == null || !startAt.isAfter(now)) continue;
 
       final matchingUsers = interests.where((interest) =>
-          (interest['match_alerts'] as int? ?? 0) == 1 &&
+          isEligibleForMatchAlerts(interest) &&
           isRelevantMatch(match: match, interest: interest)).toList();
       if (matchingUsers.isEmpty) continue;
 
@@ -117,6 +117,10 @@ class MatchNotificationService {
       );
     }
   }
+
+  static bool isEligibleForMatchAlerts(Map<String, Object?> interest) =>
+      (interest['match_alerts'] as int? ?? 0) == 1 &&
+      (interest['do_not_contact'] as int? ?? 0) != 1;
 
   static bool isRelevantMatch({
     required Map<String, Object?> match,

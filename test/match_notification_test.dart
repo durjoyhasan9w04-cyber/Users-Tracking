@@ -39,6 +39,25 @@ void main() {
     expect(MatchNotificationService.isRelevantMatch(match: match, interest: interest), isFalse);
   });
 
+  test('excludes users marked do not contact even when match alerts are opted in', () {
+    const interest = <String, Object?>{
+      'match_alerts': 1,
+      'do_not_contact': 1,
+      'sports': 'Cricket',
+      'teams': 'Bangladesh',
+      'competitions': '',
+    };
+    expect(MatchNotificationService.isEligibleForMatchAlerts(interest), isFalse);
+  });
+
+  test('allows match reminders only when opted in and contact is allowed', () {
+    const interest = <String, Object?>{
+      'match_alerts': 1,
+      'do_not_contact': 0,
+    };
+    expect(MatchNotificationService.isEligibleForMatchAlerts(interest), isTrue);
+  });
+
   test('does not match an unrelated sport or team', () {
     const interest = <String, Object?>{
       'match_alerts': 1,
@@ -49,3 +68,4 @@ void main() {
     expect(MatchNotificationService.isRelevantMatch(match: match, interest: interest), isFalse);
   });
 }
+

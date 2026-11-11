@@ -13,7 +13,7 @@ class AppDatabase {
     final root = await getDatabasesPath();
     _db = await openDatabase(
       p.join(root, 'user_hub.db'),
-      version: 9,
+      version: 10,
       onCreate: (db, version) async {
         await _createUsers(db);
         await _createDpEntries(db);
@@ -33,6 +33,7 @@ class AppDatabase {
         if (oldVersion >= 5 && oldVersion < 7) await db.execute("ALTER TABLE contact_history ADD COLUMN follow_up_completed INTEGER NOT NULL DEFAULT 0");
         if (oldVersion < 8) await _createAuditLog(db);
         if (oldVersion < 9) await _createSportsTables(db);
+        if (oldVersion < 10) await db.execute('ALTER TABLE users ADD COLUMN do_not_contact INTEGER NOT NULL DEFAULT 0');
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -131,6 +132,7 @@ class AppDatabase {
         name TEXT NOT NULL,
         phone TEXT NOT NULL UNIQUE,
         notes TEXT NOT NULL DEFAULT '',
+        do_not_contact INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         archived INTEGER NOT NULL DEFAULT 0
       )
@@ -842,7 +844,7 @@ class AppDatabase {
   Future<List<Map<String, Object?>>> getSportsInterests() async {
     final db = await database;
     return db.rawQuery("""
-      SELECT s.*, u.name AS user_name, u.phone AS user_phone
+      SELECT s.*, u.name AS user_name, u.phone AS user_phone, u.do_not_contact AS do_not_contact
       FROM sports_interests s JOIN users u ON u.id = s.user_id
       WHERE u.archived = 0 ORDER BY u.name COLLATE NOCASE
     """);
@@ -999,17 +1001,18 @@ class AppDatabase {
     return db.query('audit_log', orderBy: 'created_at DESC', limit: 200);
   }
 
-  Future<int> addUser({required String name, required String phone, String notes = ''}) async {
+  Future<int> addUser({required String name, required String phone, String notes = '', bool doNotContact = false}) async {
     final db = await database;
     return db.insert('users', {
       'name': name.trim(), 'phone': phone.trim(), 'notes': notes.trim(),
+      'do_not_contact': doNotContact ? 1 : 0,
       'created_at': DateTime.now().toIso8601String(),
     });
   }
 
-  Future<int> updateUser({required int id, required String name, required String phone, String notes = ''}) async {
+  Future<int> updateUser({required int id, required String name, required String phone, String notes = '', bool doNotContact = false}) async {
     final db = await database;
-    return db.update('users', {'name': name.trim(), 'phone': phone.trim(), 'notes': notes.trim()}, where: 'id = ?', whereArgs: [id]);
+    return db.update('users', {'name': name.trim(), 'phone': phone.trim(), 'notes': notes.trim(), 'do_not_contact': doNotContact ? 1 : 0}, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<List<Map<String, Object?>>> getArchivedUsers() async {
