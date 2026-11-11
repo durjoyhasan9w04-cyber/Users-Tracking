@@ -37,8 +37,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/management_logo.png
 
 dependency_overrides:
   # pdf 3.12.x requires archive <4.1.0; image 4.10.2 remains compatible.
