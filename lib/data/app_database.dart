@@ -3,6 +3,25 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
+const int supportedUserHubDatabaseVersion = 11;
+
+Set<String> requiredBackupTablesForVersion(int version) {
+  if (version < 1 || version > supportedUserHubDatabaseVersion) {
+    throw ArgumentError('Unsupported User Hub database version: $version');
+  }
+  return <String>{
+    'users',
+    if (version >= 2) 'dp_entries',
+    if (version >= 3) 'bonus_entries',
+    if (version >= 4) 'potential_users',
+    if (version >= 5) 'contact_history',
+    if (version >= 6) 'customer_issues',
+    if (version >= 8) 'audit_log',
+    if (version >= 9) 'sports_interests',
+    if (version >= 9) 'matches',
+  };
+}
+
 List<double> validateDpAmounts(List<double> amounts) {
   if (amounts.length > 5) {
     throw ArgumentError('A daily DP entry can contain at most five amounts');
@@ -43,7 +62,7 @@ class AppDatabase {
     final root = await getDatabasesPath();
     _db = await openDatabase(
       p.join(root, 'user_hub.db'),
-      version: 11,
+      version: supportedUserHubDatabaseVersion,
       onCreate: (db, version) async {
         await _createUsers(db);
         await _createDpEntries(db);
@@ -133,30 +152,11 @@ class AppDatabase {
 
       final versionRows = await candidate.rawQuery('PRAGMA user_version');
       final backupVersion = (versionRows.first.values.first as num).toInt();
-      const supportedVersion = 11;
-      if (backupVersion < 1 || backupVersion > supportedVersion) {
-        throw StateError(
-          'This backup version is not supported by this version of User Hub.',
-        );
-      }
-
+      final required = requiredBackupTablesForVersion(backupVersion);
       final tables = await candidate.rawQuery(
         "SELECT name FROM sqlite_master WHERE type = 'table'",
       );
       final names = tables.map((row) => row['name'] as String).toSet();
-      final required = <String>{
-        'users',
-        'dp_entries',
-        'bonus_entries',
-        'potential_users',
-        'contact_history',
-        'customer_issues',
-        if (backupVersion >= 8) 'audit_log',
-        // Sports tables were introduced in database version 9. Older valid
-        // backups are accepted and upgraded by sqflite after restoration.
-        if (backupVersion >= 9) 'sports_interests',
-        if (backupVersion >= 9) 'matches',
-      };
       if (!names.containsAll(required)) {
         throw StateError('This file is not a compatible User Hub backup.');
       }

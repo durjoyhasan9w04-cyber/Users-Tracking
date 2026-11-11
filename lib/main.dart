@@ -27,6 +27,25 @@ const panel = Color(0xFF111B18);
 const bg = Color(0xFF0A110F);
 const panelBorder = Color(0xFF1D2A25);
 
+String normalizeContactChannel(String? preference) {
+  switch ((preference ?? '').trim().toLowerCase()) {
+    case 'whatsapp':
+      return 'WhatsApp';
+    case 'phone':
+    case 'phone call':
+    case 'call':
+      return 'Phone call';
+    case 'sms':
+      return 'SMS';
+    case 'imo':
+      return 'IMO';
+    case 'other':
+      return 'Other';
+    default:
+      return 'WhatsApp';
+  }
+}
+
 final ThemeData userHubTheme = ThemeData(
   useMaterial3: true,
   brightness: Brightness.dark,
@@ -1450,10 +1469,22 @@ class _ContactLogDialogState extends State<ContactLogDialog> {
   DateTime? followUpDate;
   bool saving = false;
 
+  String _preferredChannelFor(int? selectedUserId) {
+    for (final user in widget.users) {
+      if (user['id'] == selectedUserId) {
+        return normalizeContactChannel(user['preferred_contact_method'] as String?);
+      }
+    }
+    return 'WhatsApp';
+  }
+
   @override
   void initState() {
     super.initState();
-    userId = widget.users.first['id'] as int;
+    if (widget.users.isNotEmpty) {
+      userId = widget.users.first['id'] as int;
+      channel = _preferredChannelFor(userId);
+    }
   }
 
   @override
@@ -1513,13 +1544,16 @@ class _ContactLogDialogState extends State<ContactLogDialog> {
                 value: u['id'] as int,
                 child: Text('${u['name']} · ${u['phone']}'),
               )).toList(),
-              onChanged: (v) => setState(() => userId = v),
+              onChanged: (v) => setState(() {
+                userId = v;
+                channel = _preferredChannelFor(v);
+              }),
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               initialValue: channel,
               decoration: const InputDecoration(labelText: 'Contact channel'),
-              items: const ['WhatsApp', 'Phone', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+              items: const ['WhatsApp', 'Phone call', 'SMS', 'IMO', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
               onChanged: (v) => setState(() => channel = v ?? 'WhatsApp'),
             ),
             const SizedBox(height: 10),
