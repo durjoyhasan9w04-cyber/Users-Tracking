@@ -24,11 +24,10 @@ class GeminiFixtureService {
   }) async {
     final selections = <Map<String, String>>[];
     for (final row in interests) {
-      final user = (row['user_name'] ?? row['name'] ?? 'User').toString();
       for (final field in ['sports', 'teams', 'players', 'competitions']) {
         final raw = (row[field] ?? '').toString();
         for (final item in raw.split(RegExp(r'[,;\n]')).map((e) => e.trim()).where((e) => e.isNotEmpty)) {
-          selections.add({'user': user, 'type': field, 'interest': item});
+          selections.add({'type': field, 'interest': item});
         }
       }
     }
@@ -43,11 +42,10 @@ You are a sports fixture research assistant. Use Google Search to find REAL sche
 Search across sports worldwide: cricket, football/soccer, kabaddi, tennis, badminton, esports, basketball, hockey and any other sport named.
 Only include matches scheduled from \${now.toIso8601String()} through \${end.toIso8601String()} (UTC).
 Prioritize official league, tournament, team and governing-body schedules. Search each saved team/competition carefully, including common aliases.
-Never invent a fixture, opponent, date, time, venue or URL. Do not treat article publication dates as match dates. Do not include live scores or completed matches.
-If the exact kickoff time is unavailable, set startAt to an ISO date-time at 12:00:00Z only if the source confirms the match date, and set timeConfirmed to false. If the date itself is not confirmed, omit the event.
+Never invent a fixture, opponent, date, exact kickoff time, venue or URL. Do not treat article publication dates as match dates. Do not include live scores or completed matches. Only include events where the source confirms both match date and exact local kickoff time; otherwise omit the event.
 Return ONLY valid JSON in this exact shape:
 {"events":[{"title":"Team A vs Team B","sport":"Football","competition":"League name","startAt":"2026-11-12T15:00:00Z","timeConfirmed":true,"sourceUrl":"https://official-source.example/fixture","venue":"optional"}]}
-For every event, sourceUrl must be a real source page found through Google Search. No markdown fences, explanations, predictions or fabricated image URLs.
+For every event, sourceUrl must be a real source page found through Google Search. Set timeConfirmed to true. No markdown fences, explanations, predictions or fabricated image URLs.
 Saved user interests:
 \${jsonEncode(selections)}
 ''';
@@ -101,7 +99,8 @@ Saved user interests:
 
       final key = '\${title.toLowerCase()}|\${instant.toIso8601String()}';
       if (!seen.add(key)) continue;
-      final timeConfirmed = event['timeConfirmed'] != false;
+      if (event['timeConfirmed'] == false) continue;
+      final timeConfirmed = true;
       found.add(FixtureSearchResult(
         title: title,
         url: url,
