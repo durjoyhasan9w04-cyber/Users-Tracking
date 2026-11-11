@@ -148,6 +148,91 @@ class FixtureDiscoveryService {
     return results;
   }
 
+  // Free TheSportsDB v1 API: team lookup, next event and official artwork.
+  // The shared key is limited, so keep requests sequential and capped.
+  static Future<List<FixtureSearchResult>> _searchSportsDbTeams(
+    List<Map<String, Object?>> interests,
+  ) async {
+    final teams = <String>{};
+    for (final interest in interests) {
+      teams.addAll(_tokens(interest['teams']));
+    }
+    final found = <FixtureSearchResult>[];
+    final seen = <String>{};
+    var checked = 0;
+    for (final teamName in teams) {
+      if (checked >= 10) break;
+      checked++;
+      final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
+      try {
+        Future<Map<String, dynamic>?> getJson(Uri uri) async {
+          final request = await client.getUrl(uri).timeout(const Duration(seconds: 10));
+          request.headers.set(HttpHeaders.userAgentHeader, 'UserHubFixtureFinder/1.0');
+          final response = await request.close().timeout(const Duration(seconds: 12));
+          if (response.statusCode != HttpStatus.ok) return null;
+          final body = await response.transform(utf8.decoder).join().timeout(const Duration(seconds: 12));
+          final decoded = jsonDecode(body);
+          return decoded is Map<String, dynamic> ? decoded : null;
+        }
+
+        final lookup = await getJson(Uri.https(
+          'www.thesportsdb.com',
+          '/api/v1/json/123/searchteams.php',
+          {'t': teamName},
+        ));
+        final teamRows = lookup?['teams'];
+        if (teamRows is! List || teamRows.isEmpty || teamRows.first is! Map) continue;
+        final team = Map<String, dynamic>.from(teamRows.first as Map);
+        final teamId = team['idTeam']?.toString() ?? '';
+        if (teamId.isEmpty) continue;
+        final badge = team['strTeamBadge']?.toString() ?? '';
+        final schedule = await getJson(Uri.https(
+          'www.thesportsdb.com',
+          '/api/v1/json/123/eventsnext.php',
+          {'id': teamId},
+        ));
+        final events = schedule?['events'];
+        if (events is! List) continue;
+        for (final raw in events) {
+          if (raw is! Map) continue;
+          final event = Map<String, dynamic>.from(raw);
+          final title = (event['strEvent'] ?? '').toString().trim();
+          if (title.isEmpty) continue;
+          final rawTime = (event['strTimestamp'] ?? '').toString();
+          final date = (event['dateEvent'] ?? '').toString();
+          final time = (event['strTime'] ?? '').toString();
+          DateTime? start = DateTime.tryParse(rawTime);
+          if (start == null && date.isNotEmpty && time.isNotEmpty) {
+            start = DateTime.tryParse('${date}T${time}');
+          }
+          final eventId = event['idEvent']?.toString() ?? '';
+          final eventUrl = event['strWebsite']?.toString() ?? '';
+          final image = [
+            event['strThumb'], event['strPoster'], event['strFanart'], badge,
+          ].whereType<String>().firstWhere((value) => value.startsWith('http'), orElse: () => '');
+          final key = '${title.toLowerCase()}|${start?.toIso8601String() ?? eventId}';
+          if (!seen.add(key)) continue;
+          found.add(FixtureSearchResult(
+            title: title,
+            url: eventUrl.startsWith('http')
+                ? eventUrl
+                : (eventId.isNotEmpty ? 'https://www.thesportsdb.com/event/$eventId' : 'https://www.thesportsdb.com/'),
+            publishedAt: '',
+            source: 'TheSportsDB · ${event['strLeague'] ?? team['strTeam'] ?? teamName}',
+            query: teamName,
+            matchStartAt: start,
+            imageUrl: image,
+          ));
+        }
+      } catch (_) {
+        // A missing team or unavailable endpoint must not stop other sources.
+      } finally {
+        client.close(force: true);
+      }
+    }
+    return found;
+  }
+
   static Future<List<FixtureSearchResult>> searchSavedInterests(
     List<Map<String, Object?>> interests,
   ) async {
@@ -157,6 +242,13 @@ class FixtureDiscoveryService {
     }
     final results = <FixtureSearchResult>[];
     final seen = <String>{};
+    // Query the structured sports database first for dated events and artwork.
+    try {
+      for (final result in await _searchSportsDbTeams(interests)) {
+        final key = '${result.title.toLowerCase()}|${result.matchStartAt?.toIso8601String() ?? result.url}';
+        if (seen.add(key)) results.add(result);
+      }
+    } catch (_) {}
     Object? lastError;
     for (final query in queries) {
       try {
