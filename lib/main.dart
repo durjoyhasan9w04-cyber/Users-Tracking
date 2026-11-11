@@ -11,6 +11,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'data/app_database.dart';
 import 'services/match_notification_service.dart';
 import 'services/fixture_discovery_service.dart';
@@ -3094,6 +3095,7 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
         }
       }
       combined.sort((a, b) {
+        if (a.matchStartAt == null && b.matchStartAt == null) return 0;
         if (a.matchStartAt == null) return 1;
         if (b.matchStartAt == null) return -1;
         return a.matchStartAt!.compareTo(b.matchStartAt!);
