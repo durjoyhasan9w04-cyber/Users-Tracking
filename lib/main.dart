@@ -2941,7 +2941,7 @@ class _FixtureDiscoveryPageState extends State<FixtureDiscoveryPage> {
               Expanded(child: Text('Search match fixtures', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
             ]),
             const SizedBox(height: 8),
-            const Text('Checks public schedules from multi-sport and specialist sources, plus saved-team searches and TheSportsDB artwork. Shows structured fixtures up to 60 days ahead when a source exposes reliable event data. Match times are converted to Bangladesh time (UTC+6). Coverage depends on each source's public data.', style: TextStyle(color: muted, height: 1.45)),
+            const Text('Checks public schedules from multi-sport and specialist sources, plus saved-team searches and TheSportsDB artwork. Shows structured fixtures up to 60 days ahead when a source exposes reliable event data. Match times are converted to Bangladesh time (UTC+6). Coverage depends on public data exposed by each source.', style: TextStyle(color: muted, height: 1.45)),
             const SizedBox(height: 14),
             SizedBox(width: double.infinity, child: FilledButton.icon(
               onPressed: loading ? null : _searchUpcoming,
