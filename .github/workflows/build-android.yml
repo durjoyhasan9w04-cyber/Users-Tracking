@@ -28,6 +28,11 @@ jobs:
       - name: Generate Android project files
         run: flutter create --platforms=android --project-name user_hub .
 
+      - name: Install monochrome notification outline icon
+        run: |
+          mkdir -p android/app/src/main/res/drawable
+          cp assets/notification_outline.png android/app/src/main/res/drawable/ic_stat_notification.png
+
       - name: Configure Android local notification permissions and receivers
         run: |
           python3 - <<'PY'
