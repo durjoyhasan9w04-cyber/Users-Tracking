@@ -2454,6 +2454,10 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
           }
           return;
         }
+        final exactAllowed = await MatchNotificationService.requestExactAlarmPermission();
+        if (!exactAllowed) {
+          throw StateError('Allow User Hub under Android Settings > Apps > Special app access > Alarms & reminders to receive scheduled notifications on time.');
+        }
         await prefs.setBool('match_reminders_enabled', true);
         await MatchNotificationService.rescheduleAllUpcoming();
       } else {
@@ -2486,6 +2490,10 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
             );
           }
           return;
+        }
+        final exactAllowed = await MatchNotificationService.requestExactAlarmPermission();
+        if (!exactAllowed) {
+          throw StateError('Allow User Hub under Android Settings > Apps > Special app access > Alarms & reminders to receive scheduled notifications on time.');
         }
       }
       await prefs.setBool('dp_time_reminders_enabled', value);
