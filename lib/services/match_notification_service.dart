@@ -114,8 +114,13 @@ class MatchNotificationService {
     final matchEnabled = prefs.getBool('match_reminders_enabled') == true;
     final dpTimeEnabled = prefs.getBool('dp_time_reminders_enabled') == true;
 
-    // Rebuild both reminder types together so toggling one never deletes the other.
-    await _plugin.cancelAll();
+    // Only cancel notifications created by these two repeating systems.
+    // Never use cancelAll here: it also deletes independently scheduled contact
+    // reminders and can race with a reminder being saved from the UI.
+    await _cancelTrackedNotifications(prefs, 'scheduled_match_notification_ids');
+    await _cancelTrackedNotifications(prefs, 'scheduled_dp_notification_ids');
+    final scheduledMatchIds = <String>[];
+    final scheduledDpIds = <String>[];
     if (matchEnabled) {
       final matches = await AppDatabase.instance.getMatches();
       final interests = await AppDatabase.instance.getSportsInterests();
@@ -159,6 +164,7 @@ class MatchNotificationService {
           _details,
           androidScheduleMode: await _scheduledNotificationMode(),
         );
+        scheduledMatchIds.add(matchId.toString());
       }
     }
 
@@ -187,11 +193,28 @@ class MatchNotificationService {
           androidScheduleMode: await _scheduledNotificationMode(),
           matchDateTimeComponents: DateTimeComponents.time,
         );
+        scheduledDpIds.add((1000000000 + userId).toString());
       }
     }
 
-    // Contact reminders are independent of match and DP-time reminder settings.
+    await prefs.setStringList('scheduled_match_notification_ids', scheduledMatchIds);
+    await prefs.setStringList('scheduled_dp_notification_ids', scheduledDpIds);
+
+    // Contact reminders are independent and are never cancelled by rebuilding
+    // match or usual-DP notifications.
     await restoreContactReminders();
+  }
+
+  static Future<void> _cancelTrackedNotifications(
+    SharedPreferences prefs,
+    String key,
+  ) async {
+    final ids = prefs.getStringList(key) ?? const <String>[];
+    for (final value in ids) {
+      final id = int.tryParse(value);
+      if (id != null) await _plugin.cancel(id);
+    }
+    await prefs.remove(key);
   }
 
   static int contactReminderNotificationId(int reminderId) => 1500000000 + reminderId;
