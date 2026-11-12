@@ -31,8 +31,8 @@ class MatchNotificationService {
     try {
       final zone = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(zone.identifier));
-    } catch (_) {
-      tz.setLocalLocation(tz.getLocation('UTC'));
+    } catch (error) {
+      throw StateError('Could not read the device time zone. Check Android date, time, and time-zone settings, then reopen the app. Details: $error');
     }
     const settings = InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
@@ -48,6 +48,42 @@ class MatchNotificationService {
     final granted = await android?.requestNotificationsPermission();
     return granted ?? true;
   }
+
+  /// Requests Android's special exact-alarm access so contact reminders can
+  /// fire at the selected device-local clock time, including while idle.
+  static Future<bool> requestExactAlarmPermission() async {
+    await initialize();
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (android == null) return false;
+    var allowed = await android.canScheduleExactNotifications() ?? false;
+    if (!allowed) {
+      await android.requestExactAlarmsPermission();
+      allowed = await android.canScheduleExactNotifications() ?? false;
+    }
+    return allowed;
+  }
+
+  static Future<AndroidScheduleMode> _contactReminderScheduleMode() async {
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    final exactAllowed =
+        await android?.canScheduleExactNotifications() ?? false;
+    return exactAllowed
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+  }
+
+  static tz.TZDateTime _deviceWallClock(DateTime localDateTime) =>
+      tz.TZDateTime(
+        tz.local,
+        localDateTime.year,
+        localDateTime.month,
+        localDateTime.day,
+        localDateTime.hour,
+        localDateTime.minute,
+        localDateTime.second,
+      );
 
   static Future<void> initializeAndRestore() async {
     await initialize();
@@ -173,13 +209,14 @@ class MatchNotificationService {
     final body = reason.trim().isEmpty
         ? 'Follow up with $userName. This reminder repeats daily until completed.'
         : '$reason · Follow up with $userName. Repeats daily until completed.';
+    final scheduleMode = await _contactReminderScheduleMode();
     await _plugin.zonedSchedule(
       contactReminderNotificationId(reminderId),
       'Contact reminder: $userName',
       body,
-      tz.TZDateTime.from(firstAt, tz.local),
+      _deviceWallClock(firstAt),
       _details,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      androidScheduleMode: scheduleMode,
       matchDateTimeComponents: DateTimeComponents.time,
     );
     return true;
