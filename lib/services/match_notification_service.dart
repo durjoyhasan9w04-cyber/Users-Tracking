@@ -93,11 +93,6 @@ class MatchNotificationService {
     await rescheduleAllUpcoming();
   }
 
-  static Future<void> cancelAll() async {
-    await initialize();
-    await _plugin.cancelAll();
-  }
-
   static Future<void> showTestNotification() async {
     await initialize();
     await _plugin.show(
