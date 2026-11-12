@@ -1723,6 +1723,7 @@ class _ContactReminderDialogState extends State<ContactReminderDialog> {
     setState(() => saving = true);
     try {
       final permissionGranted = await MatchNotificationService.requestPermission();
+      final exactAlarmGranted = await MatchNotificationService.requestExactAlarmPermission();
       final id = await AppDatabase.instance.addContactReminder(
         userId: widget.userId, remindAt: remindAt, reason: reason.text,
       );
@@ -1730,7 +1731,9 @@ class _ContactReminderDialogState extends State<ContactReminderDialog> {
         reminderId: id, userName: widget.userName, remindAt: remindAt, reason: reason.text,
       );
       if (!permissionGranted && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reminder saved. Enable Android notifications to receive alerts.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reminder saved, but Android notifications are disabled. Enable notifications in app settings.')));
+      } else if (!exactAlarmGranted && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reminder saved. Exact alarm access was not enabled, so Android may deliver it a little late. Enable Alarms & reminders in this app’s Android settings for on-time alerts.')));
       }
       if (!mounted) return;
       Navigator.pop(context, true);
