@@ -19,11 +19,20 @@ import 'services/fixture_discovery_service.dart';
 import 'services/groq_fixture_service.dart';
 import 'models/user_level_config.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Restore alarms before the UI accepts new reminders. This avoids startup
+  // scheduling racing with a reminder created immediately after launch.
+  try {
+    await MatchNotificationService.initializeAndRestore();
+  } catch (error, stackTrace) {
+    debugPrint('Notification restore failed: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
+
   runApp(const UserHubApp());
   unawaited(AppDatabase.instance.createDailyBackupIfNeeded().catchError((_) {}));
-  unawaited(MatchNotificationService.initializeAndRestore().catchError((_) {}));
 }
 
 const emerald = Color(0xFF3DDC97);
