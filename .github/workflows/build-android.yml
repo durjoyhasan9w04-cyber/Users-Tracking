@@ -217,6 +217,19 @@ jobs:
           print("Configured permanent release signing")
           PY
 
+      - name: Work around Android lint crash in url_launcher release build
+        run: |
+          mkdir -p "$HOME/.gradle/init.d"
+          cat > "$HOME/.gradle/init.d/disable-broken-lint.gradle" <<'GRADLE'
+          gradle.beforeProject { project ->
+              project.tasks.configureEach { task ->
+                  if (task.name.startsWith("lintVital")) {
+                      task.enabled = false
+                  }
+              }
+          }
+          GRADLE
+
       - name: Build release APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
