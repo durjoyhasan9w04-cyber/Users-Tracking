@@ -141,15 +141,9 @@ class _MainShellState extends State<MainShell> {
             style: IconButton.styleFrom(backgroundColor: emerald, foregroundColor: bg, fixedSize: const Size(46, 46)),
             onPressed: addUser, icon: const Icon(Icons.add_rounded, size: 25),
           )),
-          if (index != 1) Padding(padding: const EdgeInsets.only(right: 16), child: Container(
-            width: 92, height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF17251E),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF294236)),
-            ),
-            child: Image.asset('assets/app_logo.png', fit: BoxFit.contain),
+          if (index != 1) Padding(padding: const EdgeInsets.only(right: 18), child: CircleAvatar(
+            radius: 20, backgroundColor: const Color(0xFF47704C),
+            child: ClipOval(child: Image.asset('assets/app_logo.png', width: 40, height: 40, fit: BoxFit.cover)),
           )),
         ],
       ),
