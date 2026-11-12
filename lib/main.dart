@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'dart:io';
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:share_plus/share_plus.dart';
