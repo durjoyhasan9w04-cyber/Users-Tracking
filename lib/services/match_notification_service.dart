@@ -64,7 +64,7 @@ class MatchNotificationService {
     return allowed;
   }
 
-  static Future<AndroidScheduleMode> _contactReminderScheduleMode() async {
+  static Future<AndroidScheduleMode> _scheduledNotificationMode() async {
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     final exactAllowed =
@@ -160,7 +160,7 @@ class MatchNotificationService {
           'Matches saved interests for $names$extra · ${match["sport"]}',
           scheduled,
           _details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          androidScheduleMode: await _scheduledNotificationMode(),
         );
       }
     }
@@ -187,7 +187,7 @@ class MatchNotificationService {
           'DP activity has often been recorded around ${formatMinuteOfDay(minute)}. Review the profile and contact preferences before any contact.',
           tz.TZDateTime.from(reminderAt, tz.local),
           _details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          androidScheduleMode: await _scheduledNotificationMode(),
           matchDateTimeComponents: DateTimeComponents.time,
         );
       }
@@ -215,7 +215,7 @@ class MatchNotificationService {
     final body = reason.trim().isEmpty
         ? 'Follow up with $userName. This reminder repeats daily until completed.'
         : '$reason · Follow up with $userName. Repeats daily until completed.';
-    final scheduleMode = await _contactReminderScheduleMode();
+    final scheduleMode = await _scheduledNotificationMode();
     await _plugin.zonedSchedule(
       contactReminderNotificationId(reminderId),
       'Contact reminder: $userName',
