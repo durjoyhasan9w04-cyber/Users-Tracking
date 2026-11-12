@@ -64,20 +64,17 @@ class MatchNotificationService {
     return allowed;
   }
 
+  /// Prefer exact alarms, but do not leave a saved reminder without an
+  /// Android alarm when special exact-alarm access has not been granted.
+  /// Android may deliver the fallback a little late while the device is idle.
   static Future<AndroidScheduleMode> _scheduledNotificationMode() async {
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     final exactAllowed =
         await android?.canScheduleExactNotifications() ?? false;
-    if (!exactAllowed) {
-      throw StateError(
-        'Android exact-alarm access is disabled. Enable User Hub under '
-        'Settings > Apps > Special app access > Alarms & reminders, then '
-        'save this contact reminder again. Exact access is required so the '
-        'reminder can fire at the selected time while the app is closed.',
-      );
-    }
-    return AndroidScheduleMode.exactAllowWhileIdle;
+    return exactAllowed
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
   }
 
   static tz.TZDateTime _deviceWallClock(DateTime localDateTime) =>
