@@ -18,7 +18,6 @@ class MatchNotificationService {
     'user_hub_match_reminders',
     'Match reminders',
     channelDescription: 'Local reminders for match interests and usual DP activity times',
-    icon: 'ic_stat_notification',
     importance: Importance.high,
     priority: Priority.high,
   );
