@@ -37,7 +37,7 @@ void main() {
 
     test('rejects unsupported database versions', () {
       expect(() => requiredBackupTablesForVersion(0), throwsArgumentError);
-      expect(() => requiredBackupTablesForVersion(15), throwsArgumentError);
+      expect(() => requiredBackupTablesForVersion(16), throwsArgumentError);
     });
   });
 }
