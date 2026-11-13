@@ -5,7 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import 'dart:convert';
 import '../models/user_level_config.dart';
 
-const int supportedUserHubDatabaseVersion = 14;
+const int supportedUserHubDatabaseVersion = 15;
 
 Set<String> requiredBackupTablesForVersion(int version) {
   if (version < 1 || version > supportedUserHubDatabaseVersion) {
@@ -23,6 +23,7 @@ Set<String> requiredBackupTablesForVersion(int version) {
     if (version >= 9) 'matches',
     if (version >= 12) 'user_level_settings',
     if (version >= 14) 'contact_reminders',
+    if (version >= 15) 'potential_contact_history',
   };
 }
 
@@ -74,6 +75,7 @@ class AppDatabase {
         await _createPotentialUsers(db);
         await _createContactHistory(db);
         await _createContactReminders(db);
+        await _createPotentialContactHistory(db);
         await _createCustomerIssues(db);
         await _createAuditLog(db);
         await _createSportsTables(db);
@@ -96,6 +98,7 @@ class AppDatabase {
         if (oldVersion < 12) await _createUserLevelSettings(db);
         if (oldVersion < 13) await db.execute("ALTER TABLE users ADD COLUMN previous_dp_at TEXT");
         if (oldVersion < 14) await _createContactReminders(db);
+        if (oldVersion < 15) await _createPotentialContactHistory(db);
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -366,6 +369,24 @@ class AppDatabase {
     await db.execute('CREATE INDEX idx_contact_followup ON contact_history(follow_up_date)');
   }
 
+  Future<void> _createPotentialContactHistory(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE potential_contact_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        potential_user_id INTEGER NOT NULL,
+        contact_at TEXT NOT NULL,
+        channel TEXT NOT NULL,
+        discussion TEXT NOT NULL DEFAULT '',
+        outcome TEXT NOT NULL DEFAULT 'Follow-up needed',
+        follow_up_at TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(potential_user_id) REFERENCES potential_users(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_potential_contact_user ON potential_contact_history(potential_user_id, contact_at)');
+    await db.execute('CREATE INDEX idx_potential_contact_followup ON potential_contact_history(follow_up_at)');
+  }
+
   Future<void> _createCustomerIssues(DatabaseExecutor db) async {
     await db.execute('''
       CREATE TABLE customer_issues (
@@ -617,6 +638,38 @@ class AppDatabase {
       where: "status != 'Registered' AND (? = '' OR name LIKE ? OR phone LIKE ?)",
       whereArgs: [term, '%$term%', '%$term%'],
       orderBy: 'created_at DESC');
+  }
+
+  Future<int> addPotentialContact({
+    required int potentialUserId,
+    required DateTime contactAt,
+    required String channel,
+    required String discussion,
+    required String outcome,
+    DateTime? followUpAt,
+  }) async {
+    final db = await database;
+    return db.insert('potential_contact_history', {
+      'potential_user_id': potentialUserId,
+      'contact_at': contactAt.toIso8601String(),
+      'channel': channel.trim(),
+      'discussion': discussion.trim(),
+      'outcome': outcome,
+      'follow_up_at': followUpAt?.toIso8601String(),
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, Object?>>> getPotentialContactHistory(int potentialUserId) async {
+    final db = await database;
+    return db.query('potential_contact_history',
+      where: 'potential_user_id = ?', whereArgs: [potentialUserId],
+      orderBy: 'contact_at DESC, id DESC');
+  }
+
+  Future<int> deletePotentialContact(int id) async {
+    final db = await database;
+    return db.delete('potential_contact_history', where: 'id = ?', whereArgs: [id]);
   }
 
   Future<int> addPotentialUser({
