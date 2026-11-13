@@ -1259,6 +1259,27 @@ class _PotentialUsersPageState extends State<PotentialUsersPage> {
     final ok = await showDialog<bool>(context: context, builder: (_) => PotentialUserDialog(existing: row));
     if (ok == true && mounted) load();
   }
+  Future<void> recordProspectContact(Map<String, Object?> row) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (_) => PotentialContactDialog(potentialUserId: row['id'] as int),
+    );
+    if (saved == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contact activity saved.')));
+      load();
+    }
+  }
+
+  Future<void> viewProspectHistory(Map<String, Object?> row) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => PotentialContactHistoryDialog(
+        potentialUserId: row['id'] as int,
+        customerName: row['name'] as String? ?? 'Potential customer',
+      ),
+    );
+  }
+
   Future<void> convert(Map<String, Object?> row) async {
     try {
       await AppDatabase.instance.convertPotentialUser(row['id'] as int);
@@ -1319,12 +1340,203 @@ class _PotentialUsersPageState extends State<PotentialUsersPage> {
               ]),
               if ((row['notes'] as String).isNotEmpty) Text(row['notes'] as String, style: const TextStyle(color: muted)),
               if ((row['contact_permission'] as int) == 0) const Text('Contact permission not recorded', style: TextStyle(color: Color(0xFFFFC36B), fontSize: 11)),
+              const SizedBox(height: 10),
+              Wrap(spacing: 8, runSpacing: 6, children: [
+                OutlinedButton.icon(
+                  onPressed: () => recordProspectContact(row),
+                  icon: const Icon(Icons.add_call, size: 17),
+                  label: const Text('Record contact'),
+                ),
+                TextButton.icon(
+                  onPressed: () => viewProspectHistory(row),
+                  icon: const Icon(Icons.history, size: 17),
+                  label: const Text('Contact history'),
+                ),
+              ]),
             ])));
           },
         );
       },
     )),
   ]);
+}
+
+class PotentialContactDialog extends StatefulWidget {
+  const PotentialContactDialog({super.key, required this.potentialUserId});
+  final int potentialUserId;
+  @override
+  State<PotentialContactDialog> createState() => _PotentialContactDialogState();
+}
+
+class _PotentialContactDialogState extends State<PotentialContactDialog> {
+  final discussion = TextEditingController();
+  DateTime contactAt = DateTime.now();
+  DateTime? followUpAt;
+  String channel = 'Phone call';
+  String outcome = 'Follow-up needed';
+  bool saving = false;
+
+  @override
+  void dispose() { discussion.dispose(); super.dispose(); }
+
+  Future<DateTime?> pickDateTime(DateTime initial) async {
+    final date = await showDatePicker(
+      context: context, initialDate: initial,
+      firstDate: DateTime(2000), lastDate: DateTime(2100),
+    );
+    if (date == null || !mounted) return null;
+    final time = await showTimePicker(
+      context: context, initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (time == null) return null;
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+  }
+
+  String stamp(DateTime value) =>
+      '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}  ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+
+  Future<void> save() async {
+    if (discussion.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add a short conversation summary.')));
+      return;
+    }
+    setState(() => saving = true);
+    try {
+      await AppDatabase.instance.addPotentialContact(
+        potentialUserId: widget.potentialUserId,
+        contactAt: contactAt,
+        channel: channel,
+        discussion: discussion.text,
+        outcome: outcome,
+        followUpAt: followUpAt,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save contact: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Record customer contact'),
+    content: SizedBox(width: 440, child: SingleChildScrollView(child: Column(
+      mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        OutlinedButton.icon(
+          onPressed: saving ? null : () async {
+            final picked = await pickDateTime(contactAt);
+            if (picked != null) setState(() => contactAt = picked);
+          },
+          icon: const Icon(Icons.schedule),
+          label: Text('Contacted: ${stamp(contactAt)}'),
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<String>(
+          initialValue: channel,
+          decoration: const InputDecoration(labelText: 'Contact method'),
+          items: const ['Phone call', 'WhatsApp', 'IMO', 'SMS', 'In person', 'Other']
+            .map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+          onChanged: saving ? null : (v) => setState(() => channel = v ?? channel),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: discussion, minLines: 3, maxLines: 6,
+          decoration: const InputDecoration(
+            labelText: 'What did you talk about?',
+            hintText: 'Customer questions, interests, requirements, response…',
+            alignLabelWithHint: true,
+          ),
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<String>(
+          initialValue: outcome,
+          decoration: const InputDecoration(labelText: 'Contact outcome'),
+          items: const ['Interested', 'Considering', 'Follow-up needed', 'No answer', 'Not interested', 'Converted']
+            .map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+          onChanged: saving ? null : (v) => setState(() => outcome = v ?? outcome),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: saving ? null : () async {
+            final picked = await pickDateTime(followUpAt ?? DateTime.now().add(const Duration(days: 1)));
+            if (picked != null) setState(() => followUpAt = picked);
+          },
+          icon: const Icon(Icons.event_available),
+          label: Text(followUpAt == null ? 'Set next follow-up (optional)' : 'Next follow-up: ${stamp(followUpAt!)}'),
+        ),
+        if (followUpAt != null)
+          TextButton(onPressed: saving ? null : () => setState(() => followUpAt = null), child: const Text('Clear follow-up')),
+      ],
+    ))),
+    actions: [
+      TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save contact')),
+    ],
+  );
+}
+
+class PotentialContactHistoryDialog extends StatefulWidget {
+  const PotentialContactHistoryDialog({super.key, required this.potentialUserId, required this.customerName});
+  final int potentialUserId;
+  final String customerName;
+  @override
+  State<PotentialContactHistoryDialog> createState() => _PotentialContactHistoryDialogState();
+}
+
+class _PotentialContactHistoryDialogState extends State<PotentialContactHistoryDialog> {
+  late Future<List<Map<String, Object?>>> history;
+  @override
+  void initState() { super.initState(); load(); }
+  void load() => history = AppDatabase.instance.getPotentialContactHistory(widget.potentialUserId);
+
+  String stamp(String raw) {
+    final value = DateTime.tryParse(raw)?.toLocal();
+    if (value == null) return raw;
+    return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}  ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text('${widget.customerName} · Contact history'),
+    content: SizedBox(width: 460, child: FutureBuilder<List<Map<String, Object?>>>(
+      future: history,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
+        if (snap.hasError) return const Text('Could not load contact history.');
+        final rows = snap.data ?? [];
+        if (rows.isEmpty) return const SizedBox(width: 320, child: Text('No contact activity recorded yet.'));
+        return ConstrainedBox(constraints: const BoxConstraints(maxHeight: 420), child: ListView.separated(
+          shrinkWrap: true, itemCount: rows.length,
+          separatorBuilder: (_, __) => const Divider(height: 16),
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            final follow = row['follow_up_at'] as String?;
+            return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(stamp(row['contact_at'] as String), style: const TextStyle(color: muted, fontSize: 12)),
+              const SizedBox(height: 3),
+              Wrap(spacing: 6, children: [
+                Chip(label: Text(row['channel'] as String), visualDensity: VisualDensity.compact),
+                Chip(label: Text(row['outcome'] as String), visualDensity: VisualDensity.compact),
+              ]),
+              Text(row['discussion'] as String),
+              if (follow != null) Text('Follow-up: ${stamp(follow)}', style: const TextStyle(color: emerald, fontSize: 12)),
+              Align(alignment: Alignment.centerRight, child: IconButton(
+                tooltip: 'Delete this entry',
+                onPressed: () async {
+                  await AppDatabase.instance.deletePotentialContact(row['id'] as int);
+                  if (mounted) setState(load);
+                },
+                icon: const Icon(Icons.delete_outline, size: 18),
+              )),
+            ]);
+          },
+        ));
+      },
+    )),
+    actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+  );
 }
 
 class PotentialUserDialog extends StatefulWidget {
