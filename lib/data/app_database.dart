@@ -1095,7 +1095,7 @@ class AppDatabase {
     final db = await database;
     final tables = <String>[
       'users', 'dp_entries', 'bonus_entries', 'potential_users',
-      'contact_history', 'customer_issues', 'audit_log',
+      'contact_history', 'potential_contact_history', 'customer_issues', 'audit_log',
       'sports_interests', 'matches', 'user_level_settings', 'contact_reminders',
     ];
     final data = <String, Object?>{
