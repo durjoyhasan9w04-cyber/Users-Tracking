@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'dart:io';
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -502,7 +503,23 @@ class _UsersPageState extends State<UsersPage> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                         leading: CircleAvatar(radius: 23, backgroundColor: const Color(0xFF172820), child: Text(_initials(name), style: const TextStyle(color: emerald, fontWeight: FontWeight.w800))),
                         title: Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                        subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [ Text(_maskPhone(user['phone'] as String), style: const TextStyle(color: muted, fontSize: 12)), const SizedBox(height: 3), Text(user['latest_dp_at'] == null ? 'No DP history' : 'DP ${_timeSinceDp(user['latest_dp_at'] as String)}', style: TextStyle(color: user['latest_dp_at'] == null ? muted : emerald, fontSize: 11, fontWeight: FontWeight.w600)), ]),
+                        subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            Flexible(child: Text(_maskPhone(user['phone'] as String), style: const TextStyle(color: muted, fontSize: 12))),
+                            IconButton(
+                              tooltip: 'Copy phone number',
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints.tightFor(width: 32, height: 30),
+                              padding: EdgeInsets.zero,
+                              onPressed: () => _copyPhone(context, user['phone'] as String),
+                              icon: const Icon(Icons.copy_rounded, size: 15, color: emerald),
+                            ),
+                          ]),
+                          const SizedBox(height: 2),
+                          Text(user['latest_dp_at'] == null ? 'No DP history' : 'DP ${_timeSinceDp(user['latest_dp_at'] as String)}', style: TextStyle(color: user['latest_dp_at'] == null ? muted : emerald, fontSize: 11, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text(user['latest_contact_at'] == null ? 'Never contacted' : 'Contact ${_timeSinceContact(user['latest_contact_at'] as String)}', style: TextStyle(color: user['latest_contact_at'] == null ? muted : const Color(0xFF72A8FF), fontSize: 11, fontWeight: FontWeight.w600)),
+                        ]),
                         trailing: SizedBox(width: 125, child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
                           Text('L${lifetimeIndex + 1} · $lifetime', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: lifetimeIndex == 3 ? amber : emerald, fontWeight: FontWeight.w800, fontSize: 11)),
                           Text('M${monthlyIndex + 1} · $monthly', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: muted, fontSize: 10)),
@@ -526,6 +543,25 @@ String _timeSinceDp(String value) {
   if (elapsed.inHours >= 1) return '${elapsed.inHours} ${elapsed.inHours == 1 ? 'hour' : 'hours'} ago';
   if (elapsed.inMinutes >= 1) return '${elapsed.inMinutes} ${elapsed.inMinutes == 1 ? 'minute' : 'minutes'} ago';
   return 'just now';
+}
+
+String _timeSinceContact(String value) {
+  final parsed = DateTime.tryParse(value)?.toLocal();
+  if (parsed == null) return 'time unavailable';
+  final elapsed = DateTime.now().difference(parsed);
+  if (elapsed.isNegative || elapsed.inSeconds < 60) return 'just now';
+  if (elapsed.inDays >= 1) return '${elapsed.inDays}d ago';
+  if (elapsed.inHours >= 1) return '${elapsed.inHours}h ago';
+  return '${elapsed.inMinutes}m ago';
+}
+
+Future<void> _copyPhone(BuildContext context, String phone) async {
+  await Clipboard.setData(ClipboardData(text: phone));
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Phone number copied.')),
+    );
+  }
 }
 
 String _maskPhone(String phone) {
@@ -1240,16 +1276,25 @@ class PotentialUsersPage extends StatefulWidget {
 }
 class _PotentialUsersPageState extends State<PotentialUsersPage> {
   final search = TextEditingController();
+  late final Timer _relativeClock;
   late Future<List<Map<String, Object?>>> future;
   @override
   void initState() {
     super.initState();
     load();
     search.addListener(load);
+    _relativeClock = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
   }
   void load() => setState(() => future = AppDatabase.instance.getPotentialUsers(search: search.text));
   @override
-  void dispose() { search.removeListener(load); search.dispose(); super.dispose(); }
+  void dispose() {
+    _relativeClock.cancel();
+    search.removeListener(load);
+    search.dispose();
+    super.dispose();
+  }
   Future<void> add() async {
     final ok = await showDialog<bool>(context: context, builder: (_) => const PotentialUserDialog());
     if (ok == true && mounted) load();
@@ -1331,7 +1376,25 @@ class _PotentialUsersPageState extends State<PotentialUsersPage> {
                   ],
                 ),
               ]),
-              Text(row['phone'] as String, style: const TextStyle(color: muted)),
+              Row(children: [
+                Expanded(child: Text(row['phone'] as String, style: const TextStyle(color: muted))),
+                IconButton(
+                  tooltip: 'Copy phone number',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _copyPhone(context, row['phone'] as String),
+                  icon: const Icon(Icons.copy_rounded, size: 18, color: emerald),
+                ),
+              ]),
+              Text(
+                row['latest_contact_at'] == null
+                    ? 'Never contacted'
+                    : 'Last contacted ${_timeSinceContact(row['latest_contact_at'] as String)}',
+                style: TextStyle(
+                  color: row['latest_contact_at'] == null ? muted : const Color(0xFF72A8FF),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 7),
               Wrap(spacing: 6, runSpacing: 6, children: [
                 Chip(label: Text(row['status'] as String), visualDensity: VisualDensity.compact),
