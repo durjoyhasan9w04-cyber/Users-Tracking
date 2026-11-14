@@ -634,10 +634,14 @@ class AppDatabase {
   Future<List<Map<String, Object?>>> getPotentialUsers({String search = ''}) async {
     final db = await database;
     final term = search.trim();
-    return db.query('potential_users',
-      where: "status != 'Registered' AND (? = '' OR name LIKE ? OR phone LIKE ?)",
-      whereArgs: [term, '%$term%', '%$term%'],
-      orderBy: 'created_at DESC');
+    return db.rawQuery("""
+      SELECT p.*,
+        (SELECT MAX(c.contact_at) FROM potential_contact_history c
+         WHERE c.potential_user_id = p.id) AS latest_contact_at
+      FROM potential_users p
+      WHERE p.status != 'Registered' AND (? = '' OR p.name LIKE ? OR p.phone LIKE ?)
+      ORDER BY latest_contact_at IS NULL, latest_contact_at DESC, p.created_at DESC
+    """, [term, '%$term%', '%$term%']);
   }
 
   Future<int> addPotentialContact({
@@ -871,7 +875,8 @@ class AppDatabase {
       SELECT u.*,
         COALESCE((SELECT SUM(d.total) FROM dp_entries d WHERE d.user_id = u.id), 0) AS lifetime_dp,
         COALESCE((SELECT SUM(d.total) FROM dp_entries d WHERE d.user_id = u.id AND d.entry_date >= ? AND d.entry_date < ?), 0) AS monthly_dp,
-      COALESCE((SELECT MAX(COALESCE(d.created_at, d.entry_date || 'T00:00:00')) FROM dp_entries d WHERE d.user_id = u.id), u.previous_dp_at) AS latest_dp_at
+      COALESCE((SELECT MAX(COALESCE(d.created_at, d.entry_date || 'T00:00:00')) FROM dp_entries d WHERE d.user_id = u.id), u.previous_dp_at) AS latest_dp_at,
+        (SELECT MAX(c.contact_date) FROM contact_history c WHERE c.user_id = u.id) AS latest_contact_at
       FROM users u
       WHERE (u.archived = 0 OR u.id = ?) AND (? = '' OR u.name LIKE ? OR u.phone LIKE ?)
       ORDER BY CASE WHEN latest_dp_at IS NULL THEN 1 ELSE 0 END,
