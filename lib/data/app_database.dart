@@ -1201,9 +1201,74 @@ class AppDatabase {
     if (title.trim().isEmpty) throw ArgumentError('Task title is required');
     if (taskType != 'once' && taskType != 'daily') throw ArgumentError('Invalid task type');
     if (taskType == 'once' && scheduledAt == null) throw ArgumentError('Choose a task date and time');
-    if (taskType == 'daily' && reminderEnabled && (reminderTime == null || !RegExp(r'^([01]\\d|2[0-3]):[0-5]\\d
-    await db.execute("""
-      CREATE TABLE sports_interests (
+    if (taskType == 'daily' && reminderEnabled) {
+      final parts = (reminderTime ?? '').split(':');
+      final hour = parts.length == 2 ? int.tryParse(parts[0]) : null;
+      final minute = parts.length == 2 ? int.tryParse(parts[1]) : null;
+      if (hour == null || minute == null || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+        throw ArgumentError('Choose a valid daily reminder time');
+      }
+    }
+    final db = await database;
+    return db.insert('tasks', {
+      'title': title.trim(),
+      'notes': notes.trim(),
+      'task_type': taskType,
+      'scheduled_at': scheduledAt?.toIso8601String(),
+      'reminder_time': reminderTime,
+      'reminder_enabled': reminderEnabled ? 1 : 0,
+      'is_completed': 0,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, Object?>>> getTasks() async {
+    final db = await database;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return db.rawQuery('''
+      SELECT t.*,
+        CASE WHEN t.task_type = 'daily' AND EXISTS (
+          SELECT 1 FROM task_completions c WHERE c.task_id = t.id AND c.completed_on = ?
+        ) THEN 1 ELSE 0 END AS completed_today,
+        (SELECT MAX(c.completed_on) FROM task_completions c WHERE c.task_id = t.id) AS last_completed_on
+      FROM tasks t
+      ORDER BY CASE WHEN t.is_completed = 1 THEN 2 ELSE 0 END,
+        CASE WHEN t.task_type = 'once' THEN t.scheduled_at ELSE '9999' END,
+        t.created_at DESC
+    ''', [today]);
+  }
+
+  Future<int> completeTask(int taskId, {DateTime? date, required bool completed}) async {
+    final db = await database;
+    final rows = await db.query('tasks', where: 'id = ?', whereArgs: [taskId], limit: 1);
+    if (rows.isEmpty) return 0;
+    if (rows.first['task_type'] == 'once') {
+      return db.update('tasks', {'is_completed': completed ? 1 : 0}, where: 'id = ?', whereArgs: [taskId]);
+    }
+    final day = (date ?? DateTime.now()).toIso8601String().substring(0, 10);
+    if (completed) {
+      return db.insert('task_completions', {'task_id': taskId, 'completed_on': day, 'completed_at': DateTime.now().toIso8601String()}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+    return db.delete('task_completions', where: 'task_id = ? AND completed_on = ?', whereArgs: [taskId, day]);
+  }
+
+  Future<List<Map<String, Object?>>> getTaskCompletionHeatmap({int days = 84}) async {
+    final db = await database;
+    final start = DateTime.now().subtract(Duration(days: days - 1));
+    final startKey = DateTime(start.year, start.month, start.day).toIso8601String().substring(0, 10);
+    return db.rawQuery('''
+      SELECT completed_on, COUNT(DISTINCT task_id) AS completed_count
+      FROM task_completions WHERE completed_on >= ?
+      GROUP BY completed_on ORDER BY completed_on
+    ''', [startKey]);
+  }
+
+  Future<int> deleteTask(int taskId) async {
+    final db = await database;
+    return db.delete('tasks', where: 'id = ?', whereArgs: [taskId]);
+  }
+
+  Future<void> _createSportsTables(DatabaseExecutor db) async { (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL UNIQUE,
         sports TEXT NOT NULL DEFAULT '',
