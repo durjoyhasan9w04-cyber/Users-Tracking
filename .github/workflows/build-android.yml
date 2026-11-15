@@ -54,6 +54,9 @@ jobs:
           application = root.find('application')
           if application is None:
               raise SystemExit('Android application element not found')
+          # Keep Android's automatic Force Dark feature from recoloring the app's
+          # intentionally light Flutter surfaces on devices using expanded dark mode.
+          application.set(android + 'forceDarkAllowed', 'false')
           receiver_names = {node.get(android + 'name') for node in application.findall('receiver')}
           scheduled = 'com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver'
           if scheduled not in receiver_names:
@@ -77,7 +80,7 @@ jobs:
                   ET.SubElement(intent_filter, 'action', {android + 'name': action_name})
           ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')
           tree.write(manifest, encoding='utf-8', xml_declaration=True)
-          print('Configured Android notification permission and reboot receivers')
+          print('Configured Android light appearance, notification permissions and reboot receivers')
           PY
 
       - name: Enable Android core library desugaring
