@@ -198,6 +198,64 @@ class MatchNotificationService {
     // Contact reminders are independent and are never cancelled by rebuilding
     // match or usual-DP notifications.
     await restoreContactReminders();
+    await restoreTaskReminders();
+  }
+
+  static const int _taskNotificationBase = 1800000000;
+
+  static Future<void> scheduleTaskReminder({
+    required int taskId,
+    required String title,
+    required String taskType,
+    DateTime? scheduledAt,
+    String? reminderTime,
+  }) async {
+    await initialize();
+    final now = DateTime.now();
+    late tz.TZDateTime firstAt;
+    DateTimeComponents? repeat;
+    if (taskType == 'daily') {
+      final parts = (reminderTime ?? '09:00').split(':');
+      final minuteOfDay = int.parse(parts[0]) * 60 + int.parse(parts[1]);
+      firstAt = tz.TZDateTime.from(nextDailyReminderTime(minuteOfDay, now), tz.local);
+      repeat = DateTimeComponents.time;
+    } else {
+      if (scheduledAt == null || !scheduledAt.isAfter(now)) return;
+      firstAt = tz.TZDateTime.from(scheduledAt, tz.local);
+    }
+    await _plugin.zonedSchedule(
+      _taskNotificationBase + taskId,
+      taskType == 'daily' ? 'Daily task: $title' : 'Task reminder: $title',
+      taskType == 'daily' ? 'Time for your daily task.' : 'Your task is due.',
+      firstAt,
+      _details,
+      androidScheduleMode: await _scheduledNotificationMode(),
+      matchDateTimeComponents: repeat,
+    );
+  }
+
+  static Future<void> cancelTaskReminder(int taskId) async {
+    await initialize();
+    await _plugin.cancel(_taskNotificationBase + taskId);
+  }
+
+  static Future<void> restoreTaskReminders() async {
+    final tasks = await AppDatabase.instance.getTasks();
+    for (final task in tasks) {
+      final id = task['id'] as int;
+      if ((task['reminder_enabled'] as int? ?? 0) != 1 ||
+          (task['task_type'] == 'once' && (task['is_completed'] as int? ?? 0) == 1)) {
+        await cancelTaskReminder(id);
+        continue;
+      }
+      await scheduleTaskReminder(
+        taskId: id,
+        title: task['title'] as String? ?? 'Task',
+        taskType: task['task_type'] as String? ?? 'once',
+        scheduledAt: DateTime.tryParse(task['scheduled_at'] as String? ?? ''),
+        reminderTime: task['reminder_time'] as String?,
+      );
+    }
   }
 
   static Future<void> _cancelTrackedNotifications(
