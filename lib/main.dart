@@ -149,14 +149,14 @@ class DashboardPage extends StatelessWidget{
   @override Widget build(BuildContext context){
     final now=DateTime.now(),monthStart=DateTime(now.year,now.month),nextMonth=DateTime(now.year,now.month+1),previousStart=DateTime(now.year,now.month-1);
     return FutureBuilder<List<Object?>>(future:Future.wait<Object?>([
-      AppDatabase.instance.getActivityStatusUsers(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.countFollowUpsDue(),AppDatabase.instance.countOpenCustomerIssues(),
+      AppDatabase.instance.getActivityStatusUsers(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.todayDpTotal(),AppDatabase.instance.countFollowUpsDue(),AppDatabase.instance.countOpenCustomerIssues(),
       AppDatabase.instance.getDpEntries(),AppDatabase.instance.getBonusEntries(),AppDatabase.instance.monthDpTotal(),
       AppDatabase.instance.getReportTotals(monthStart,nextMonth),AppDatabase.instance.getReportTotals(previousStart,monthStart),
     ]),builder:(context,snap){
       final d=snap.data,activity=d?[0] as List<Map<String,Object?>>? ?? const [];
-      final active=activity.where((r)=>r['activity_status']=='Active').length,attention=(d?[2] as num?)?.toInt()??0,issues=(d?[3] as num?)?.toInt()??0;
-      final bonus=(d?[1] as num?)?.toDouble()??0,dpRows=d?[4] as List<Map<String,Object?>>? ?? const [],bonusRows=d?[5] as List<Map<String,Object?>>? ?? const [];
-      final dpMonth=(d?[6] as num?)?.toDouble()??0,totals=d?[7] as Map<String,num>?,previous=d?[8] as Map<String,num>?;
+      final active=activity.where((r)=>r['activity_status']=='Active').length,attention=(d?[3] as num?)?.toInt()??0,issues=(d?[4] as num?)?.toInt()??0;
+      final bonus=(d?[1] as num?)?.toDouble()??0,dpToday=(d?[2] as num?)?.toDouble()??0,dpRows=d?[5] as List<Map<String,Object?>>? ?? const [],bonusRows=d?[6] as List<Map<String,Object?>>? ?? const [];
+      final dpMonth=(d?[7] as num?)?.toDouble()??0,totals=d?[8] as Map<String,num>?,previous=d?[9] as Map<String,num>?;
       final prevDp=previous?['dp']?.toDouble()??0,delta=prevDp>0?((dpMonth-prevDp)/prevDp)*100:null;
       final trend=dpRows.take(7).toList().reversed.map((r)=>(r['total'] as num?)?.toDouble()??0).toList();
       final recent=<Map<String,Object?>>[
@@ -165,21 +165,23 @@ class DashboardPage extends StatelessWidget{
       ]..sort((x,y)=>(y['date'] as String? ?? '').compareTo(x['date'] as String? ?? ''));
       return ListView(padding:const EdgeInsets.fromLTRB(20,4,20,110),children:[
         Row(children:[
-          Expanded(child:_DesignMetricCard(label:'Active DP Users',value:'$active',foot:'DP in last 3 days',icon:Icons.people_alt_outlined,tint:const Color(0xFFE8F7EF),iconColor:const Color(0xFF1B9B59))),
+          Expanded(child:_DesignMetricCard(label:'Active DP Users',value:'$active',foot:'DP in last 3 days',icon:Icons.people_alt_outlined,tint:const Color(0xFFE8F7EF),iconColor:const Color(0xFF1B9B59),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ActivityStatusPage())))),
           const SizedBox(width:12),
-          Expanded(child:_DesignMetricCard(label:'Bonus Today',value:'৳${bonus.toStringAsFixed(bonus%1==0?0:2)}',foot:'${totals?['bonus_count']??0} records this month',icon:Icons.card_giftcard_outlined,tint:const Color(0xFFFFF0E7),iconColor:emerald)),
+          Expanded(child:_DesignMetricCard(label:'Bonus Today',value:'${bonus.toStringAsFixed(bonus%1==0?0:2)} coins',foot:'${totals?['bonus_count']??0} records this month',icon:Icons.card_giftcard_outlined,tint:const Color(0xFFFFF0E7),iconColor:emerald,onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>BonusPage(onChanged:onChanged))))),
         ]),
         const SizedBox(height:12),
         Row(children:[
-          Expanded(child:_DesignMetricCard(label:'Need Attention',value:'$attention',foot:'Follow-up due',icon:Icons.notifications_active_outlined,tint:const Color(0xFFFFF0E7),iconColor:const Color(0xFFE87524))),
+          Expanded(child:_DesignMetricCard(label:'Need Attention',value:'$attention',foot:'Follow-up due',icon:Icons.notifications_active_outlined,tint:const Color(0xFFFFF0E7),iconColor:const Color(0xFFE87524),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const FollowUpsPage())))),
           const SizedBox(width:12),
-          Expanded(child:_DesignMetricCard(label:'Open Issues',value:'$issues',foot:'Need action',icon:Icons.warning_amber_rounded,tint:const Color(0xFFEAF0FF),iconColor:const Color(0xFF3569D4))),
+          Expanded(child:_DesignMetricCard(label:'Open Issues',value:'$issues',foot:'Need action',icon:Icons.warning_amber_rounded,tint:const Color(0xFFEAF0FF),iconColor:const Color(0xFF3569D4),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const CustomerIssuesPage())))),
         ]),
+        const SizedBox(height:12),
+        _DesignMetricCard(label:'DP Today',value:'${dpToday.toStringAsFixed(dpToday%1==0?0:2)} coins',foot:'Total DP recorded today · Tap to view records',icon:Icons.account_balance_wallet_outlined,tint:const Color(0xFFEAF0FF),iconColor:const Color(0xFF3569D4),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ActivityPage()))),
         const SizedBox(height:18),
         Card(child:Padding(padding:const EdgeInsets.fromLTRB(17,17,17,12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           Row(children:[const Expanded(child:Text('DP Activity',style:TextStyle(fontSize:16,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),if(delta!=null)Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE8F7EF),borderRadius:BorderRadius.circular(20)),child:Text('${delta>=0?'↗ +':'↘ '}${delta.abs().toStringAsFixed(1)}%',style:const TextStyle(color:Color(0xFF238653),fontWeight:FontWeight.w800,fontSize:11)))]),
           const SizedBox(height:12),SizedBox(height:150,width:double.infinity,child:CustomPaint(painter:SparklinePainter(values:trend.isEmpty?[0,0,0,0,0]:trend))),
-          Align(alignment:Alignment.centerRight,child:Text('৳${dpMonth.toStringAsFixed(dpMonth%1==0?0:2)} this month',style:const TextStyle(color:muted,fontSize:11,fontWeight:FontWeight.w600))),
+          Align(alignment:Alignment.centerRight,child:Text('${dpMonth.toStringAsFixed(dpMonth%1==0?0:2)} coins this month',style:const TextStyle(color:muted,fontSize:11,fontWeight:FontWeight.w600))),
         ]))),
         const SizedBox(height:22),
         SectionHeading('Recent Activity',trailing:'View All',onTrailingTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ActivityPage()))),
@@ -198,13 +200,13 @@ class DashboardPage extends StatelessWidget{
   }
 }
 class _DesignMetricCard extends StatelessWidget{
-  const _DesignMetricCard({required this.label,required this.value,required this.foot,required this.icon,required this.tint,required this.iconColor});
-  final String label,value,foot;final IconData icon;final Color tint,iconColor;
-  @override Widget build(BuildContext context)=>Card(child:Padding(padding:const EdgeInsets.all(15),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+  const _DesignMetricCard({required this.label,required this.value,required this.foot,required this.icon,required this.tint,required this.iconColor,this.onTap});
+  final String label,value,foot;final IconData icon;final Color tint,iconColor;final VoidCallback? onTap;
+  @override Widget build(BuildContext context)=>Card(clipBehavior:Clip.antiAlias,child:InkWell(onTap:onTap,child:Padding(padding:const EdgeInsets.all(15),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     Row(children:[Expanded(child:Text(label,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:12,fontWeight:FontWeight.w600))),const Icon(Icons.more_horiz,color:muted,size:19)]),
     const SizedBox(height:10),Text(value,maxLines:1,overflow:TextOverflow.ellipsis,style:GoogleFonts.spaceGrotesk(fontSize:27,fontWeight:FontWeight.w800,color:const Color(0xFF18202B))),
     const SizedBox(height:8),Row(children:[Icon(icon,size:14,color:iconColor),const SizedBox(width:5),Expanded(child:Text(foot,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:10)))]),
-  ])));
+  ]))));
 }
 class _DesignRecentTile extends StatelessWidget{
   const _DesignRecentTile({required this.event});final Map<String,Object?> event;
@@ -214,7 +216,7 @@ class _DesignRecentTile extends StatelessWidget{
     return Card(margin:const EdgeInsets.only(bottom:8),child:ListTile(
       leading:CircleAvatar(backgroundColor:const Color(0xFFFFE6D9),child:Icon(event['kind']=='DP recorded'?Icons.account_balance_wallet_outlined:Icons.card_giftcard_outlined,color:emerald)),
       title:Text(event['kind'] as String,style:const TextStyle(fontWeight:FontWeight.w800,color:Color(0xFF18202B))),
-      subtitle:Text('${event['name']??'User'} · ৳${amount.toStringAsFixed(amount%1==0?0:2)}',style:const TextStyle(color:muted)),
+      subtitle:Text('${event['name']??'User'} · ${amount.toStringAsFixed(amount%1==0?0:2)} coins',style:const TextStyle(color:muted)),
       trailing:Column(mainAxisAlignment:MainAxisAlignment.center,crossAxisAlignment:CrossAxisAlignment.end,children:[const Icon(Icons.chevron_right_rounded,color:muted,size:19),if(ago.isNotEmpty)Text(ago,style:const TextStyle(color:muted,fontSize:10))]),
     ));
   }
@@ -2116,9 +2118,9 @@ class MoreHubPage extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.fromLTRB(18, 18, 18, 36),
     children: [
-      const Text('Workspace tools', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+      const Text('Workspace tools', maxLines:1, overflow:TextOverflow.ellipsis, style: TextStyle(fontSize: 23, height:1.15, fontWeight: FontWeight.w800, color:Color(0xFF18202B))),
       const SizedBox(height: 6),
-      const Text('Manage prospects and customer support records.', style: TextStyle(color: muted)),
+      const Text('Manage prospects and customer support records.', maxLines:2, style: TextStyle(color: muted, fontSize:14, height:1.35)),
       const SizedBox(height: 18),
       _MoreTile(
         icon: Icons.person_search_outlined,
@@ -3940,11 +3942,13 @@ class _BonusPageState extends State<BonusPage>{
     final rows=snap.data?[0] as List<Map<String,Object?>>? ?? const [],today=(snap.data?[1] as num?)?.toDouble()??0,month=(snap.data?[2] as num?)?.toDouble()??0,totals=snap.data?[3] as Map<String,num>?;
     final todayKey=DateTime.now().toIso8601String().substring(0,10),monthKey=todayKey.substring(0,7);
     final shown=rows.where((r){final d=r['entry_date'] as String? ?? '';if(filter=='Today')return d==todayKey;if(filter=='Month')return d.startsWith(monthKey);return true;}).toList();
-    return ListView(padding:const EdgeInsets.fromLTRB(20,6,20,110),children:[
+    return ListView(padding:const EdgeInsets.fromLTRB(20,12,20,110),children:[
+      Row(children:[const Expanded(child:Text('Bonuses',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:24,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),FilledButton.icon(onPressed:()async{final ok=await showDialog<bool>(context:context,builder:(_)=>const BonusEntryDialog());if(ok==true&&mounted){load();widget.onChanged();}},icon:const Icon(Icons.add,size:18),label:const Text('Record'))]),
+      const SizedBox(height:16),
       Row(children:[
-        Expanded(child:_DesignMetricCard(label:'Today',value:'৳${today.toStringAsFixed(today%1==0?0:2)}',foot:'Daily bonus total',icon:Icons.card_giftcard,tint:const Color(0xFFE8F7EF),iconColor:const Color(0xFF238653))),
+        Expanded(child:_DesignMetricCard(label:'Today',value:'${today.toStringAsFixed(today%1==0?0:2)} coins',foot:'Daily bonus total',icon:Icons.card_giftcard,tint:const Color(0xFFE8F7EF),iconColor:const Color(0xFF238653))),
         const SizedBox(width:12),
-        Expanded(child:_DesignMetricCard(label:'This Month',value:'৳${month.toStringAsFixed(month%1==0?0:2)}',foot:'${totals?['bonus_count']??0} records',icon:Icons.calendar_month,tint:const Color(0xFFFFE6D9),iconColor:emerald)),
+        Expanded(child:_DesignMetricCard(label:'This Month',value:'${month.toStringAsFixed(month%1==0?0:2)} coins',foot:'${totals?['bonus_count']??0} records',icon:Icons.calendar_month,tint:const Color(0xFFFFE6D9),iconColor:emerald)),
       ]),
       const SizedBox(height:18),
       Wrap(spacing:8,children:['Newest','Today','Month'].map((v)=>ChoiceChip(label:Text(v),selected:filter==v,onSelected:(_)=>setState(()=>filter=v),selectedColor:emerald,labelStyle:TextStyle(color:filter==v?Colors.white:const Color(0xFF58616E),fontWeight:FontWeight.w700))).toList()),
@@ -3957,7 +3961,7 @@ class _BonusPageState extends State<BonusPage>{
           leading:const CircleAvatar(backgroundColor:Color(0xFFE8F7EF),child:Icon(Icons.card_giftcard,color:Color(0xFF238653))),
           title:Text(r['user_name'] as String? ?? 'User',style:const TextStyle(fontWeight:FontWeight.w800,color:Color(0xFF18202B))),
           subtitle:Text(r['reason'] as String? ?? 'Bonus',style:const TextStyle(color:muted)),
-          trailing:Column(mainAxisAlignment:MainAxisAlignment.center,crossAxisAlignment:CrossAxisAlignment.end,children:[Text('৳${amount.toStringAsFixed(amount%1==0?0:2)}',style:const TextStyle(color:Color(0xFF238653),fontWeight:FontWeight.w800,fontSize:15)),Text(ago,style:const TextStyle(color:muted,fontSize:10))]),
+          trailing:Column(mainAxisAlignment:MainAxisAlignment.center,crossAxisAlignment:CrossAxisAlignment.end,children:[Text('${amount.toStringAsFixed(amount%1==0?0:2)} coins',style:const TextStyle(color:Color(0xFF238653),fontWeight:FontWeight.w800,fontSize:15)),Text(ago,style:const TextStyle(color:muted,fontSize:10))]),
         ));
       }),
     ]);
