@@ -2395,7 +2395,7 @@ class _TaskListPageState extends State<TaskListPage> {
                   ? (task['is_completed'] as int? ?? 0) == 1
                   : (task['completed_today'] as int? ?? 0) == 1;
                 final due = DateTime.tryParse(task['scheduled_at'] as String? ?? '')?.toLocal();
-                final reminder = task['reminder_enabled'] as int? == 1;
+                final reminder = (task['reminder_enabled'] as int? ?? 0) == 1;
                 final subtitle = once
                   ? (due == null ? 'One-time task' : 'One-time · ${DateFormat('EEE, MMM d · h:mm a').format(due)}')
                   : 'Every day${reminder && (task['reminder_time'] as String? ?? '').isNotEmpty ? ' · Reminder ${TimeOfDay(hour:int.parse((task['reminder_time'] as String).split(':')[0]),minute:int.parse((task['reminder_time'] as String).split(':')[1])).format(context)}' : ''}';
@@ -4367,7 +4367,7 @@ class _BonusPageState extends State<BonusPage>{
     final rows=snap.data?[0] as List<Map<String,Object?>>? ?? const [],today=(snap.data?[1] as num?)?.toDouble()??0,month=(snap.data?[2] as num?)?.toDouble()??0,totals=snap.data?[3] as Map<String,num>?;
     final todayKey=DateTime.now().toIso8601String().substring(0,10),monthKey=todayKey.substring(0,7);
     final shown=rows.where((r){final d=r['entry_date'] as String? ?? '';if(filter=='Today')return d==todayKey;if(filter=='Month')return d.startsWith(monthKey);return true;}).toList();
-    return ListView(padding:const EdgeInsets.fromLTRB(20,12,20,110),children:[
+    return ColoredBox(color:bg,child:ListView(padding:const EdgeInsets.fromLTRB(20,12,20,110),children:[
       Row(children:[const Expanded(child:Text('Bonuses',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:24,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),FilledButton.icon(onPressed:()async{final ok=await showDialog<bool>(context:context,builder:(_)=>const BonusEntryDialog());if(ok==true&&mounted){load();widget.onChanged();}},icon:const Icon(Icons.add,size:18),label:const Text('Record'))]),
       const SizedBox(height:16),
       Row(children:[
@@ -4389,7 +4389,7 @@ class _BonusPageState extends State<BonusPage>{
           trailing:Column(mainAxisAlignment:MainAxisAlignment.center,crossAxisAlignment:CrossAxisAlignment.end,children:[Text('${amount.toStringAsFixed(amount%1==0?0:2)} coins',style:const TextStyle(color:Color(0xFF238653),fontWeight:FontWeight.w800,fontSize:15)),Text(ago,style:const TextStyle(color:muted,fontSize:10))]),
         ));
       }),
-    ]);
+    ]));
   });
 }
 
