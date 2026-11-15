@@ -111,10 +111,10 @@ class _MainShellState extends State<MainShell>{
     ]))));
     if(!mounted||action==null)return;
     bool? saved;
-    if(action=='user')saved=await showDialog<bool>(context:context,builder:(_)=>const UserFormDialog());
-    else if(action=='dp')saved=await showDialog<bool>(context:context,builder:(_)=>const DpEntryDialog());
-    else if(action=='bonus')saved=await showDialog<bool>(context:context,builder:(_)=>const BonusEntryDialog());
-    else if(action=='potential')saved=await showDialog<bool>(context:context,builder:(_)=>const PotentialUserDialog());
+    if(action=='user') { saved=await showDialog<bool>(context:context,builder:(_)=>const UserFormDialog()); }
+    else if(action=='dp') { saved=await showDialog<bool>(context:context,builder:(_)=>const DpEntryDialog()); }
+    else if(action=='bonus') { saved=await showDialog<bool>(context:context,builder:(_)=>const BonusEntryDialog()); }
+    else if(action=='potential') { saved=await showDialog<bool>(context:context,builder:(_)=>const PotentialUserDialog()); }
     else if(action=='issue'){final users=await AppDatabase.instance.getUsers();if(!mounted)return;saved=await showDialog<bool>(context:context,builder:(_)=>CustomerIssueDialog(users:users));}
     if(saved==true&&mounted)refresh();
   }
@@ -178,7 +178,7 @@ class DashboardPage extends StatelessWidget{
         const SizedBox(height:18),
         Card(child:Padding(padding:const EdgeInsets.fromLTRB(17,17,17,12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           Row(children:[const Expanded(child:Text('DP Activity',style:TextStyle(fontSize:16,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),if(delta!=null)Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE8F7EF),borderRadius:BorderRadius.circular(20)),child:Text('${delta>=0?'↗ +':'↘ '}${delta.abs().toStringAsFixed(1)}%',style:const TextStyle(color:Color(0xFF238653),fontWeight:FontWeight.w800,fontSize:11)))]),
-          const SizedBox(height:12),SizedBox(height:150,width:double.infinity,child:CustomPaint(painter:SparklinePainter(trend.isEmpty?[0,0,0,0,0]:trend))),
+          const SizedBox(height:12),SizedBox(height:150,width:double.infinity,child:CustomPaint(painter:SparklinePainter(values:trend.isEmpty?[0,0,0,0,0]:trend))),
           Align(alignment:Alignment.centerRight,child:Text('৳${dpMonth.toStringAsFixed(dpMonth%1==0?0:2)} this month',style:const TextStyle(color:muted,fontSize:11,fontWeight:FontWeight.w600))),
         ]))),
         const SizedBox(height:22),
@@ -273,6 +273,7 @@ class AnimatedNumberText extends StatelessWidget {
   );
 }
 
+// ignore: unused_element
 class _RecentActivityTile extends StatelessWidget {
   const _RecentActivityTile({required this.event});
   final Map<String, Object?> event;
@@ -291,6 +292,7 @@ class _RecentActivityTile extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _DashboardAlertTile extends StatelessWidget {
   const _DashboardAlertTile({required this.title, required this.value, required this.subtitle, required this.icon, required this.color, required this.onTap});
   final String title, value, subtitle; final IconData icon; final Color color; final VoidCallback onTap;
