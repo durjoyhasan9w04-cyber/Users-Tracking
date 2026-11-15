@@ -2451,7 +2451,15 @@ class _TaskEditorDialogState extends State<TaskEditorDialog> {
   Future<void> chooseTime({required bool daily}) async {
     final current = daily ? dailyTime : taskTime;
     final picked = await AppTimePicker.show(context: context, initialTime: current);
-    if (picked != null && mounted) setState(() { if (daily) dailyTime = picked; else taskTime = picked; });
+    if (picked != null && mounted) {
+      setState(() {
+        if (daily) {
+          dailyTime = picked;
+        } else {
+          taskTime = picked;
+        }
+      });
+    }
   }
   Future<void> save() async {
     if (title.text.trim().isEmpty) {
@@ -2485,7 +2493,7 @@ class _TaskEditorDialogState extends State<TaskEditorDialog> {
     } catch (error) {
       if (mounted) {
         setState(() => saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save task: ${error}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save task: $error')));
       }
     }
   }
