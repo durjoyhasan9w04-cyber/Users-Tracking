@@ -5,8 +5,11 @@ void main() {
   testWidgets('User Hub premium dashboard renders', (tester) async {
     await tester.pumpWidget(const UserHubApp());
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
-    expect(find.text('Overview'), findsOneWidget);
-    expect(find.text('DP this month'), findsOneWidget);
+    // The refreshed light dashboard uses the new Dashboard title and DP Activity card.
+    expect(find.text('Dashboard'), findsWidgets);
+    expect(find.text('DP Activity'), findsOneWidget);
+    expect(find.text('Record DP'), findsOneWidget);
+    expect(find.text('Add Bonus'), findsOneWidget);
   });
 
   group('DP classification thresholds', () {
