@@ -5,7 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import 'dart:convert';
 import '../models/user_level_config.dart';
 
-const int supportedUserHubDatabaseVersion = 15;
+const int supportedUserHubDatabaseVersion = 16;
 
 Set<String> requiredBackupTablesForVersion(int version) {
   if (version < 1 || version > supportedUserHubDatabaseVersion) {
@@ -24,6 +24,8 @@ Set<String> requiredBackupTablesForVersion(int version) {
     if (version >= 12) 'user_level_settings',
     if (version >= 14) 'contact_reminders',
     if (version >= 15) 'potential_contact_history',
+    if (version >= 16) 'tasks',
+    if (version >= 16) 'task_completions',
   };
 }
 
@@ -80,6 +82,7 @@ class AppDatabase {
         await _createAuditLog(db);
         await _createSportsTables(db);
         await _createUserLevelSettings(db);
+        await _createTasks(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _createDpEntries(db);
@@ -99,6 +102,7 @@ class AppDatabase {
         if (oldVersion < 13) await db.execute("ALTER TABLE users ADD COLUMN previous_dp_at TEXT");
         if (oldVersion < 14) await _createContactReminders(db);
         if (oldVersion < 15) await _createPotentialContactHistory(db);
+        if (oldVersion < 16) await _createTasks(db);
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -1102,6 +1106,7 @@ class AppDatabase {
       'users', 'dp_entries', 'bonus_entries', 'potential_users',
       'contact_history', 'potential_contact_history', 'customer_issues', 'audit_log',
       'sports_interests', 'matches', 'user_level_settings', 'contact_reminders',
+      'tasks', 'task_completions',
     ];
     final data = <String, Object?>{
       'app': 'User Hub',
@@ -1123,6 +1128,8 @@ class AppDatabase {
       'contact_history', 'customer_issues', 'audit_log',
       'sports_interests', 'matches',
       if (data['contact_reminders'] is List) 'contact_reminders',
+      if (data['tasks'] is List) 'tasks',
+      if (data['task_completions'] is List) 'task_completions',
     ];
     final tables = <String>[
       ...requiredTables,
@@ -1139,7 +1146,7 @@ class AppDatabase {
     final db = await database;
     await db.transaction((txn) async {
       for (final table in [
-        'contact_reminders', 'user_level_settings', 'matches', 'audit_log', 'customer_issues', 'contact_history',
+        'task_completions', 'tasks', 'contact_reminders', 'user_level_settings', 'matches', 'audit_log', 'customer_issues', 'contact_history',
         'sports_interests', 'bonus_entries', 'dp_entries', 'potential_users', 'users',
       ]) {
         if (table == 'user_level_settings' && !tables.contains(table)) continue;
@@ -1152,6 +1159,367 @@ class AppDatabase {
         }
       }
     });
+  }
+
+
+  Future<void> _createTasks(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        notes TEXT NOT NULL DEFAULT '',
+        task_type TEXT NOT NULL CHECK(task_type IN ('once', 'daily')),
+        scheduled_at TEXT,
+        reminder_time TEXT,
+        reminder_enabled INTEGER NOT NULL DEFAULT 0,
+        is_completed INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_tasks_type_due ON tasks(task_type, scheduled_at, is_completed)');
+    await db.execute('''
+      CREATE TABLE task_completions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        completed_on TEXT NOT NULL,
+        completed_at TEXT NOT NULL,
+        UNIQUE(task_id, completed_on),
+        FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_task_completions_day ON task_completions(completed_on)');
+  }
+
+  Future<int> addTask({
+    required String title,
+    String notes = '',
+    required String taskType,
+    DateTime? scheduledAt,
+    String? reminderTime,
+    bool reminderEnabled = false,
+  }) async {
+    if (title.trim().isEmpty) throw ArgumentError('Task title is required');
+    if (taskType != 'once' && taskType != 'daily') throw ArgumentError('Invalid task type');
+    if (taskType == 'once' && scheduledAt == null) throw ArgumentError('Choose a task date and time');
+    if (taskType == 'daily' && reminderEnabled && (reminderTime == null || !RegExp(r'^([01]\\d|2[0-3]):[0-5]\\d
+    await db.execute("""
+      CREATE TABLE sports_interests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL UNIQUE,
+        sports TEXT NOT NULL DEFAULT '',
+        teams TEXT NOT NULL DEFAULT '',
+        players TEXT NOT NULL DEFAULT '',
+        competitions TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        match_alerts INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT
+      )
+    """);
+    await db.execute("""
+      CREATE TABLE matches (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sport TEXT NOT NULL,
+        competition TEXT NOT NULL DEFAULT '',
+        home_team TEXT NOT NULL,
+        away_team TEXT NOT NULL,
+        start_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'Upcoming',
+        source_url TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+      )
+    """);
+    await db.execute('CREATE INDEX idx_matches_start ON matches(start_at)');
+    await db.execute('CREATE INDEX idx_matches_sport ON matches(sport)');
+  }
+
+  Future<List<Map<String, Object?>>> getSportsInterests() async {
+    final db = await database;
+    return db.rawQuery("""
+      SELECT s.*, u.name AS user_name, u.phone AS user_phone, u.do_not_contact AS do_not_contact
+      FROM sports_interests s JOIN users u ON u.id = s.user_id
+      WHERE u.archived = 0 ORDER BY u.name COLLATE NOCASE
+    """);
+  }
+
+  Future<int> saveSportsInterest({
+    required int userId, required String sports, required String teams,
+    required String players, required String competitions, required String notes,
+    required bool matchAlerts,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    return db.insert('sports_interests', {
+      'user_id': userId, 'sports': sports.trim(), 'teams': teams.trim(),
+      'players': players.trim(), 'competitions': competitions.trim(),
+      'notes': notes.trim(), 'match_alerts': matchAlerts ? 1 : 0,
+      'created_at': now, 'updated_at': now,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<Map<String, Object?>>> getMatches({String search = ''}) async {
+    final db = await database;
+    final term = search.trim();
+    return db.query('matches',
+      where: "? = '' OR sport LIKE ? OR competition LIKE ? OR home_team LIKE ? OR away_team LIKE ?",
+      whereArgs: [term, '%$term%', '%$term%', '%$term%', '%$term%'],
+      orderBy: 'start_at ASC');
+  }
+
+  Future<int> addMatch({
+    required String sport, required String competition,
+    required String homeTeam, required String awayTeam,
+    required DateTime startAt, required String status,
+    String sourceUrl = '', String notes = '',
+  }) async {
+    final db = await database;
+    return db.insert('matches', {
+      'sport': sport, 'competition': competition.trim(),
+      'home_team': homeTeam.trim(), 'away_team': awayTeam.trim(),
+      'start_at': startAt.toIso8601String(), 'status': status,
+      'source_url': sourceUrl.trim(), 'notes': notes.trim(),
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<int> updateMatchStatus(int id, String status) async {
+    final db = await database;
+    return db.update('matches', {'status': status}, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteMatch(int id) async {
+    final db = await database;
+    return db.delete('matches', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> _createAuditLog(DatabaseExecutor db) async {
+    await db.execute("""
+      CREATE TABLE audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_type TEXT NOT NULL,
+        entity_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        details TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+      )
+    """);
+    await db.execute('CREATE INDEX idx_audit_created ON audit_log(created_at)');
+    await db.execute('CREATE INDEX idx_audit_entity ON audit_log(entity_type, entity_id)');
+  }
+
+  Future<int> updateDpEntry({
+    required int id, required int userId, required List<double> amounts,
+    required bool contacted, required String notes,
+  }) async {
+    final values = validateDpAmounts(amounts);
+    final count = values.where((v) => v > 0).length;
+    final total = values.fold<double>(0, (sum, value) => sum + value);
+    final db = await database;
+    return db.transaction((txn) async {
+      final oldRows = await txn.query('dp_entries', where: 'id = ?', whereArgs: [id], limit: 1);
+      if (oldRows.isEmpty) return 0;
+      final old = oldRows.first;
+      await txn.update('dp_entries', {
+        'dp1': values[0], 'dp2': values[1], 'dp3': values[2],
+        'dp4': values[3], 'dp5': values[4], 'total': total,
+        'dp_count': count, 'contacted': contacted ? 1 : 0, 'notes': notes.trim(),
+        'user_id': userId,
+      }, where: 'id = ?', whereArgs: [id]);
+      await txn.insert('audit_log', {
+        'entity_type': 'DP', 'entity_id': id, 'action': 'Edited',
+        'details': 'User ID ${old['user_id']} → $userId · Date ${old['entry_date']} · Total ${old['total']} → $total',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      return 1;
+    });
+  }
+
+  Future<int> updateBonusEntry({
+    required int id, required int userId, required double amount, required String reason,
+    double? relatedDp, required String notes,
+  }) async {
+    validateBonusAmounts(amount, relatedDp);
+    final db = await database;
+    return db.transaction((txn) async {
+      final oldRows = await txn.query('bonus_entries', where: 'id = ?', whereArgs: [id], limit: 1);
+      if (oldRows.isEmpty) return 0;
+      final old = oldRows.first;
+      await txn.update('bonus_entries', {
+        'amount': amount, 'reason': reason, 'related_dp': relatedDp, 'notes': notes.trim(),
+        'user_id': userId,
+      }, where: 'id = ?', whereArgs: [id]);
+      await txn.insert('audit_log', {
+        'entity_type': 'Bonus', 'entity_id': id, 'action': 'Edited',
+        'details': 'User ID ${old['user_id']} → $userId · Date ${old['entry_date']} · Amount ${old['amount']} → $amount',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      return 1;
+    });
+  }
+
+  Future<int> deleteDpEntry(int id) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final rows = await txn.query('dp_entries', where: 'id = ?', whereArgs: [id], limit: 1);
+      if (rows.isEmpty) return 0;
+      final row = rows.first;
+      await txn.insert('audit_log', {
+        'entity_type': 'DP', 'entity_id': id, 'action': 'Deleted',
+        'details': 'User ID ${row['user_id']} · Date ${row['entry_date']} · Total ${row['total']}',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      return txn.delete('dp_entries', where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
+  Future<int> deleteBonusEntry(int id) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final rows = await txn.query('bonus_entries', where: 'id = ?', whereArgs: [id], limit: 1);
+      if (rows.isEmpty) return 0;
+      final row = rows.first;
+      await txn.insert('audit_log', {
+        'entity_type': 'Bonus', 'entity_id': id, 'action': 'Deleted',
+        'details': 'User ID ${row['user_id']} · Date ${row['entry_date']} · Amount ${row['amount']} · Reason ${row['reason']}',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      return txn.delete('bonus_entries', where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
+  Future<List<Map<String, Object?>>> getAuditLog() async {
+    final db = await database;
+    return db.query('audit_log', orderBy: 'created_at DESC', limit: 200);
+  }
+
+  Future<int> addUser({required String name, required String phone, String notes = '', bool doNotContact = false, String preferredLanguage = '', String preferredContactMethod = '', bool hasPreviousDp = false, DateTime? previousDpAt}) async {
+    final db = await database;
+    final cleanPhone = phone.trim();
+    return db.transaction((txn) async {
+      final prospect = await txn.query('potential_users', columns: ['id'],
+        where: "phone = ? AND status != 'Registered'", whereArgs: [cleanPhone], limit: 1);
+      if (prospect.isNotEmpty) {
+        throw const DuplicatePhoneException('This phone number already exists in potential users. Convert that profile instead.');
+      }
+      return txn.insert('users', {
+        'name': name.trim(), 'phone': cleanPhone, 'notes': notes.trim(),
+        'do_not_contact': doNotContact ? 1 : 0,
+        'preferred_language': preferredLanguage.trim(),
+        'preferred_contact_method': preferredContactMethod.trim(),
+        'previous_dp_at': hasPreviousDp ? previousDpAt?.toIso8601String() : null,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    });
+  }
+
+  Future<int> updateUser({required int id, required String name, required String phone, String notes = '', bool doNotContact = false, String preferredLanguage = '', String preferredContactMethod = ''}) async {
+    final db = await database;
+    final cleanPhone = phone.trim();
+    return db.transaction((txn) async {
+      final prospect = await txn.query('potential_users', columns: ['id'],
+        where: "phone = ? AND status != 'Registered'", whereArgs: [cleanPhone], limit: 1);
+      if (prospect.isNotEmpty) {
+        throw const DuplicatePhoneException('This phone number already exists in potential users. Resolve that profile before changing this number.');
+      }
+      return txn.update('users', {
+        'name': name.trim(), 'phone': cleanPhone, 'notes': notes.trim(),
+        'do_not_contact': doNotContact ? 1 : 0,
+        'preferred_language': preferredLanguage.trim(),
+        'preferred_contact_method': preferredContactMethod.trim(),
+      }, where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
+  Future<List<Map<String, Object?>>> getArchivedUsers() async {
+    final db = await database;
+    return db.rawQuery("""
+      SELECT u.*,
+        COALESCE((SELECT SUM(total) FROM dp_entries WHERE user_id = u.id), 0) AS lifetime_dp
+      FROM users u WHERE u.archived = 1
+      ORDER BY u.name COLLATE NOCASE
+    """);
+  }
+
+  Future<int> restoreUser(int id) async {
+    final db = await database;
+    return db.update('users', {'archived': 0}, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> archiveUser(int id) async {
+    final db = await database;
+    return db.update('users', {'archived': 1}, where: 'id = ?', whereArgs: [id]);
+  }
+}
+).hasMatch(reminderTime))) {
+      throw ArgumentError('Choose a valid daily reminder time');
+    }
+    final db = await database;
+    return db.insert('tasks', {
+      'title': title.trim(),
+      'notes': notes.trim(),
+      'task_type': taskType,
+      'scheduled_at': scheduledAt?.toIso8601String(),
+      'reminder_time': reminderTime,
+      'reminder_enabled': reminderEnabled ? 1 : 0,
+      'is_completed': 0,
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, Object?>>> getTasks() async {
+    final db = await database;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return db.rawQuery('''
+      SELECT t.*,
+        CASE WHEN t.task_type = 'daily' AND EXISTS (
+          SELECT 1 FROM task_completions c WHERE c.task_id = t.id AND c.completed_on = ?
+        ) THEN 1 ELSE 0 END AS completed_today,
+        (SELECT MAX(c.completed_on) FROM task_completions c WHERE c.task_id = t.id) AS last_completed_on
+      FROM tasks t
+      ORDER BY CASE WHEN t.is_completed = 1 THEN 2 ELSE 0 END,
+        CASE WHEN t.task_type = 'once' THEN t.scheduled_at ELSE '9999' END,
+        t.created_at DESC
+    ''', [today]);
+  }
+
+  Future<int> completeTask(int taskId, {DateTime? date, required bool completed}) async {
+    final db = await database;
+    final rows = await db.query('tasks', where: 'id = ?', whereArgs: [taskId], limit: 1);
+    if (rows.isEmpty) return 0;
+    final task = rows.first;
+    if (task['task_type'] == 'once') {
+      return db.update('tasks', {'is_completed': completed ? 1 : 0},
+        where: 'id = ?', whereArgs: [taskId]);
+    }
+    final day = (date ?? DateTime.now()).toIso8601String().substring(0, 10);
+    if (completed) {
+      return db.insert('task_completions', {
+        'task_id': taskId, 'completed_on': day,
+        'completed_at': DateTime.now().toIso8601String(),
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    }
+    return db.delete('task_completions',
+      where: 'task_id = ? AND completed_on = ?', whereArgs: [taskId, day]);
+  }
+
+  Future<List<Map<String, Object?>>> getTaskCompletionHeatmap({int days = 84}) async {
+    final db = await database;
+    final start = DateTime.now().subtract(Duration(days: days - 1));
+    final startKey = DateTime(start.year, start.month, start.day).toIso8601String().substring(0, 10);
+    return db.rawQuery('''
+      SELECT completed_on, COUNT(DISTINCT task_id) AS completed_count
+      FROM task_completions
+      WHERE completed_on >= ?
+      GROUP BY completed_on
+      ORDER BY completed_on
+    ''', [startKey]);
+  }
+
+  Future<int> deleteTask(int taskId) async {
+    final db = await database;
+    return db.delete('tasks', where: 'id = ?', whereArgs: [taskId]);
   }
 
   Future<void> _createSportsTables(DatabaseExecutor db) async {
