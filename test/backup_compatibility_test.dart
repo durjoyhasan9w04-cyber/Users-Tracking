@@ -22,6 +22,8 @@ void main() {
       expect(requiredBackupTablesForVersion(14), contains('contact_reminders'));
       expect(requiredBackupTablesForVersion(14), isNot(contains('potential_contact_history')));
       expect(requiredBackupTablesForVersion(15), contains('potential_contact_history'));
+      expect(requiredBackupTablesForVersion(15), isNot(contains('tasks')));
+      expect(requiredBackupTablesForVersion(16), containsAll({'tasks', 'task_completions'}));
     });
 
     test('latest schema keeps the complete table set', () {
@@ -31,13 +33,14 @@ void main() {
           'users', 'dp_entries', 'bonus_entries', 'potential_users',
           'contact_history', 'potential_contact_history', 'customer_issues', 'audit_log',
           'sports_interests', 'matches', 'user_level_settings', 'contact_reminders',
+          'tasks', 'task_completions',
         }),
       );
     });
 
     test('rejects unsupported database versions', () {
       expect(() => requiredBackupTablesForVersion(0), throwsArgumentError);
-      expect(() => requiredBackupTablesForVersion(16), throwsArgumentError);
+      expect(() => requiredBackupTablesForVersion(17), throwsArgumentError);
     });
   });
 }
