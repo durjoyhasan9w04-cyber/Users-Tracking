@@ -2264,6 +2264,264 @@ class _ContactLogDialogState extends State<ContactLogDialog> {
   );
 }
 
+class TaskListPage extends StatefulWidget {
+  const TaskListPage({super.key});
+  @override State<TaskListPage> createState() => _TaskListPageState();
+}
+
+class _TaskListPageState extends State<TaskListPage> {
+  late Future<List<Object?>> overview;
+  @override void initState() { super.initState(); load(); }
+  void load() => overview = Future.wait<Object?>([
+    AppDatabase.instance.getTasks(),
+    AppDatabase.instance.getTaskCompletionHeatmap(days: 84),
+  ]);
+
+  Future<void> addTask() async {
+    final saved = await showDialog<bool>(context: context, builder: (_) => const TaskEditorDialog());
+    if (saved == true && mounted) setState(load);
+  }
+
+  Future<void> toggleTask(Map<String, Object?> task, bool value) async {
+    final id = task['id'] as int;
+    final once = task['task_type'] == 'once';
+    await AppDatabase.instance.completeTask(id, completed: value);
+    if (once && value) {
+      await MatchNotificationService.cancelTaskReminder(id);
+    } else if (once && !value && (task['reminder_enabled'] as int? ?? 0) == 1) {
+      await MatchNotificationService.scheduleTaskReminder(
+        taskId: id, title: task['title'] as String? ?? 'Task',
+        taskType: 'once', scheduledAt: DateTime.tryParse(task['scheduled_at'] as String? ?? ''),
+      );
+    }
+    if (mounted) setState(load);
+  }
+
+  Future<void> deleteTask(Map<String, Object?> task) async {
+    final id = task['id'] as int;
+    final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Delete task?'),
+      content: Text('Delete “${task['title']}” and its completion history?'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+      ],
+    ));
+    if (yes != true) return;
+    await MatchNotificationService.cancelTaskReminder(id);
+    await AppDatabase.instance.deleteTask(id);
+    if (mounted) setState(load);
+  }
+
+  @override Widget build(BuildContext context) => Scaffold(
+    backgroundColor: bg,
+    appBar: AppBar(title: const Text('Task List')),
+    floatingActionButton: FloatingActionButton.extended(
+      onPressed: addTask, icon: const Icon(Icons.add), label: const Text('Add task'),
+    ),
+    body: FutureBuilder<List<Object?>>(
+      future: overview,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('Could not load tasks: ${snapshot.error}')));
+        }
+        final tasks = snapshot.data?[0] as List<Map<String, Object?>>? ?? const [];
+        final heatRows = snapshot.data?[1] as List<Map<String, Object?>>? ?? const [];
+        final heat = <String, int>{
+          for (final row in heatRows)
+            row['completed_on'] as String: (row['completed_count'] as num).toInt(),
+        };
+        final dailyDone = tasks.where((t) => t['task_type'] == 'daily' && (t['completed_today'] as int? ?? 0) == 1).length;
+        final totalDaily = tasks.where((t) => t['task_type'] == 'daily').length;
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 100),
+          children: [
+            Card(child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const Expanded(child: Text('Completion activity', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
+                  Text('Last 12 weeks', style: TextStyle(color: muted, fontSize: 11, fontWeight: FontWeight.w600)),
+                ]),
+                const SizedBox(height: 5),
+                Text('Today: $dailyDone of $totalDaily daily tasks completed', style: const TextStyle(color: muted, fontSize: 12)),
+                const SizedBox(height: 14),
+                SizedBox(height: 92, child: GridView.builder(
+                  scrollDirection: Axis.horizontal,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 7, mainAxisSpacing: 4, crossAxisSpacing: 4,
+                  ),
+                  itemCount: 84,
+                  itemBuilder: (context, index) {
+                    final date = DateTime.now().subtract(Duration(days: 83 - index));
+                    final key = date.toIso8601String().substring(0, 10);
+                    final count = heat[key] ?? 0;
+                    final color = count == 0 ? const Color(0xFFF0F1F4)
+                      : count == 1 ? const Color(0xFFFFD9C5)
+                      : count == 2 ? const Color(0xFFFFB48D)
+                      : count <= 4 ? const Color(0xFFF36B21)
+                      : const Color(0xFFB9470C);
+                    return Tooltip(message: '${DateFormat('MMM d').format(date)} · $count tasks completed',
+                      child: Container(decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))));
+                  },
+                )),
+                const SizedBox(height: 8),
+                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  const Text('Less', style: TextStyle(color: muted, fontSize: 10)),
+                  const SizedBox(width: 5),
+                  for (final color in [const Color(0xFFF0F1F4),const Color(0xFFFFD9C5),const Color(0xFFFFB48D),const Color(0xFFF36B21),const Color(0xFFB9470C)])
+                    Container(width: 11,height: 11,margin: const EdgeInsets.only(right: 3),decoration: BoxDecoration(color: color,borderRadius: BorderRadius.circular(2))),
+                  const Text('More', style: TextStyle(color: muted, fontSize: 10)),
+                ]),
+              ]),
+            )),
+            const SizedBox(height: 18),
+            Row(children: [
+              const Expanded(child: Text('Your tasks', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800))),
+              Text('${tasks.where((t) => t['task_type'] == 'once' && (t['is_completed'] as int? ?? 0) == 0).length} one-time · $totalDaily daily',
+                style: const TextStyle(color: muted, fontSize: 11)),
+            ]),
+            const SizedBox(height: 10),
+            if (tasks.isEmpty)
+              const EmptyState(title: 'No tasks yet', subtitle: 'Add a one-time or everyday task and track your progress here.')
+            else
+              ...tasks.map((task) {
+                final once = task['task_type'] == 'once';
+                final completed = once
+                  ? (task['is_completed'] as int? ?? 0) == 1
+                  : (task['completed_today'] as int? ?? 0) == 1;
+                final due = DateTime.tryParse(task['scheduled_at'] as String? ?? '')?.toLocal();
+                final reminder = task['reminder_enabled'] as int? == 1;
+                final subtitle = once
+                  ? (due == null ? 'One-time task' : 'One-time · ${DateFormat('EEE, MMM d · h:mm a').format(due)}')
+                  : 'Every day${reminder && (task['reminder_time'] as String? ?? '').isNotEmpty ? ' · Reminder ${TimeOfDay(hour:int.parse((task['reminder_time'] as String).split(':')[0]),minute:int.parse((task['reminder_time'] as String).split(':')[1])).format(context)}' : ''}';
+                return Card(margin: const EdgeInsets.only(bottom: 9), child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: Row(children: [
+                    Checkbox(value: completed, onChanged: (v) => toggleTask(task, v ?? false), activeColor: emerald),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(task['title'] as String? ?? 'Task', style: TextStyle(fontWeight: FontWeight.w800, decoration: completed ? TextDecoration.lineThrough : null, color: completed ? muted : const Color(0xFF18202B))),
+                      const SizedBox(height: 3),
+                      Text(subtitle, style: const TextStyle(color: muted, fontSize: 11)),
+                      if ((task['notes'] as String? ?? '').isNotEmpty)
+                        Text(task['notes'] as String, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: muted, fontSize: 12)),
+                      if (!once && completed) const Text('Completed today', style: TextStyle(color: Color(0xFF238653), fontSize: 11, fontWeight: FontWeight.w700)),
+                    ])),
+                    PopupMenuButton<String>(
+                      onSelected: (v) { if (v == 'delete') deleteTask(task); },
+                      itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Delete task'))],
+                    ),
+                  ]),
+                ));
+              }),
+            if (tasks.isNotEmpty)
+              Padding(padding: const EdgeInsets.only(top: 6), child: Text('Daily tasks can be checked off again tomorrow. One-time tasks stay completed until you reopen them.', style: TextStyle(color: muted.withValues(alpha: .9), fontSize: 11))),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+class TaskEditorDialog extends StatefulWidget {
+  const TaskEditorDialog({super.key});
+  @override State<TaskEditorDialog> createState() => _TaskEditorDialogState();
+}
+
+class _TaskEditorDialogState extends State<TaskEditorDialog> {
+  final title = TextEditingController();
+  final notes = TextEditingController();
+  String taskType = 'once';
+  DateTime taskDate = DateTime.now();
+  TimeOfDay taskTime = TimeOfDay.fromDateTime(DateTime.now().add(const Duration(hours: 1)));
+  TimeOfDay dailyTime = const TimeOfDay(hour: 9, minute: 0);
+  bool reminderEnabled = true;
+  bool saving = false;
+
+  @override void dispose() { title.dispose(); notes.dispose(); super.dispose(); }
+
+  Future<void> chooseDate() async {
+    final picked = await AppDatePicker.show(context: context, initialDate: taskDate, firstDate: DateTime(2000), lastDate: DateTime(2100));
+    if (picked != null && mounted) setState(() => taskDate = picked);
+  }
+  Future<void> chooseTime({required bool daily}) async {
+    final current = daily ? dailyTime : taskTime;
+    final picked = await AppTimePicker.show(context: context, initialTime: current);
+    if (picked != null && mounted) setState(() { if (daily) dailyTime = picked; else taskTime = picked; });
+  }
+  Future<void> save() async {
+    if (title.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a task name')));
+      return;
+    }
+    final scheduledAt = DateTime(taskDate.year, taskDate.month, taskDate.day, taskTime.hour, taskTime.minute);
+    final reminder = taskType == 'daily'
+      ? '${dailyTime.hour.toString().padLeft(2,'0')}:${dailyTime.minute.toString().padLeft(2,'0')}'
+      : null;
+    setState(() => saving = true);
+    try {
+      final id = await AppDatabase.instance.addTask(
+        title: title.text, notes: notes.text, taskType: taskType,
+        scheduledAt: taskType == 'once' ? scheduledAt : null,
+        reminderTime: reminder, reminderEnabled: reminderEnabled,
+      );
+      if (reminderEnabled) {
+        try {
+          await MatchNotificationService.requestPermission();
+          await MatchNotificationService.scheduleTaskReminder(
+            taskId: id, title: title.text.trim(), taskType: taskType,
+            scheduledAt: taskType == 'once' ? scheduledAt : null,
+            reminderTime: reminder,
+          );
+        } catch (_) {
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task saved, but notifications could not be scheduled. Check notification permissions.')));
+        }
+      }
+      if (mounted) Navigator.pop(context, true);
+    } catch (error) {
+      if (mounted) {
+        setState(() => saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save task: ${error}')));
+      }
+    }
+  }
+
+  @override Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Add task'),
+    content: SingleChildScrollView(child: SizedBox(width: 420, child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      TextField(controller: title, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'Task name', hintText: 'e.g. Review today’s follow-ups')),
+      const SizedBox(height: 12),
+      TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+      const SizedBox(height: 16),
+      const Text('Task schedule', style: TextStyle(fontWeight: FontWeight.w800)),
+      const SizedBox(height: 8),
+      SegmentedButton<String>(
+        segments: const [
+          ButtonSegment(value: 'once', label: Text('One-time'), icon: Icon(Icons.event_outlined)),
+          ButtonSegment(value: 'daily', label: Text('Every day'), icon: Icon(Icons.repeat_rounded)),
+        ],
+        selected: {taskType},
+        onSelectionChanged: saving ? null : (v) => setState(() => taskType = v.first),
+      ),
+      const SizedBox(height: 12),
+      if (taskType == 'once') ...[
+        ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.calendar_today_outlined, color: emerald), title: const Text('Date'), subtitle: Text(DateFormat('EEE, MMM d, yyyy').format(taskDate)), onTap: chooseDate),
+        ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.access_time_rounded, color: emerald), title: const Text('Time'), subtitle: Text(taskTime.format(context)), onTap: () => chooseTime(daily: false)),
+      ] else
+        ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.alarm_outlined, color: emerald), title: const Text('Daily reminder time'), subtitle: Text(dailyTime.format(context)), onTap: () => chooseTime(daily: true)),
+      SwitchListTile(contentPadding: EdgeInsets.zero, value: reminderEnabled, onChanged: saving ? null : (v) => setState(() => reminderEnabled = v), title: const Text('Send a reminder'), subtitle: const Text('Notification on this device')),
+    ]))),
+    actions: [
+      TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
+      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save task')),
+    ],
+  );
+}
+
 class MoreHubPage extends StatelessWidget {
   const MoreHubPage({super.key});
 
@@ -2281,6 +2539,13 @@ class MoreHubPage extends StatelessWidget {
       const SizedBox(height: 6),
       const Text('Manage prospects and customer support records.', maxLines:2, style: TextStyle(color: muted, fontSize:14, height:1.35)),
       const SizedBox(height: 18),
+      _MoreTile(
+        icon: Icons.checklist_rounded,
+        title: 'Task List',
+        subtitle: 'One-time tasks, daily reminders and completion heatmap',
+        onTap: () => open(context, const TaskListPage()),
+      ),
+      const SizedBox(height: 10),
       _MoreTile(
         icon: Icons.person_search_outlined,
         title: 'Potential users',
