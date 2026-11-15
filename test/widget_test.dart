@@ -8,6 +8,12 @@ void main() {
     // The refreshed light dashboard uses the new Dashboard title and DP Activity card.
     expect(find.text('Dashboard'), findsWidgets);
     expect(find.text('DP Activity'), findsOneWidget);
+    // Quick actions sit below the recent-activity section in the scrollable dashboard.
+    await tester.scrollUntilVisible(
+      find.text('Record DP'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Record DP'), findsOneWidget);
     expect(find.text('Add Bonus'), findsOneWidget);
   });
