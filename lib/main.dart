@@ -108,7 +108,7 @@ class _AppDateSheetState extends State<_AppDateSheet> {
         Row(children:[Expanded(child:Text(widget.title,style:const TextStyle(fontSize:19,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),IconButton(onPressed:()=>Navigator.pop(context),icon:const Icon(Icons.close_rounded))]),
         Wrap(spacing:6,children:shortcuts.entries.map((e)=>ActionChip(label:Text(e.key),backgroundColor:const Color(0xFFF2F3F6),onPressed:(){
           final d=DateTime(e.value.year,e.value.month,e.value.day);
-          if(!d.isBefore(widget.firstDate)&&!d.isAfter(widget.lastDate)) setState(()=>{selected=d,month=DateTime(d.year,d.month)});
+          if(!d.isBefore(widget.firstDate)&&!d.isAfter(widget.lastDate)) setState(() { selected=d; month=DateTime(d.year,d.month); });
         })).toList()),
         const SizedBox(height:10),
         Row(children:[Expanded(child:Text(DateFormat('MMMM yyyy').format(month),style:const TextStyle(fontSize:16,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),
@@ -145,7 +145,7 @@ class _AppTimeSheetState extends State<_AppTimeSheet> {
   late int minute=widget.initialTime.minute;
   late int period=widget.initialTime.period==DayPeriod.am?0:1;
   final hours=List<int>.generate(12,(i)=>i+1); final minutes=List<int>.generate(12,(i)=>i*5);
-  void preset(int h,int m,int p)=>setState(()=>{hour=h,minute=m,period=p});
+  void preset(int h,int m,int p) => setState(() { hour=h; minute=m; period=p; });
   @override Widget build(BuildContext context) {
     final presets=[(9,0,0,'9:00 AM'),(12,0,1,'12:00 PM'),(16,30,1,'4:30 PM'),(18,0,1,'6:00 PM')];
     final current=hour.toString().padLeft(2,'0')+':'+minute.toString().padLeft(2,'0')+' '+(period==0?'AM':'PM');
@@ -1185,7 +1185,7 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
             },
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
+          AppDropdownField<String>(
             initialValue: reason,
             decoration: const InputDecoration(labelText: 'Reason'),
             items: const ['Deposit', 'Special', 'Promotional', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
@@ -1282,7 +1282,7 @@ class _DpEntryDialogState extends State<DpEntryDialog> {
         return Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(onChanged: (value) => setState(() => userSearch = value), decoration: const InputDecoration(labelText: 'Search user by name or number', prefixIcon: Icon(Icons.search))),
           const SizedBox(height: 8),
-          DropdownButtonFormField<int>(
+          AppDropdownField<int>(
             initialValue: filteredUsers.any((u) => u['id'] == userId) ? userId : null,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'User'),
@@ -1495,12 +1495,12 @@ class _PotentialContactDialogState extends State<PotentialContactDialog> {
   void dispose() { discussion.dispose(); super.dispose(); }
 
   Future<DateTime?> pickDateTime(DateTime initial) async {
-    final date = await showDatePicker(
+    final date = await AppDatePicker.show(
       context: context, initialDate: initial,
       firstDate: DateTime(2000), lastDate: DateTime(2100),
     );
     if (date == null || !mounted) return null;
-    final time = await showTimePicker(
+    final time = await AppTimePicker.show(
       context: context, initialTime: TimeOfDay.fromDateTime(initial),
     );
     if (time == null) return null;
@@ -1548,7 +1548,7 @@ class _PotentialContactDialogState extends State<PotentialContactDialog> {
           label: Text('Contacted: ${stamp(contactAt)}'),
         ),
         const SizedBox(height: 10),
-        DropdownButtonFormField<String>(
+        AppDropdownField<String>(
           initialValue: channel,
           decoration: const InputDecoration(labelText: 'Contact method'),
           items: const ['Phone call', 'WhatsApp', 'IMO', 'SMS', 'In person', 'Other']
@@ -1565,7 +1565,7 @@ class _PotentialContactDialogState extends State<PotentialContactDialog> {
           ),
         ),
         const SizedBox(height: 10),
-        DropdownButtonFormField<String>(
+        AppDropdownField<String>(
           initialValue: outcome,
           decoration: const InputDecoration(labelText: 'Contact outcome'),
           items: const ['Interested', 'Considering', 'Follow-up needed', 'No answer', 'Not interested', 'Converted']
@@ -1735,7 +1735,7 @@ class _PotentialUserDialogState extends State<PotentialUserDialog> {
       const SizedBox(height: 10),
       TextField(controller: sports, decoration: const InputDecoration(labelText: 'Sports interests (optional)')),
       const SizedBox(height: 10),
-      DropdownButtonFormField<String>(
+      AppDropdownField<String>(
         initialValue: status,
         decoration: const InputDecoration(labelText: 'Interest status'),
         items: const ['New Lead', 'Interested', 'Considering', 'Not Interested', 'Do Not Contact'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
@@ -1744,7 +1744,7 @@ class _PotentialUserDialogState extends State<PotentialUserDialog> {
       const SizedBox(height: 10),
       OutlinedButton.icon(
         onPressed: saving ? null : () async {
-          final picked = await showDatePicker(
+          final picked = await AppDatePicker.show(
             context: context,
             initialDate: followUpDate ?? DateTime.now(),
             firstDate: DateTime.now().subtract(const Duration(days: 365)),
@@ -2033,7 +2033,7 @@ class _ContactReminderDialogState extends State<ContactReminderDialog> {
   void dispose() { reason.dispose(); super.dispose(); }
 
   Future<void> chooseDate() async {
-    final picked = await showDatePicker(
+    final picked = await AppDatePicker.show(
       context: context,
       initialDate: remindAt,
       firstDate: DateTime.now(),
@@ -2045,7 +2045,7 @@ class _ContactReminderDialogState extends State<ContactReminderDialog> {
   }
 
   Future<void> chooseTime() async {
-    final picked = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(remindAt));
+    final picked = await AppTimePicker.show(context: context, initialTime: TimeOfDay.fromDateTime(remindAt));
     if (picked != null && mounted) {
       setState(() => remindAt = DateTime(remindAt.year, remindAt.month, remindAt.day, picked.hour, picked.minute));
     }
@@ -2180,7 +2180,7 @@ class _ContactLogDialogState extends State<ContactLogDialog> {
   }
 
   Future<void> chooseFollowUp() async {
-    final picked = await showDatePicker(
+    final picked = await AppDatePicker.show(
       context: context,
       initialDate: followUpDate ?? DateTime.now(),
       firstDate: DateTime(2020),
@@ -2198,7 +2198,7 @@ class _ContactLogDialogState extends State<ContactLogDialog> {
         key: form,
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            DropdownButtonFormField<int>(
+            AppDropdownField<int>(
               initialValue: userId,
               decoration: const InputDecoration(labelText: 'Registered user'),
               items: widget.users.map((u) => DropdownMenuItem<int>(
@@ -2211,14 +2211,14 @@ class _ContactLogDialogState extends State<ContactLogDialog> {
               }),
             ),
             const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
+            AppDropdownField<String>(
               initialValue: channel,
               decoration: const InputDecoration(labelText: 'Contact channel'),
               items: const ['WhatsApp', 'Phone call', 'SMS', 'IMO', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
               onChanged: (v) => setState(() => channel = v ?? 'WhatsApp'),
             ),
             const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
+            AppDropdownField<String>(
               initialValue: outcome,
               decoration: const InputDecoration(labelText: 'Outcome'),
               items: const ['Replied', 'No reply', 'Call completed', 'Could not reach', 'Issue reported'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
@@ -2236,7 +2236,7 @@ class _ContactLogDialogState extends State<ContactLogDialog> {
               title: Text('Contact date: ${contactDate.toLocal().toString().substring(0, 10)}'),
               trailing: const Icon(Icons.calendar_today_outlined),
               onTap: () async {
-                final picked = await showDatePicker(context: context, initialDate: contactDate, firstDate: DateTime(2020), lastDate: DateTime(2100));
+                final picked = await AppDatePicker.show(context: context, initialDate: contactDate, firstDate: DateTime(2020), lastDate: DateTime(2100));
                 if (picked != null) setState(() => contactDate = picked);
               },
             ),
@@ -2699,7 +2699,7 @@ class _GroqApiSettingsPageState extends State<GroqApiSettingsPage> {
         const SizedBox(height: 8),
         const Text('Use Groq browser search to find fixtures for saved sports, teams, players and competitions over the next seven days.', style: TextStyle(color: muted, height: 1.45)),
         const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
+        AppDropdownField<String>(
           initialValue: _model, decoration: const InputDecoration(labelText: 'Free browser-search model'),
           items: const [
             DropdownMenuItem(value: 'openai/gpt-oss-20b', child: Text('GPT-OSS 20B · recommended')),
@@ -2859,7 +2859,7 @@ class _MatchNotificationSettingsPageState extends State<MatchNotificationSetting
   }
 
   Future<void> _chooseQuietTime({required bool isStart}) async {
-    final picked = await showTimePicker(
+    final picked = await AppTimePicker.show(
       context: context,
       initialTime: isStart ? quietStart : quietEnd,
       helpText: isStart ? 'Quiet hours start' : 'Quiet hours end',
@@ -3121,7 +3121,7 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 
   Future<void> chooseMonth() async {
-    final picked = await showDatePicker(
+    final picked = await AppDatePicker.show(
       context: context,
       initialDate: month,
       firstDate: DateTime(2020),
@@ -3702,11 +3702,11 @@ class _MatchDialogState extends State<MatchDialog> {
   @override
   void dispose() { competition.dispose(); home.dispose(); away.dispose(); source.dispose(); notes.dispose(); super.dispose(); }
   Future<void> chooseDate() async {
-    final value = await showDatePicker(context: context, initialDate: date, firstDate: DateTime(2020), lastDate: DateTime(2100));
+    final value = await AppDatePicker.show(context: context, initialDate: date, firstDate: DateTime(2020), lastDate: DateTime(2100));
     if (value != null) setState(() => date = value);
   }
   Future<void> chooseTime() async {
-    final value = await showTimePicker(context: context, initialTime: time);
+    final value = await AppTimePicker.show(context: context, initialTime: time);
     if (value != null) setState(() => time = value);
   }
   Future<void> save() async {
@@ -3729,7 +3729,7 @@ class _MatchDialogState extends State<MatchDialog> {
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('Add match'),
     content: SizedBox(width: 420, child: Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      DropdownButtonFormField<String>(
+      AppDropdownField<String>(
         initialValue: sport,
         decoration: const InputDecoration(labelText: 'Sport'),
         items: const ['Cricket', 'Football', 'Kabaddi', 'Tennis', 'Badminton', 'Esports'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
@@ -3748,7 +3748,7 @@ class _MatchDialogState extends State<MatchDialog> {
         Expanded(child: OutlinedButton.icon(onPressed: chooseTime, icon: const Icon(Icons.schedule), label: Text(time.format(context)))),
       ]),
       const SizedBox(height: 10),
-      DropdownButtonFormField<String>(
+      AppDropdownField<String>(
         initialValue: status,
         decoration: const InputDecoration(labelText: 'Status'),
         items: const ['Upcoming', 'Live', 'Finished', 'Cancelled'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
@@ -3840,7 +3840,7 @@ class _SportsInterestDialogState extends State<SportsInterestDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<int>(
+              AppDropdownField<int>(
                 initialValue: userId,
                 decoration: const InputDecoration(labelText: 'Registered user'),
                 items: widget.users.map((user) {
@@ -4306,7 +4306,7 @@ class _CustomerIssueDialogState extends State<CustomerIssueDialog> {
     content: SizedBox(width: 440, child: Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
       TextFormField(controller: title, decoration: const InputDecoration(labelText: 'Issue title'), validator: (v) => v == null || v.trim().isEmpty ? 'Enter an issue title' : null),
       const SizedBox(height: 10),
-      DropdownButtonFormField<int?>(
+      AppDropdownField<int?>(
         initialValue: userId,
         decoration: const InputDecoration(labelText: 'Link to registered user (optional)'),
         items: [
@@ -4316,14 +4316,14 @@ class _CustomerIssueDialogState extends State<CustomerIssueDialog> {
         onChanged: (v) => setState(() => userId = v),
       ),
       const SizedBox(height: 10),
-      DropdownButtonFormField<String>(
+      AppDropdownField<String>(
         initialValue: category,
         decoration: const InputDecoration(labelText: 'Category'),
         items: const ['General', 'Payment', 'Account', 'Technical', 'Bonus', 'Complaint', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
         onChanged: (v) => setState(() => category = v ?? 'General'),
       ),
       const SizedBox(height: 10),
-      DropdownButtonFormField<String>(
+      AppDropdownField<String>(
         initialValue: priority,
         decoration: const InputDecoration(labelText: 'Priority'),
         items: const ['Low', 'Normal', 'High', 'Urgent'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
@@ -4385,14 +4385,14 @@ class _UpdateIssueDialogState extends State<UpdateIssueDialog> {
     content: SizedBox(width: 420, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(widget.issue['title'] as String, style: const TextStyle(fontWeight: FontWeight.w800)),
       const SizedBox(height: 12),
-      DropdownButtonFormField<String>(
+      AppDropdownField<String>(
         initialValue: status,
         decoration: const InputDecoration(labelText: 'Progress status'),
         items: const ['Open', 'In Progress', 'Waiting for Customer', 'Resolved', 'Closed'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
         onChanged: (v) => setState(() => status = v ?? 'Open'),
       ),
       const SizedBox(height: 10),
-      DropdownButtonFormField<String>(
+      AppDropdownField<String>(
         initialValue: priority,
         decoration: const InputDecoration(labelText: 'Priority'),
         items: const ['Low', 'Normal', 'High', 'Urgent'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
