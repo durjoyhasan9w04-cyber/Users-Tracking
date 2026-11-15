@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'dart:io';
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
+// ignore: deprecated_member_use
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:sqflite/sqflite.dart';
