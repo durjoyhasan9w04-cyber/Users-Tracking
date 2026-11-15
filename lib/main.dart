@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'dart:io';
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:share_plus/share_plus.dart';
@@ -19,6 +20,157 @@ import 'services/match_notification_service.dart';
 import 'services/fixture_discovery_service.dart';
 import 'services/groq_fixture_service.dart';
 import 'models/user_level_config.dart';
+
+
+class AppDropdownField<T> extends StatelessWidget {
+  const AppDropdownField({super.key, required this.initialValue, required this.items, required this.onChanged, required this.decoration, this.isExpanded = true});
+  final T? initialValue;
+  final List<DropdownMenuItem<T>> items;
+  final ValueChanged<T?>? onChanged;
+  final InputDecoration decoration;
+  final bool isExpanded;
+  String _label(Widget child) => child is Text ? (child.data ?? '') : child.toString();
+  Future<void> _open(BuildContext context) async {
+    if (onChanged == null) return;
+    final chosen = await showModalBottomSheet<Object?>(context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+      builder: (_) => _AppDropdownSheet<T>(title: decoration.labelText ?? 'Select option', items: items, initialValue: initialValue, label: _label));
+    if (chosen != null) onChanged!(chosen as T);
+  }
+  @override
+  Widget build(BuildContext context) {
+    DropdownMenuItem<T>? selected;
+    for (final item in items) { if (item.value == initialValue) { selected = item; break; } }
+    return InkWell(borderRadius: BorderRadius.circular(14), onTap: () => _open(context),
+      child: InputDecorator(decoration: decoration.copyWith(suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded), enabled: onChanged != null),
+        isEmpty: selected == null, child: selected == null ? const SizedBox(height: 20) :
+          DefaultTextStyle(style: Theme.of(context).textTheme.bodyLarge ?? const TextStyle(), child: selected.child)));
+  }
+}
+class _AppDropdownSheet<T> extends StatefulWidget {
+  const _AppDropdownSheet({required this.title, required this.items, required this.initialValue, required this.label});
+  final String title; final List<DropdownMenuItem<T>> items; final T? initialValue; final String Function(Widget) label;
+  @override State<_AppDropdownSheet<T>> createState() => _AppDropdownSheetState<T>();
+}
+class _AppDropdownSheetState<T> extends State<_AppDropdownSheet<T>> {
+  late T? selected = widget.initialValue; String query = '';
+  @override Widget build(BuildContext context) {
+    final filtered = widget.items.where((e) => widget.label(e.child).toLowerCase().contains(query.toLowerCase())).toList();
+    return SafeArea(child: Container(constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .82),
+      padding: const EdgeInsets.fromLTRB(20,12,20,20),
+      decoration: const BoxDecoration(color: Colors.white,borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      child: Column(mainAxisSize: MainAxisSize.min,children:[
+        Center(child:Container(width:42,height:4,decoration:BoxDecoration(color:const Color(0xFFD5D9E0),borderRadius:BorderRadius.circular(8)))),
+        const SizedBox(height:18),
+        Row(children:[Expanded(child:Text(widget.title,style:const TextStyle(fontSize:19,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),IconButton(onPressed:()=>Navigator.pop(context),icon:const Icon(Icons.close_rounded))]),
+        TextField(onChanged:(v)=>setState(()=>query=v),decoration:InputDecoration(hintText:'Search '+widget.title.toLowerCase(),prefixIcon:const Icon(Icons.search_rounded),filled:true,fillColor:const Color(0xFFF2F3F6),border:OutlineInputBorder(borderRadius:BorderRadius.circular(16),borderSide:BorderSide.none))),
+        const SizedBox(height:10),
+        Flexible(child:ListView.builder(shrinkWrap:true,itemCount:filtered.length,itemBuilder:(context,index){
+          final item=filtered[index]; final active=item.value==selected;
+          return InkWell(onTap:item.enabled?()=>setState(()=>selected=item.value):null,borderRadius:BorderRadius.circular(15),
+            child:Container(margin:const EdgeInsets.only(bottom:5),padding:const EdgeInsets.symmetric(horizontal:12,vertical:13),
+              decoration:BoxDecoration(color:active?const Color(0xFFFFF0E7):Colors.transparent,borderRadius:BorderRadius.circular(15)),
+              child:Row(children:[Expanded(child:DefaultTextStyle(style:TextStyle(fontSize:15,fontWeight:active?FontWeight.w700:FontWeight.w500,color:active?const Color(0xFFE85D16):const Color(0xFF18202B)),child:item.child)),
+                if(active) const CircleAvatar(radius:13,backgroundColor:Color(0xFFF36B21),child:Icon(Icons.check,size:17,color:Colors.white))
+                else Container(width:26,height:26,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:const Color(0xFFCDD2DC),width:2)))])));
+        })),
+        const SizedBox(height:12),
+        SizedBox(width:double.infinity,height:54,child:ElevatedButton(style:ElevatedButton.styleFrom(backgroundColor:const Color(0xFFF36B21),foregroundColor:Colors.white,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),
+          onPressed:selected==null?null:()=>Navigator.pop(context,selected),child:const Text('Confirm',style:TextStyle(fontWeight:FontWeight.w800)))),
+      ])));
+  }
+}
+class AppDatePicker {
+  static Future<DateTime?> show({required BuildContext context,required DateTime initialDate,required DateTime firstDate,required DateTime lastDate,String? helpText}) =>
+    showModalBottomSheet<DateTime>(context:context,isScrollControlled:true,backgroundColor:Colors.transparent,
+      builder:(_)=>_AppDateSheet(initialDate:initialDate,firstDate:firstDate,lastDate:lastDate,title:helpText??'Pick a date'));
+}
+class _AppDateSheet extends StatefulWidget {
+  const _AppDateSheet({required this.initialDate,required this.firstDate,required this.lastDate,required this.title});
+  final DateTime initialDate,firstDate,lastDate; final String title;
+  @override State<_AppDateSheet> createState()=>_AppDateSheetState();
+}
+class _AppDateSheetState extends State<_AppDateSheet> {
+  late DateTime selected=DateTime(widget.initialDate.year,widget.initialDate.month,widget.initialDate.day);
+  late DateTime month=DateTime(selected.year,selected.month);
+  @override Widget build(BuildContext context) {
+    final count=DateUtils.getDaysInMonth(month.year,month.month);
+    final offset=DateTime(month.year,month.month,1).weekday%7;
+    final cells=((offset+count+6)~/7)*7;
+    final now=DateTime.now();
+    final shortcuts=<String,DateTime>{'Today':now,'Tomorrow':now.add(const Duration(days:1)),'In 3 days':now.add(const Duration(days:3)),'Next week':now.add(const Duration(days:7))};
+    final canPrev=DateTime(month.year,month.month-1).isAfter(DateTime(widget.firstDate.year,widget.firstDate.month-1));
+    final canNext=DateTime(month.year,month.month+1).isBefore(DateTime(widget.lastDate.year,widget.lastDate.month+2));
+    return SafeArea(child:Container(padding:const EdgeInsets.fromLTRB(20,12,20,20),
+      decoration:const BoxDecoration(color:Colors.white,borderRadius:BorderRadius.vertical(top:Radius.circular(28))),
+      child:Column(mainAxisSize:MainAxisSize.min,children:[
+        Center(child:Container(width:42,height:4,decoration:BoxDecoration(color:const Color(0xFFD5D9E0),borderRadius:BorderRadius.circular(8)))),
+        const SizedBox(height:18),
+        Row(children:[Expanded(child:Text(widget.title,style:const TextStyle(fontSize:19,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),IconButton(onPressed:()=>Navigator.pop(context),icon:const Icon(Icons.close_rounded))]),
+        Wrap(spacing:6,children:shortcuts.entries.map((e)=>ActionChip(label:Text(e.key),backgroundColor:const Color(0xFFF2F3F6),onPressed:(){
+          final d=DateTime(e.value.year,e.value.month,e.value.day);
+          if(!d.isBefore(widget.firstDate)&&!d.isAfter(widget.lastDate)) setState(()=>{selected=d,month=DateTime(d.year,d.month)});
+        })).toList()),
+        const SizedBox(height:10),
+        Row(children:[Expanded(child:Text(DateFormat('MMMM yyyy').format(month),style:const TextStyle(fontSize:16,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),
+          IconButton(onPressed:canPrev?()=>setState(()=>month=DateTime(month.year,month.month-1)):null,icon:const Icon(Icons.chevron_left_rounded)),
+          IconButton(onPressed:canNext?()=>setState(()=>month=DateTime(month.year,month.month+1)):null,icon:const Icon(Icons.chevron_right_rounded))]),
+        Row(children:['S','M','T','W','T','F','S'].map((d)=>Expanded(child:Center(child:Text(d,style:const TextStyle(color:Color(0xFF7C8490),fontWeight:FontWeight.w700))))).toList()),
+        const SizedBox(height:7),
+        GridView.builder(shrinkWrap:true,physics:const NeverScrollableScrollPhysics(),gridDelegate:const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount:7,mainAxisSpacing:4,crossAxisSpacing:4),itemCount:cells,itemBuilder:(_,i){
+          final day=i-offset+1; if(day<1||day>count)return const SizedBox();
+          final date=DateTime(month.year,month.month,day);
+          final disabled=date.isBefore(widget.firstDate)||date.isAfter(widget.lastDate);
+          final active=DateUtils.isSameDay(date,selected); final today=DateUtils.isSameDay(date,now);
+          return InkWell(onTap:disabled?null:()=>setState(()=>selected=date),borderRadius:BorderRadius.circular(13),
+            child:Container(decoration:BoxDecoration(color:active?const Color(0xFFF36B21):today?const Color(0xFFFFF0E7):Colors.transparent,borderRadius:BorderRadius.circular(13)),alignment:Alignment.center,
+              child:Text(day.toString(),style:TextStyle(fontWeight:active||today?FontWeight.w800:FontWeight.w500,color:disabled?const Color(0xFFBFC4CE):active?Colors.white:today?const Color(0xFFE85D16):const Color(0xFF27313D)))));
+        }),
+        const SizedBox(height:16),
+        SizedBox(width:double.infinity,height:54,child:ElevatedButton(style:ElevatedButton.styleFrom(backgroundColor:const Color(0xFFF36B21),foregroundColor:Colors.white,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),
+          onPressed:()=>Navigator.pop(context,selected),child:Text('Set '+DateFormat('EEE, MMM d').format(selected),style:const TextStyle(fontWeight:FontWeight.w800)))),
+      ])));
+  }
+}
+class AppTimePicker {
+  static Future<TimeOfDay?> show({required BuildContext context,required TimeOfDay initialTime,String? helpText}) =>
+    showModalBottomSheet<TimeOfDay>(context:context,isScrollControlled:true,backgroundColor:Colors.transparent,builder:(_)=>_AppTimeSheet(initialTime:initialTime,title:helpText??'Pick a time'));
+}
+class _AppTimeSheet extends StatefulWidget {
+  const _AppTimeSheet({required this.initialTime,required this.title});
+  final TimeOfDay initialTime; final String title;
+  @override State<_AppTimeSheet> createState()=>_AppTimeSheetState();
+}
+class _AppTimeSheetState extends State<_AppTimeSheet> {
+  late int hour=widget.initialTime.hourOfPeriod==0?12:widget.initialTime.hourOfPeriod;
+  late int minute=widget.initialTime.minute;
+  late int period=widget.initialTime.period==DayPeriod.am?0:1;
+  final hours=List<int>.generate(12,(i)=>i+1); final minutes=List<int>.generate(12,(i)=>i*5);
+  void preset(int h,int m,int p)=>setState(()=>{hour=h,minute=m,period=p});
+  @override Widget build(BuildContext context) {
+    final presets=[(9,0,0,'9:00 AM'),(12,0,1,'12:00 PM'),(16,30,1,'4:30 PM'),(18,0,1,'6:00 PM')];
+    final current=hour.toString().padLeft(2,'0')+':'+minute.toString().padLeft(2,'0')+' '+(period==0?'AM':'PM');
+    return SafeArea(child:Container(padding:const EdgeInsets.fromLTRB(20,12,20,20),decoration:const BoxDecoration(color:Colors.white,borderRadius:BorderRadius.vertical(top:Radius.circular(28))),
+      child:Column(mainAxisSize:MainAxisSize.min,children:[
+        Center(child:Container(width:42,height:4,decoration:BoxDecoration(color:const Color(0xFFD5D9E0),borderRadius:BorderRadius.circular(8)))),
+        const SizedBox(height:18),
+        Row(children:[Expanded(child:Text(widget.title,style:const TextStyle(fontSize:19,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),IconButton(onPressed:()=>Navigator.pop(context),icon:const Icon(Icons.close_rounded))]),
+        Wrap(spacing:6,children:presets.map((p){
+          final ph=(p.$1+11)%12+1; final active=hour==ph&&minute==p.$2&&period==p.$3;
+          return ChoiceChip(label:Text(p.$4),selected:active,selectedColor:const Color(0xFFF36B21),labelStyle:TextStyle(color:active?Colors.white:const Color(0xFF626C79),fontWeight:FontWeight.w700),onSelected:(_)=>preset(ph,p.$2,p.$3));
+        }).toList()),
+        const SizedBox(height:18),
+        Container(height:190,decoration:BoxDecoration(color:const Color(0xFFFFF0E7),borderRadius:BorderRadius.circular(18)),child:Row(children:[
+          Expanded(child:CupertinoPicker(scrollController:FixedExtentScrollController(initialItem:hour-1),itemExtent:42,onSelectedItemChanged:(i)=>setState(()=>hour=i+1),children:hours.map((v)=>Center(child:Text(v.toString().padLeft(2,'0'),style:const TextStyle(fontSize:24,fontWeight:FontWeight.w700,color:Color(0xFFE85D16))))).toList())),
+          Expanded(child:CupertinoPicker(scrollController:FixedExtentScrollController(initialItem:minute~/5),itemExtent:42,onSelectedItemChanged:(i)=>setState(()=>minute=minutes[i]),children:minutes.map((v)=>Center(child:Text(v.toString().padLeft(2,'0'),style:const TextStyle(fontSize:24,fontWeight:FontWeight.w700,color:Color(0xFFE85D16))))).toList())),
+          Expanded(child:CupertinoPicker(scrollController:FixedExtentScrollController(initialItem:period),itemExtent:42,onSelectedItemChanged:(i)=>setState(()=>period=i),children:const [Center(child:Text('AM',style:TextStyle(fontSize:23,fontWeight:FontWeight.w700,color:Color(0xFFE85D16)))),Center(child:Text('PM',style:TextStyle(fontSize:23,fontWeight:FontWeight.w700,color:Color(0xFFE85D16))))])),
+        ])),
+        const SizedBox(height:18),
+        SizedBox(width:double.infinity,height:54,child:ElevatedButton(style:ElevatedButton.styleFrom(backgroundColor:const Color(0xFFF36B21),foregroundColor:Colors.white,shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(16))),
+          onPressed:()=>Navigator.pop(context,TimeOfDay(hour:(hour%12)+(period*12),minute:minute)),child:Text('Set '+current,style:const TextStyle(fontWeight:FontWeight.w800)))),
+      ])));
+  }
+}
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -724,9 +876,9 @@ class _UserFormDialogState extends State<UserFormDialog> {
   Future<void> choosePreviousDpAt() async {
     final now = DateTime.now();
     final initial = previousDpAt ?? now;
-    final date = await showDatePicker(context: context, initialDate: initial, firstDate: DateTime(2000), lastDate: now);
+    final date = await AppDatePicker.show(context: context, initialDate: initial, firstDate: DateTime(2000), lastDate: now);
     if (date == null || !mounted) return;
-    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(initial));
+    final time = await AppTimePicker.show(context: context, initialTime: TimeOfDay.fromDateTime(initial));
     if (time == null || !mounted) return;
     final chosen = DateTime(date.year, date.month, date.day, time.hour, time.minute);
     if (chosen.isAfter(now)) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Previous DP time cannot be in the future.'))); return; }
@@ -1015,7 +1167,7 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
         return Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(onChanged: (value) => setState(() => userSearch = value), decoration: const InputDecoration(labelText: 'Search user by name or number', prefixIcon: Icon(Icons.search))),
           const SizedBox(height: 8),
-          DropdownButtonFormField<int>(
+          AppDropdownField<int>(
             initialValue: filteredUsers.any((u) => u['id'] == userId) ? userId : null,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'User'),
