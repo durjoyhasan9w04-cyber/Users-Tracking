@@ -36,12 +36,12 @@ Future<void> main() async {
   unawaited(AppDatabase.instance.createDailyBackupIfNeeded().catchError((_) {}));
 }
 
-const emerald = Color(0xFF3DDC97);
-const amber = Color(0xFFF5B94A);
-const muted = Color(0xFF8B9B94);
-const panel = Color(0xFF111B18);
-const bg = Color(0xFF0A110F);
-const panelBorder = Color(0xFF1D2A25);
+const emerald = Color(0xFFF36B21);
+const amber = Color(0xFFF08A36);
+const muted = Color(0xFF7C8490);
+const panel = Color(0xFFFFFFFF);
+const bg = Color(0xFFF4F5F7);
+const panelBorder = Color(0xFFE9EBEF);
 
 String normalizeContactChannel(String? preference) {
   switch ((preference ?? '').trim().toLowerCase()) {
@@ -63,51 +63,26 @@ String normalizeContactChannel(String? preference) {
 }
 
 final ThemeData userHubTheme = ThemeData(
-  useMaterial3: true,
-  brightness: Brightness.dark,
-  colorScheme: const ColorScheme.dark(
-    primary: emerald, onPrimary: Color(0xFF062017),
-    secondary: amber, onSecondary: Color(0xFF261A00),
-    surface: panel, onSurface: Color(0xFFE8F0EC),
-    error: Color(0xFFFF7474), onError: Color(0xFF240909),
-  ),
-  scaffoldBackgroundColor: bg,
-  canvasColor: bg,
-  textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
-    displayLarge: GoogleFonts.spaceGrotesk(fontSize: 34, fontWeight: FontWeight.w700, color: const Color(0xFFE8F0EC), letterSpacing: 0, fontFeatures: const [FontFeature.tabularFigures()]),
-    headlineLarge: GoogleFonts.spaceGrotesk(fontSize: 30, fontWeight: FontWeight.w700, color: const Color(0xFFE8F0EC), letterSpacing: 0),
-    headlineMedium: GoogleFonts.spaceGrotesk(fontSize: 25, fontWeight: FontWeight.w700, color: const Color(0xFFE8F0EC), letterSpacing: 0),
-    titleLarge: GoogleFonts.spaceGrotesk(fontSize: 18, fontWeight: FontWeight.w700, color: const Color(0xFFE8F0EC), letterSpacing: 0),
-    titleMedium: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: const Color(0xFFE8F0EC), letterSpacing: 0),
-    bodyLarge: GoogleFonts.inter(fontSize: 15, color: const Color(0xFFE8F0EC), letterSpacing: 0),
-    bodyMedium: GoogleFonts.inter(fontSize: 13, color: muted, letterSpacing: 0),
-    labelLarge: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 0),
-  ),
-  appBarTheme: const AppBarTheme(backgroundColor: bg, surfaceTintColor: Colors.transparent, elevation: 0, foregroundColor: Color(0xFFE8F0EC)),
-  cardTheme: CardThemeData(
-    color: panel, elevation: 0, margin: EdgeInsets.zero,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: panelBorder)),
-  ),
-  inputDecorationTheme: InputDecorationTheme(
-    filled: true, fillColor: panel, hintStyle: const TextStyle(color: muted, letterSpacing: 0),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
-    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: panelBorder)),
-    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: emerald, width: 1.2)),
-  ),
-  filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(
-    backgroundColor: emerald, foregroundColor: const Color(0xFF062017),
-    minimumSize: const Size(48, 50), padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-    shape: const StadiumBorder(), textStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, letterSpacing: 0),
-  )),
-  floatingActionButtonTheme: const FloatingActionButtonThemeData(backgroundColor: emerald, foregroundColor: Color(0xFF062017), elevation: 2, shape: StadiumBorder()),
-  navigationBarTheme: NavigationBarThemeData(
-    backgroundColor: panel, indicatorColor: const Color(0xFF1B3B2D), labelBehavior: NavigationDestinationLabelBehavior.alwaysShow, height: 76,
-    iconTheme: WidgetStateProperty.resolveWith((states) => IconThemeData(color: states.contains(WidgetState.selected) ? emerald : muted)),
-    labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(color: states.contains(WidgetState.selected) ? emerald : muted, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0)),
-  ),
-  chipTheme: const ChipThemeData(backgroundColor: panel, selectedColor: emerald, side: BorderSide(color: panelBorder), shape: StadiumBorder(), padding: EdgeInsets.symmetric(horizontal: 9, vertical: 7)),
-  dividerColor: panelBorder,
+  useMaterial3:true, brightness:Brightness.light,
+  colorScheme:const ColorScheme.light(primary:emerald,onPrimary:Colors.white,secondary:amber,onSecondary:Colors.white,surface:panel,onSurface:Color(0xFF18202B),error:Color(0xFFD83D4C),onError:Colors.white),
+  scaffoldBackgroundColor:bg,canvasColor:bg,
+  textTheme:GoogleFonts.interTextTheme(ThemeData.light().textTheme).copyWith(
+    displayLarge:GoogleFonts.spaceGrotesk(fontSize:34,fontWeight:FontWeight.w700,color:const Color(0xFF18202B),letterSpacing:0,fontFeatures:const [FontFeature.tabularFigures()]),
+    headlineLarge:GoogleFonts.spaceGrotesk(fontSize:30,fontWeight:FontWeight.w700,color:const Color(0xFF18202B),letterSpacing:0),
+    headlineMedium:GoogleFonts.spaceGrotesk(fontSize:25,fontWeight:FontWeight.w700,color:const Color(0xFF18202B),letterSpacing:0),
+    titleLarge:GoogleFonts.spaceGrotesk(fontSize:18,fontWeight:FontWeight.w700,color:const Color(0xFF18202B),letterSpacing:0),
+    titleMedium:GoogleFonts.inter(fontSize:15,fontWeight:FontWeight.w700,color:const Color(0xFF18202B),letterSpacing:0),
+    bodyLarge:GoogleFonts.inter(fontSize:15,color:const Color(0xFF27313D),letterSpacing:0),
+    bodyMedium:GoogleFonts.inter(fontSize:13,color:muted,letterSpacing:0),
+    labelLarge:GoogleFonts.inter(fontSize:13,fontWeight:FontWeight.w700,letterSpacing:0)),
+  appBarTheme:const AppBarTheme(backgroundColor:bg,surfaceTintColor:Colors.transparent,elevation:0,foregroundColor:Color(0xFF18202B)),
+  cardTheme:CardThemeData(color:panel,elevation:0,margin:EdgeInsets.zero,shadowColor:Color(0x12000000),shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(22),side:const BorderSide(color:panelBorder))),
+  inputDecorationTheme:InputDecorationTheme(filled:true,fillColor:panel,hintStyle:const TextStyle(color:muted,letterSpacing:0),contentPadding:const EdgeInsets.symmetric(horizontal:18,vertical:17),border:OutlineInputBorder(borderRadius:BorderRadius.circular(18),borderSide:BorderSide.none),enabledBorder:OutlineInputBorder(borderRadius:BorderRadius.circular(18),borderSide:const BorderSide(color:panelBorder)),focusedBorder:OutlineInputBorder(borderRadius:BorderRadius.circular(18),borderSide:const BorderSide(color:emerald,width:1.2))),
+  filledButtonTheme:FilledButtonThemeData(style:FilledButton.styleFrom(backgroundColor:emerald,foregroundColor:Colors.white,minimumSize:const Size(48,50),padding:const EdgeInsets.symmetric(horizontal:22,vertical:14),shape:const StadiumBorder(),textStyle:GoogleFonts.inter(fontSize:14,fontWeight:FontWeight.w700,letterSpacing:0))),
+  floatingActionButtonTheme:const FloatingActionButtonThemeData(backgroundColor:emerald,foregroundColor:Colors.white,elevation:2,shape:StadiumBorder()),
+  navigationBarTheme:NavigationBarThemeData(backgroundColor:panel,indicatorColor:const Color(0xFFFFE6D9),labelBehavior:NavigationDestinationLabelBehavior.alwaysShow,height:76,iconTheme:WidgetStateProperty.resolveWith((states)=>IconThemeData(color:states.contains(WidgetState.selected)?emerald:muted)),labelTextStyle:WidgetStateProperty.resolveWith((states)=>TextStyle(color:states.contains(WidgetState.selected)?emerald:muted,fontSize:11,fontWeight:FontWeight.w600,letterSpacing:0))),
+  chipTheme:const ChipThemeData(backgroundColor:Color(0xFFF0F1F4),selectedColor:emerald,side:BorderSide(color:panelBorder),shape:StadiumBorder(),padding:EdgeInsets.symmetric(horizontal:9,vertical:7)),
+  dividerColor:panelBorder,
 );
 
 class UserHubApp extends StatelessWidget {
@@ -118,211 +93,132 @@ class UserHubApp extends StatelessWidget {
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
-  @override
-  State<MainShell> createState() => _MainShellState();
+  @override State<MainShell> createState()=>_MainShellState();
 }
-class _MainShellState extends State<MainShell> {
-  int index = 0;
-  int revision = 0;
-  void refresh() => setState(() => revision++);
-  Future<void> addUser() async {
-    final saved = await showDialog<bool>(context: context, builder: (_) => const UserFormDialog());
-    if (saved == true) refresh();
+class _MainShellState extends State<MainShell>{
+  int index=0,revision=0;
+  void refresh()=>setState(()=>revision++);
+  Future<void> openMore()async{await Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const MoreHubPage()));}
+  Future<void> addAction()async{
+    final action=await showModalBottomSheet<String>(context:context,backgroundColor:panel,shape:const RoundedRectangleBorder(borderRadius:BorderRadius.vertical(top:Radius.circular(26))),builder:(ctx)=>SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(20,18,20,24),child:Column(mainAxisSize:MainAxisSize.min,children:[
+      Container(width:42,height:4,decoration:BoxDecoration(color:panelBorder,borderRadius:BorderRadius.circular(4))),const SizedBox(height:18),
+      const Text('Add new',style:TextStyle(fontSize:20,fontWeight:FontWeight.w800,color:Color(0xFF18202B))),const SizedBox(height:14),
+      _AddActionTile(icon:Icons.person_add_alt_1_rounded,label:'Add user',onTap:()=>Navigator.pop(ctx,'user')),
+      _AddActionTile(icon:Icons.account_balance_wallet_outlined,label:'Record daily DP',onTap:()=>Navigator.pop(ctx,'dp')),
+      _AddActionTile(icon:Icons.card_giftcard_rounded,label:'Add bonus',onTap:()=>Navigator.pop(ctx,'bonus')),
+      _AddActionTile(icon:Icons.person_search_outlined,label:'Add potential customer',onTap:()=>Navigator.pop(ctx,'potential')),
+      _AddActionTile(icon:Icons.report_problem_outlined,label:'Create issue',onTap:()=>Navigator.pop(ctx,'issue')),
+    ]))));
+    if(!mounted||action==null)return;
+    bool? saved;
+    if(action=='user')saved=await showDialog<bool>(context:context,builder:(_)=>const UserFormDialog());
+    else if(action=='dp')saved=await showDialog<bool>(context:context,builder:(_)=>const DpEntryDialog());
+    else if(action=='bonus')saved=await showDialog<bool>(context:context,builder:(_)=>const BonusEntryDialog());
+    else if(action=='potential')saved=await showDialog<bool>(context:context,builder:(_)=>const PotentialUserDialog());
+    else if(action=='issue'){final users=await AppDatabase.instance.getUsers();if(!mounted)return;saved=await showDialog<bool>(context:context,builder:(_)=>CustomerIssueDialog(users:users));}
+    if(saved==true&&mounted)refresh();
   }
-  @override
-  Widget build(BuildContext context) {
-    final pages = [
-      DashboardPage(key: ValueKey('home-$revision'), onChanged: refresh),
-      UsersPage(key: ValueKey('users-$revision'), onChanged: refresh),
-      const ActivityPage(),
-      const ContactHistoryPage(),
-      const MoreHubPage(),
-    ];
-    const titles = ['Overview', 'Users', 'Activity', 'Contacts', 'More'];
+  @override Widget build(BuildContext context){
+    final pages=[DashboardPage(key:ValueKey('home-$revision'),onChanged:refresh),UsersPage(key:ValueKey('users-$revision'),onChanged:refresh),BonusPage(key:ValueKey('bonus-$revision'),onChanged:refresh),CustomerIssuesPage(key:ValueKey('issues-$revision'))];
+    const titles=['Dashboard','Users','Bonus','Issues'];
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: index == 0 ? 88 : 72,
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (index == 0) const Text('Good evening', style: TextStyle(fontSize: 13, color: muted, fontWeight: FontWeight.w500, letterSpacing: 0)),
-          Text(titles[index], style: Theme.of(context).textTheme.headlineMedium),
+      appBar:AppBar(toolbarHeight:76,title:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[const Text('UserHub',style:TextStyle(fontSize:12,color:emerald,fontWeight:FontWeight.w800,letterSpacing:.2)),Text(titles[index],style:Theme.of(context).textTheme.headlineMedium)]),
+        actions:[IconButton(tooltip:'More tools and settings',onPressed:openMore,icon:const Icon(Icons.grid_view_rounded),style:IconButton.styleFrom(backgroundColor:panel,foregroundColor:const Color(0xFF27313D),fixedSize:const Size(44,44))),const SizedBox(width:14)]),
+      body:AnimatedSwitcher(duration:const Duration(milliseconds:220),child:pages[index]),
+      bottomNavigationBar:Padding(padding:const EdgeInsets.fromLTRB(12,0,12,10),child:ClipRRect(borderRadius:BorderRadius.circular(24),child:NavigationBar(
+        selectedIndex:index<2?index:index+1,
+        onDestinationSelected:(v){if(v==2){addAction();return;}setState(()=>index=v<2?v:v-1);},
+        destinations:const[
+          NavigationDestination(icon:Icon(Icons.grid_view_outlined),selectedIcon:Icon(Icons.grid_view_rounded),label:'Dashboard'),
+          NavigationDestination(icon:Icon(Icons.people_outline_rounded),selectedIcon:Icon(Icons.people_rounded),label:'Users'),
+          NavigationDestination(icon:Icon(Icons.add_circle_rounded,size:34),selectedIcon:Icon(Icons.add_circle_rounded,size:34),label:'Add New'),
+          NavigationDestination(icon:Icon(Icons.card_giftcard_outlined),selectedIcon:Icon(Icons.card_giftcard_rounded),label:'Bonus'),
+          NavigationDestination(icon:Icon(Icons.warning_amber_rounded),selectedIcon:Icon(Icons.warning_rounded),label:'Issues'),
+        ]))),
+    );
+  }
+}
+class _AddActionTile extends StatelessWidget{
+  const _AddActionTile({required this.icon,required this.label,required this.onTap});
+  final IconData icon;final String label;final VoidCallback onTap;
+  @override Widget build(BuildContext context)=>ListTile(contentPadding:const EdgeInsets.symmetric(horizontal:8),leading:CircleAvatar(backgroundColor:const Color(0xFFFFE6D9),child:Icon(icon,color:emerald)),title:Text(label,style:const TextStyle(fontWeight:FontWeight.w700,color:Color(0xFF27313D))),trailing:const Icon(Icons.chevron_right_rounded,color:muted),onTap:onTap);
+}
+
+class DashboardPage extends StatelessWidget{
+  const DashboardPage({super.key,required this.onChanged});final VoidCallback onChanged;
+  @override Widget build(BuildContext context){
+    final now=DateTime.now(),monthStart=DateTime(now.year,now.month),nextMonth=DateTime(now.year,now.month+1),previousStart=DateTime(now.year,now.month-1);
+    return FutureBuilder<List<Object?>>(future:Future.wait<Object?>([
+      AppDatabase.instance.getActivityStatusUsers(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.countFollowUpsDue(),AppDatabase.instance.countOpenCustomerIssues(),
+      AppDatabase.instance.getDpEntries(),AppDatabase.instance.getBonusEntries(),AppDatabase.instance.monthDpTotal(),
+      AppDatabase.instance.getReportTotals(monthStart,nextMonth),AppDatabase.instance.getReportTotals(previousStart,monthStart),
+    ]),builder:(context,snap){
+      final d=snap.data,activity=d?[0] as List<Map<String,Object?>>? ?? const [];
+      final active=activity.where((r)=>r['activity_status']=='Active').length,attention=(d?[2] as num?)?.toInt()??0,issues=(d?[3] as num?)?.toInt()??0;
+      final bonus=(d?[1] as num?)?.toDouble()??0,dpRows=d?[4] as List<Map<String,Object?>>? ?? const [],bonusRows=d?[5] as List<Map<String,Object?>>? ?? const [];
+      final dpMonth=(d?[6] as num?)?.toDouble()??0,totals=d?[7] as Map<String,num>?,previous=d?[8] as Map<String,num>?;
+      final prevDp=previous?['dp']?.toDouble()??0,delta=prevDp>0?((dpMonth-prevDp)/prevDp)*100:null;
+      final trend=dpRows.take(7).toList().reversed.map((r)=>(r['total'] as num?)?.toDouble()??0).toList();
+      final recent=<Map<String,Object?>>[
+        ...dpRows.take(10).map((r)=><String,Object?>{'kind':'DP recorded','name':r['user_name'],'date':r['created_at']??r['entry_date'],'amount':r['total']}),
+        ...bonusRows.take(10).map((r)=><String,Object?>{'kind':'Bonus added','name':r['user_name'],'date':r['created_at']??r['entry_date'],'amount':r['amount']}),
+      ]..sort((x,y)=>(y['date'] as String? ?? '').compareTo(x['date'] as String? ?? ''));
+      return ListView(padding:const EdgeInsets.fromLTRB(20,4,20,110),children:[
+        Row(children:[
+          Expanded(child:_DesignMetricCard(label:'Active DP Users',value:'$active',foot:'DP in last 3 days',icon:Icons.people_alt_outlined,tint:const Color(0xFFE8F7EF),iconColor:const Color(0xFF1B9B59))),
+          const SizedBox(width:12),
+          Expanded(child:_DesignMetricCard(label:'Bonus Today',value:'৳${bonus.toStringAsFixed(bonus%1==0?0:2)}',foot:'${totals?['bonus_count']??0} records this month',icon:Icons.card_giftcard_outlined,tint:const Color(0xFFFFF0E7),iconColor:emerald)),
         ]),
-        actions: [
-          if (index == 1) Padding(padding: const EdgeInsets.only(right: 14), child: IconButton.filled(
-            style: IconButton.styleFrom(backgroundColor: emerald, foregroundColor: bg, fixedSize: const Size(46, 46)),
-            onPressed: addUser, icon: const Icon(Icons.add_rounded, size: 25),
-          )),
-          if (index != 1) Padding(padding: const EdgeInsets.only(right: 18), child: CircleAvatar(
-            radius: 20, backgroundColor: const Color(0xFF47704C),
-            child: ClipOval(child: Image.asset('assets/app_logo.png', width: 40, height: 40, fit: BoxFit.cover)),
-          )),
-        ],
-      ),
-      body: AnimatedSwitcher(duration: const Duration(milliseconds: 220), child: pages[index]),
-      floatingActionButton: index == 0 ? FloatingActionButton.extended(onPressed: addUser, icon: const Icon(Icons.add_rounded), label: const Text('Add user')) : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-        child: ClipRRect(borderRadius: BorderRadius.circular(26), child: NavigationBar(
-          selectedIndex: index, onDestinationSelected: (v) => setState(() => index = v),
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
-            NavigationDestination(icon: Icon(Icons.people_outline_rounded), selectedIcon: Icon(Icons.people_rounded), label: 'Users'),
-            NavigationDestination(icon: Icon(Icons.monitor_heart_outlined), selectedIcon: Icon(Icons.monitor_heart_rounded), label: 'Activity'),
-            NavigationDestination(icon: Icon(Icons.chat_bubble_outline_rounded), selectedIcon: Icon(Icons.chat_bubble_rounded), label: 'Contacts'),
-            NavigationDestination(icon: Icon(Icons.more_horiz_rounded), label: 'More'),
-          ],
-        )),
-      ),
-    );
+        const SizedBox(height:12),
+        Row(children:[
+          Expanded(child:_DesignMetricCard(label:'Need Attention',value:'$attention',foot:'Follow-up due',icon:Icons.notifications_active_outlined,tint:const Color(0xFFFFF0E7),iconColor:const Color(0xFFE87524))),
+          const SizedBox(width:12),
+          Expanded(child:_DesignMetricCard(label:'Open Issues',value:'$issues',foot:'Need action',icon:Icons.warning_amber_rounded,tint:const Color(0xFFEAF0FF),iconColor:const Color(0xFF3569D4))),
+        ]),
+        const SizedBox(height:18),
+        Card(child:Padding(padding:const EdgeInsets.fromLTRB(17,17,17,12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Row(children:[const Expanded(child:Text('DP Activity',style:TextStyle(fontSize:16,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),if(delta!=null)Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE8F7EF),borderRadius:BorderRadius.circular(20)),child:Text('${delta>=0?'↗ +':'↘ '}${delta.abs().toStringAsFixed(1)}%',style:const TextStyle(color:Color(0xFF238653),fontWeight:FontWeight.w800,fontSize:11)))]),
+          const SizedBox(height:12),SizedBox(height:150,width:double.infinity,child:CustomPaint(painter:SparklinePainter(trend.isEmpty?[0,0,0,0,0]:trend))),
+          Align(alignment:Alignment.centerRight,child:Text('৳${dpMonth.toStringAsFixed(dpMonth%1==0?0:2)} this month',style:const TextStyle(color:muted,fontSize:11,fontWeight:FontWeight.w600))),
+        ]))),
+        const SizedBox(height:22),
+        SectionHeading('Recent Activity',trailing:'View All',onTrailingTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ActivityPage()))),
+        const SizedBox(height:10),
+        if(snap.connectionState==ConnectionState.waiting)const Center(child:Padding(padding:EdgeInsets.all(24),child:CircularProgressIndicator()))
+        else if(recent.isEmpty)const EmptyState(title:'No recent activity',subtitle:'New DP and bonus records will appear here.',compact:true)
+        else ...recent.take(5).map((e)=>_DesignRecentTile(event:e)),
+        const SizedBox(height:12),
+        Row(children:[
+          Expanded(child:OutlinedButton.icon(onPressed:()async{final ok=await showDialog<bool>(context:context,builder:(_)=>const DpEntryDialog());if(ok==true)onChanged();},icon:const Icon(Icons.add),label:const Text('Record DP'))),
+          const SizedBox(width:10),
+          Expanded(child:FilledButton.icon(onPressed:()async{final ok=await showDialog<bool>(context:context,builder:(_)=>const BonusEntryDialog());if(ok==true)onChanged();},icon:const Icon(Icons.card_giftcard),label:const Text('Add Bonus'))),
+        ]),
+      ]);
+    });
   }
 }
-
-class DashboardPage extends StatelessWidget {
-  const DashboardPage({super.key, required this.onChanged});
-  final VoidCallback onChanged;
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final monthStart = DateTime(now.year, now.month);
-    final nextMonth = DateTime(now.year, now.month + 1);
-    final previousStart = DateTime(now.year, now.month - 1);
-    return FutureBuilder<List<Object?>>(
-      future: Future.wait<Object?>([
-        AppDatabase.instance.countUsers(),
-        AppDatabase.instance.countPotentialUsers(),
-        AppDatabase.instance.monthDpTotal(),
-        AppDatabase.instance.monthBonusTotal(),
-        AppDatabase.instance.countOpenCustomerIssues(),
-        AppDatabase.instance.todayDpTotal(),
-        AppDatabase.instance.todayDpTransactions(),
-        AppDatabase.instance.countFollowUpsDue(),
-        AppDatabase.instance.getDpEntries(),
-        AppDatabase.instance.getBonusEntries(),
-        AppDatabase.instance.getReportTotals(monthStart, nextMonth),
-        AppDatabase.instance.getReportTotals(previousStart, monthStart),
-        AppDatabase.instance.todayContactMetrics(),
-        AppDatabase.instance.todayBonusTotal(),
-        AppDatabase.instance.getActivityStatusUsers(),
-      ]),
-      builder: (context, snap) {
-        final data = snap.data;
-        final count = (data?[0] as num?)?.toInt() ?? 0;
-        final potentialCount = (data?[1] as num?)?.toInt() ?? 0;
-        final dpMonth = (data?[2] as num?) ?? 0;
-        final bonusMonth = (data?[3] as num?) ?? 0;
-        final openIssues = (data?[4] as num?)?.toInt() ?? 0;
-        final dpToday = (data?[5] as num?) ?? 0;
-        final dpTransactionsToday = (data?[6] as num?)?.toInt() ?? 0;
-        final followUpsDue = (data?[7] as num?)?.toInt() ?? 0;
-        final dpRows = (data?[8] as List<Map<String, Object?>>?) ?? const [];
-        final bonusRows = (data?[9] as List<Map<String, Object?>>?) ?? const [];
-        final currentTotals = data?[10] as Map<String, num>?;
-        final previousTotals = data?[11] as Map<String, num>?;
-        final contactMetrics = data?[12] as Map<String, int>? ?? const <String, int>{};
-        final bonusToday = (data?[13] as num?) ?? 0;
-        final activityRows = data?[14] as List<Map<String, Object?>>? ?? const [];
-        final activeUsers = activityRows.where((r) => r['activity_status'] == 'Active').length;
-        final dpFollowUpUsers = activityRows.where((r) => r['activity_status'] == 'Follow-up').length;
-        final inactiveUsers = activityRows.where((r) => const ['Inactive', 'Long inactive', 'Very long inactive'].contains(r['activity_status'])).length;
-        final neverDpUsers = activityRows.where((r) => r['activity_status'] == 'Never DP').length;
-        final contactedToday = contactMetrics['contacted'] ?? 0;
-        final notContactedToday = contactMetrics['not_contacted'] ?? 0;
-        final multipleDpToday = contactMetrics['multiple_dp'] ?? 0;
-        final previousDp = previousTotals?['dp']?.toDouble() ?? 0;
-        final delta = previousDp > 0 ? ((dpMonth.toDouble() - previousDp) / previousDp) * 100 : null;
-        final recent = <Map<String, Object?>>[
-          ...dpRows.take(8).map((r) => <String, Object?>{'kind': 'DP', 'name': r['user_name'], 'date': r['entry_date'], 'amount': r['total']}),
-          ...bonusRows.take(8).map((r) => <String, Object?>{'kind': 'Bonus', 'name': r['user_name'], 'date': r['entry_date'], 'amount': r['amount']}),
-        ]..sort((a, b) => (b['date'] as String? ?? '').compareTo(a['date'] as String? ?? ''));
-        final trend = dpRows.take(7).toList().reversed.map((r) => (r['total'] as num?)?.toDouble() ?? 0).toList();
-        return ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 132), children: [
-          HeroKpiCard(label: 'DP this month', value: dpMonth, delta: delta, sparkline: trend, loading: snap.connectionState == ConnectionState.waiting),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: FilledButton.icon(
-              onPressed: () async {
-                final saved = await showDialog<bool>(context: context, builder: (_) => const DpEntryDialog());
-                if (saved == true) onChanged();
-              },
-              icon: const Icon(Icons.add_circle_outline_rounded),
-              label: const Text('Record Daily DP'),
-              style: FilledButton.styleFrom(backgroundColor: emerald, foregroundColor: bg, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15)),
-            )),
-            const SizedBox(width: 10),
-            Expanded(child: FilledButton.icon(
-              onPressed: () async {
-                final saved = await showDialog<bool>(context: context, builder: (_) => const BonusEntryDialog());
-                if (saved == true) onChanged();
-              },
-              icon: const Icon(Icons.card_giftcard_rounded),
-              label: const Text('Add Daily Bonus'),
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF355C91), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15)),
-            )),
-          ]),
-          const SizedBox(height: 16),
-          Row(children: [
-            Expanded(child: MetricCard(label: 'Registered users', value: '$count', icon: Icons.people_alt_rounded, dotColor: emerald)),
-            const SizedBox(width: 12),
-            Expanded(child: MetricCard(label: 'Potential users', value: '$potentialCount', icon: Icons.person_add_alt_1_rounded, dotColor: const Color(0xFF72A8FF))),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: MetricCard(label: 'DP today', value: dpToday.toStringAsFixed(dpToday % 1 == 0 ? 0 : 2), icon: Icons.bolt_rounded, dotColor: emerald)),
-            const SizedBox(width: 12),
-            Expanded(child: MetricCard(label: 'Bonus today', value: bonusToday.toStringAsFixed(bonusToday % 1 == 0 ? 0 : 2), icon: Icons.card_giftcard_rounded, dotColor: amber, amberValue: true)),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: MetricCard(label: 'Bonus this month', value: bonusMonth.toStringAsFixed(bonusMonth % 1 == 0 ? 0 : 2), icon: Icons.redeem_rounded, dotColor: amber, amberValue: true)),
-            const SizedBox(width: 12),
-            Expanded(child: MetricCard(label: 'Active DP users', value: '$activeUsers', icon: Icons.bolt_rounded, dotColor: emerald)),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: MetricCard(label: 'DP follow-up', value: '$dpFollowUpUsers', icon: Icons.event_available_rounded, dotColor: const Color(0xFF72A8FF))),
-            const SizedBox(width: 12),
-            Expanded(child: MetricCard(label: 'Inactive users', value: '$inactiveUsers', icon: Icons.pause_circle_outline_rounded, dotColor: amber, amberValue: true)),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: MetricCard(label: 'Never DP', value: '$neverDpUsers', icon: Icons.person_off_outlined)),
-            const SizedBox(width: 12),
-            Expanded(child: MetricCard(label: 'Multiple DP today', value: '$multipleDpToday', icon: Icons.bolt_rounded, dotColor: const Color(0xFF72A8FF))),
-          ]),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: MetricCard(label: 'Contacted today', value: '$contactedToday', icon: Icons.mark_chat_read_rounded, dotColor: emerald)),
-            const SizedBox(width: 12),
-            Expanded(child: MetricCard(label: 'Not contacted', value: '$notContactedToday', icon: Icons.mark_chat_unread_rounded, dotColor: amber, amberValue: true)),
-          ]),
-          const SizedBox(height: 27),
-          const SectionHeading('Recent activity', trailing: 'Latest'),
-          const SizedBox(height: 12),
-          if (snap.connectionState == ConnectionState.waiting)
-            const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
-          else if (recent.isEmpty)
-            const EmptyState(title: 'Your activity starts here', subtitle: 'DP and bonus entries will appear here as they are recorded.', icon: Icons.auto_graph_rounded, compact: true)
-          else
-            Card(child: Column(children: [
-              for (var i = 0; i < recent.take(4).length; i++) ...[
-                if (i > 0) const Divider(height: 1, indent: 68, endIndent: 18),
-                _RecentActivityTile(event: recent[i]),
-              ],
-            ])),
-          const SizedBox(height: 14),
-          Row(children: [
-            Expanded(child: _DashboardAlertTile(title: 'Follow-ups due', value: '$followUpsDue', subtitle: 'Due today or earlier', icon: Icons.event_available_rounded, color: emerald, onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FollowUpsPage())))),
-            const SizedBox(width: 10),
-            Expanded(child: _DashboardAlertTile(title: 'Open issues', value: '$openIssues', subtitle: 'Need attention', icon: Icons.support_agent_rounded, color: amber, onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomerIssuesPage())))),
-          ]),
-          const SizedBox(height: 8),
-          Text('$dpTransactionsToday DP transactions recorded today · ${currentTotals?['dp_count'] ?? 0} this month', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted), textAlign: TextAlign.center),
-        ]);
-      },
-    );
+class _DesignMetricCard extends StatelessWidget{
+  const _DesignMetricCard({required this.label,required this.value,required this.foot,required this.icon,required this.tint,required this.iconColor});
+  final String label,value,foot;final IconData icon;final Color tint,iconColor;
+  @override Widget build(BuildContext context)=>Card(child:Padding(padding:const EdgeInsets.all(15),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Row(children:[Expanded(child:Text(label,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:12,fontWeight:FontWeight.w600))),const Icon(Icons.more_horiz,color:muted,size:19)]),
+    const SizedBox(height:10),Text(value,maxLines:1,overflow:TextOverflow.ellipsis,style:GoogleFonts.spaceGrotesk(fontSize:27,fontWeight:FontWeight.w800,color:const Color(0xFF18202B))),
+    const SizedBox(height:8),Row(children:[Icon(icon,size:14,color:iconColor),const SizedBox(width:5),Expanded(child:Text(foot,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:10)))]),
+  ])));
+}
+class _DesignRecentTile extends StatelessWidget{
+  const _DesignRecentTile({required this.event});final Map<String,Object?> event;
+  @override Widget build(BuildContext context){
+    final raw=event['date'] as String? ?? '',date=DateTime.tryParse(raw)?.toLocal(),ago=date==null?'':_timeSinceContact(date.toIso8601String());
+    final amount=(event['amount'] as num?)?.toDouble()??0;
+    return Card(margin:const EdgeInsets.only(bottom:8),child:ListTile(
+      leading:CircleAvatar(backgroundColor:const Color(0xFFFFE6D9),child:Icon(event['kind']=='DP recorded'?Icons.account_balance_wallet_outlined:Icons.card_giftcard_outlined,color:emerald)),
+      title:Text(event['kind'] as String,style:const TextStyle(fontWeight:FontWeight.w800,color:Color(0xFF18202B))),
+      subtitle:Text('${event['name']??'User'} · ৳${amount.toStringAsFixed(amount%1==0?0:2)}',style:const TextStyle(color:muted)),
+      trailing:Column(mainAxisAlignment:MainAxisAlignment.center,crossAxisAlignment:CrossAxisAlignment.end,children:[const Icon(Icons.chevron_right_rounded,color:muted,size:19),if(ago.isNotEmpty)Text(ago,style:const TextStyle(color:muted,fontSize:10))]),
+    ));
   }
 }
-
 class HeroKpiCard extends StatelessWidget {
   const HeroKpiCard({super.key, required this.label, required this.value, required this.delta, required this.sparkline, required this.loading});
   final String label; final num value; final double? delta; final List<double> sparkline; final bool loading;
@@ -649,7 +545,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
               padding: const EdgeInsets.all(18),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  CircleAvatar(radius: 27, backgroundColor: const Color(0xFF183B36), child: Text(name.isEmpty ? '?' : name[0].toUpperCase(), style: const TextStyle(color: emerald, fontSize: 20, fontWeight: FontWeight.w800))),
+                  CircleAvatar(radius: 27, backgroundColor: const Color(0xFFFFE6D9), child: Text(name.isEmpty ? '?' : name[0].toUpperCase(), style: const TextStyle(color: emerald, fontSize: 20, fontWeight: FontWeight.w800))),
                   const SizedBox(width: 13),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
@@ -1028,7 +924,7 @@ class _ActivitySegment extends StatelessWidget {
   @override Widget build(BuildContext context) => Expanded(child: InkWell(
     onTap: onTap, borderRadius: BorderRadius.circular(15),
     child: AnimatedContainer(duration: const Duration(milliseconds: 180), padding: const EdgeInsets.symmetric(vertical: 13),
-      decoration: BoxDecoration(color: selected ? const Color(0xFF1B3328) : Colors.transparent, borderRadius: BorderRadius.circular(15)),
+      decoration: BoxDecoration(color: selected ? const Color(0xFFFFE6D9) : Colors.transparent, borderRadius: BorderRadius.circular(15)),
       child: Center(child: Text(label, style: TextStyle(color: selected ? emerald : muted, fontWeight: FontWeight.w700))),
     ),
   ));
@@ -4030,6 +3926,42 @@ class _ArchivedUsersPageState extends State<ArchivedUsersPage> {
   );
 }
 
+class BonusPage extends StatefulWidget{
+  const BonusPage({super.key,required this.onChanged});final VoidCallback onChanged;
+  @override State<BonusPage> createState()=>_BonusPageState();
+}
+class _BonusPageState extends State<BonusPage>{
+  String filter='Newest';late Future<List<Object?>> data;
+  @override void initState(){super.initState();load();}
+  void load(){final n=DateTime.now();data=Future.wait<Object?>([AppDatabase.instance.getBonusEntries(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.monthBonusTotal(),AppDatabase.instance.getReportTotals(DateTime(n.year,n.month),DateTime(n.year,n.month+1))]);}
+  @override Widget build(BuildContext context)=>FutureBuilder<List<Object?>>(future:data,builder:(context,snap){
+    final rows=snap.data?[0] as List<Map<String,Object?>>? ?? const [],today=(snap.data?[1] as num?)?.toDouble()??0,month=(snap.data?[2] as num?)?.toDouble()??0,totals=snap.data?[3] as Map<String,num>?;
+    final todayKey=DateTime.now().toIso8601String().substring(0,10),monthKey=todayKey.substring(0,7);
+    final shown=rows.where((r){final d=r['entry_date'] as String? ?? '';if(filter=='Today')return d==todayKey;if(filter=='Month')return d.startsWith(monthKey);return true;}).toList();
+    return ListView(padding:const EdgeInsets.fromLTRB(20,6,20,110),children:[
+      Row(children:[
+        Expanded(child:_DesignMetricCard(label:'Today',value:'৳${today.toStringAsFixed(today%1==0?0:2)}',foot:'Daily bonus total',icon:Icons.card_giftcard,tint:const Color(0xFFE8F7EF),iconColor:const Color(0xFF238653))),
+        const SizedBox(width:12),
+        Expanded(child:_DesignMetricCard(label:'This Month',value:'৳${month.toStringAsFixed(month%1==0?0:2)}',foot:'${totals?['bonus_count']??0} records',icon:Icons.calendar_month,tint:const Color(0xFFFFE6D9),iconColor:emerald)),
+      ]),
+      const SizedBox(height:18),
+      Wrap(spacing:8,children:['Newest','Today','Month'].map((v)=>ChoiceChip(label:Text(v),selected:filter==v,onSelected:(_)=>setState(()=>filter=v),selectedColor:emerald,labelStyle:TextStyle(color:filter==v?Colors.white:const Color(0xFF58616E),fontWeight:FontWeight.w700))).toList()),
+      const SizedBox(height:12),
+      if(snap.connectionState==ConnectionState.waiting)const Center(child:Padding(padding:EdgeInsets.all(24),child:CircularProgressIndicator()))
+      else if(shown.isEmpty)const EmptyState(title:'No bonus records',subtitle:'Bonus entries will appear here when added.')
+      else ...shown.map((r){
+        final amount=(r['amount'] as num?)?.toDouble()??0,date=DateTime.tryParse(r['created_at'] as String? ?? r['entry_date'] as String? ?? '')?.toLocal(),ago=date==null?(r['entry_date'] as String? ?? ''):_timeSinceContact(date.toIso8601String());
+        return Card(margin:const EdgeInsets.only(bottom:9),child:ListTile(
+          leading:const CircleAvatar(backgroundColor:Color(0xFFE8F7EF),child:Icon(Icons.card_giftcard,color:Color(0xFF238653))),
+          title:Text(r['user_name'] as String? ?? 'User',style:const TextStyle(fontWeight:FontWeight.w800,color:Color(0xFF18202B))),
+          subtitle:Text(r['reason'] as String? ?? 'Bonus',style:const TextStyle(color:muted)),
+          trailing:Column(mainAxisAlignment:MainAxisAlignment.center,crossAxisAlignment:CrossAxisAlignment.end,children:[Text('৳${amount.toStringAsFixed(amount%1==0?0:2)}',style:const TextStyle(color:Color(0xFF238653),fontWeight:FontWeight.w800,fontSize:15)),Text(ago,style:const TextStyle(color:muted,fontSize:10))]),
+        ));
+      }),
+    ]);
+  });
+}
+
 class CustomerIssuesPage extends StatefulWidget {
   const CustomerIssuesPage({super.key});
   @override
@@ -4351,7 +4283,7 @@ class MetricCard extends StatelessWidget {
     return Card(child: Padding(padding: const EdgeInsets.fromLTRB(16, 15, 14, 16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [Container(width: 8, height: 8, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)), const SizedBox(width: 8), Expanded(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: muted))) ]),
       const SizedBox(height: 14),
-      if (numeric != null) AnimatedNumberText(value: numeric, style: GoogleFonts.spaceGrotesk(fontSize: 29, fontWeight: FontWeight.w700, color: amberValue ? amber : const Color(0xFFE8F0EC), letterSpacing: 0))
+      if (numeric != null) AnimatedNumberText(value: numeric, style: GoogleFonts.spaceGrotesk(fontSize: 29, fontWeight: FontWeight.w700, color: amberValue ? amber : const Color(0xFF18202B), letterSpacing: 0))
       else Text(value, style: GoogleFonts.spaceGrotesk(fontSize: 29, fontWeight: FontWeight.w700)),
     ])));
   }
