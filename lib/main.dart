@@ -1391,7 +1391,9 @@ class _PotentialUsersPageState extends State<PotentialUsersPage> {
     }
   }
   @override
-  Widget build(BuildContext context) => Column(children: [
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: bg,
+    body: SafeArea(child: Column(children: [
     Padding(padding: const EdgeInsets.fromLTRB(18, 10, 18, 10), child: Row(children: [
       Expanded(child: TextField(controller: search, decoration: const InputDecoration(hintText: 'Search prospects', prefixIcon: Icon(Icons.search)))),
       const SizedBox(width: 10),
@@ -1475,7 +1477,8 @@ class _PotentialUsersPageState extends State<PotentialUsersPage> {
         );
       },
     )),
-  ]);
+  ])),
+  );
 }
 
 class PotentialContactDialog extends StatefulWidget {
@@ -2269,7 +2272,9 @@ class MoreHubPage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: bg,
+    body: SafeArea(child: ListView(
     padding: const EdgeInsets.fromLTRB(18, 18, 18, 36),
     children: [
       const Text('Workspace tools', maxLines:1, overflow:TextOverflow.ellipsis, style: TextStyle(fontSize: 23, height:1.15, fontWeight: FontWeight.w800, color:Color(0xFF18202B))),
@@ -2353,6 +2358,7 @@ class MoreHubPage extends StatelessWidget {
         onTap: () => open(context, const SettingsPage()),
       ),
     ],
+  )),
   );
 }
 
