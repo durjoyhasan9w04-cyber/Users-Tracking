@@ -1243,7 +1243,17 @@ class AppDatabase {
     final rows = await db.query('tasks', where: 'id = ?', whereArgs: [taskId], limit: 1);
     if (rows.isEmpty) return 0;
     if (rows.first['task_type'] == 'once') {
-      return db.update('tasks', {'is_completed': completed ? 1 : 0}, where: 'id = ?', whereArgs: [taskId]);
+      return db.transaction((txn) async {
+        final changed = await txn.update('tasks', {'is_completed': completed ? 1 : 0}, where: 'id = ?', whereArgs: [taskId]);
+        if (completed) {
+          final day = (date ?? DateTime.now()).toIso8601String().substring(0, 10);
+          await txn.insert('task_completions', {
+            'task_id': taskId, 'completed_on': day,
+            'completed_at': DateTime.now().toIso8601String(),
+          }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        }
+        return changed;
+      });
     }
     final day = (date ?? DateTime.now()).toIso8601String().substring(0, 10);
     if (completed) {
