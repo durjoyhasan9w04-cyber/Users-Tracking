@@ -1278,7 +1278,9 @@ class AppDatabase {
     return db.delete('tasks', where: 'id = ?', whereArgs: [taskId]);
   }
 
-  Future<void> _createSportsTables(DatabaseExecutor db) async { (
+  Future<void> _createSportsTables(DatabaseExecutor db) async {
+    await db.execute("""
+      CREATE TABLE sports_interests (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL UNIQUE,
         sports TEXT NOT NULL DEFAULT '',
