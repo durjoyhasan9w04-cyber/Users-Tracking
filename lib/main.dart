@@ -22,6 +22,7 @@ import 'services/match_notification_service.dart';
 import 'services/fixture_discovery_service.dart';
 import 'services/groq_fixture_service.dart';
 import 'models/user_level_config.dart';
+import 'pages/quiz_participants_page.dart';
 
 
 class AppDropdownField<T> extends StatelessWidget {
@@ -1088,8 +1089,9 @@ class _ActivitySegment extends StatelessWidget {
   ));
 }
 class BonusEntryDialog extends StatefulWidget {
-  const BonusEntryDialog({super.key, this.existing});
+  const BonusEntryDialog({super.key, this.existing, this.initialUserId});
   final Map<String, Object?>? existing;
+  final int? initialUserId;
   @override
   State<BonusEntryDialog> createState() => _BonusEntryDialogState();
 }
@@ -1106,6 +1108,7 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
   @override
   void initState() {
     super.initState();
+    userId = widget.initialUserId;
     final row = widget.existing;
     if (row != null) {
       userId = row['user_id'] as int;
@@ -2559,6 +2562,18 @@ class MoreHubPage extends StatelessWidget {
         title: 'Potential users',
         subtitle: 'Prospects, interest status and conversion',
         onTap: () => open(context, const PotentialUsersPage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.quiz_outlined,
+        title: 'Quiz Participants',
+        subtitle: 'Manage quiz lists, participation history and winner bonuses',
+        onTap: () => open(context, QuizParticipantsPage(onAddBonus: (userId) async {
+          await showDialog<bool>(
+            context: context,
+            builder: (_) => BonusEntryDialog(initialUserId: userId),
+          );
+        })),
       ),
       const SizedBox(height: 10),
       _MoreTile(
