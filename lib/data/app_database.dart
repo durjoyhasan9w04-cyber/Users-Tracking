@@ -761,7 +761,7 @@ class AppDatabase {
       'SELECT COALESCE(SUM(amount), 0) AS total FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?',
       [start, end],
     );
-    return (rows.first['total'] as num).toDouble() + await QuizDatabase.instance.quizBonusTotal(from: DateTime.parse(today), until: DateTime.parse(today).add(const Duration(days: 1)));
+    return (rows.first['total'] as num).toDouble() + await QuizDatabase.instance.quizBonusTotal(from: DateTime(now.year, now.month), until: DateTime(now.year, now.month + 1));
   }
 
   Future<List<Map<String, Object?>>> getBonusEntries() async {
@@ -1072,7 +1072,7 @@ class AppDatabase {
       'SELECT COALESCE(SUM(amount), 0) AS total FROM bonus_entries WHERE entry_date = ?',
       [today],
     );
-    return (rows.first['total'] as num).toDouble();
+    return (rows.first['total'] as num).toDouble() + await QuizDatabase.instance.quizBonusTotal(from: DateTime.parse(today), until: DateTime.parse(today).add(const Duration(days: 1)));
   }
 
   Future<int> todayDpTransactions() async {
