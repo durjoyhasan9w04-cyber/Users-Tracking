@@ -831,10 +831,12 @@ class AppDatabase {
   Future<List<Map<String, Object?>>> getBonusEntries() async {
     final db = await database;
     return db.rawQuery('''
-      SELECT b.*, u.name AS user_name, 'registered' AS owner_type
+      SELECT b.id, b.user_id, b.entry_date, b.amount, b.reason, b.related_dp,
+        b.notes, b.created_at, u.name AS user_name, 'registered' AS owner_type
       FROM bonus_entries b JOIN users u ON u.id = b.user_id
       UNION ALL
-      SELECT b.*, q.name AS user_name, 'quiz' AS owner_type
+      SELECT b.id, b.quiz_user_id AS user_id, b.entry_date, b.amount, b.reason,
+        NULL AS related_dp, b.notes, b.created_at, q.name AS user_name, 'quiz' AS owner_type
       FROM quiz_bonus_entries b JOIN quiz_users q ON q.id = b.quiz_user_id
       ORDER BY entry_date DESC, id DESC
     ''');
