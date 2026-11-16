@@ -839,6 +839,37 @@ class AppDatabase {
       return userId;
     });
   }
+  Future<int> convertQuizUserToRegularUser(int quizUserId) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final rows = await txn.query('quiz_users', where: 'id = ?', whereArgs: [quizUserId], limit: 1);
+      if (rows.isEmpty) throw StateError('Quiz participant not found.');
+      final quizUser = rows.first;
+      final phone = (quizUser['phone'] as String? ?? '').trim();
+      if (phone.isEmpty) throw StateError('Add a phone number before converting this participant.');
+      final existing = await txn.query('users', columns: ['id'], where: 'phone = ?', whereArgs: [phone], limit: 1);
+      if (existing.isNotEmpty) throw StateError('This phone number already belongs to a regular user.');
+      final userId = await txn.insert('users', {
+        'name': quizUser['name'], 'phone': phone, 'notes': quizUser['notes'] ?? '',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      final bonuses = await txn.query('quiz_bonus_entries', where: 'quiz_user_id = ?', whereArgs: [quizUserId], orderBy: 'entry_date ASC, id ASC');
+      for (final bonus in bonuses) {
+        await txn.insert('bonus_entries', {
+          'user_id': userId, 'entry_date': bonus['entry_date'], 'amount': bonus['amount'],
+          'reason': bonus['reason'], 'related_dp': null, 'notes': bonus['notes'] ?? '',
+          'created_at': bonus['created_at'] ?? DateTime.now().toIso8601String(),
+        });
+      }
+      await txn.insert('audit_log', {
+        'entity_type': 'User', 'entity_id': userId, 'action': 'Converted from quiz participant',
+        'details': 'Converted quiz participant ${quizUser['name']}; migrated ${bonuses.length} bonus record(s)',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      await txn.delete('quiz_users', where: 'id = ?', whereArgs: [quizUserId]);
+      return userId;
+    });
+  }
   Future<double> monthBonusTotal() async {
     final db = await database;
     final now = DateTime.now();
