@@ -869,10 +869,24 @@ class AppDatabase {
   }
 
   Future<int> addQuizUser({required String name, String phone = '', String quizName = '', String notes = ''}) async {
-    if (name.trim().isEmpty) throw ArgumentError('Participant name is required');
+    final cleanName = name.trim();
+    final cleanPhone = phone.trim();
+    if (cleanName.isEmpty) throw ArgumentError('Participant name is required');
     final db = await database;
+    if (cleanPhone.isNotEmpty) {
+      final duplicate = await db.query(
+        'quiz_users',
+        columns: ['id'],
+        where: 'phone = ?',
+        whereArgs: [cleanPhone],
+        limit: 1,
+      );
+      if (duplicate.isNotEmpty) {
+        throw StateError('This phone number already belongs to another quiz applicant.');
+      }
+    }
     return db.insert('quiz_users', {
-      'name': name.trim(), 'phone': phone.trim(), 'quiz_name': quizName.trim(),
+      'name': cleanName, 'phone': cleanPhone, 'quiz_name': quizName.trim(),
       'notes': notes.trim(), 'created_at': DateTime.now().toIso8601String(),
     });
   }
