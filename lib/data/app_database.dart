@@ -1,3 +1,4 @@
+import 'quiz_database.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -760,7 +761,7 @@ class AppDatabase {
       'SELECT COALESCE(SUM(amount), 0) AS total FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?',
       [start, end],
     );
-    return (rows.first['total'] as num).toDouble();
+    return (rows.first['total'] as num).toDouble() + await QuizDatabase.instance.quizBonusTotal(from: DateTime.parse(today), until: DateTime.parse(today).add(const Duration(days: 1)));
   }
 
   Future<List<Map<String, Object?>>> getBonusEntries() async {
@@ -1015,8 +1016,11 @@ class AppDatabase {
     return {
       'dp': dp.first['total'] as num,
       'dp_count': dp.first['count'] as num,
-      'bonus': bonus.first['total'] as num,
-      'bonus_count': bonus.first['count'] as num,
+      'bonus': (bonus.first['total'] as num) + await QuizDatabase.instance.quizBonusTotal(from: start, until: end),
+      'bonus_count': (bonus.first['count'] as num) + (await QuizDatabase.instance.getQuizBonusEntries()).where((r) {
+        final d = r['entry_date'] as String? ?? '';
+        return d.compareTo(from) >= 0 && d.compareTo(until) < 0;
+      }).length,
     };
   }
 
