@@ -4396,6 +4396,28 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Quiz bonus saved.')));
     }
   }
+  Future<void> convertToUser(Map<String, Object?> row) async {
+    final phone = (row['phone'] as String? ?? '').trim();
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add a phone number before converting this participant.')));
+      return;
+    }
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('Convert to regular user?'),
+      content: Text('Create a DP user profile for ${row['name']}? Their quiz bonus history will be transferred.'),
+      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Convert'))],
+    ));
+    if (confirmed != true || !mounted) return;
+    try {
+      await AppDatabase.instance.convertQuizUserToRegularUser(row['id'] as int);
+      if (!mounted) return;
+      load();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Converted. This person can now receive DP entries.')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not convert participant: $e')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -4437,6 +4459,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
                   TextButton.icon(onPressed: () => giveBonus(row), icon: const Icon(Icons.card_giftcard), label: const Text('Add bonus')),
                 ]),
                 if ((row['notes'] as String? ?? '').isNotEmpty) Text(row['notes'] as String, style: const TextStyle(color: muted)),
+                if ((row['phone'] as String? ?? '').trim().isNotEmpty) Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: () => convertToUser(row), icon: const Icon(Icons.person_add_alt_1_outlined), label: const Text('Convert to regular user'))),
               ])));
             },
           );
@@ -4480,7 +4503,7 @@ class _QuizParticipantDialogState extends State<QuizParticipantDialog> {
       TextFormField(controller: quiz, decoration: const InputDecoration(labelText: 'Quiz / application (optional)')),
       const SizedBox(height: 10),
       TextFormField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
-    ]))),
+    ])))),
     actions: [TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')), FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save participant'))],
   );
 }
@@ -4529,7 +4552,7 @@ class _QuizBonusDialogState extends State<QuizBonusDialog> {
       ),
       const SizedBox(height: 10),
       TextFormField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
-    ]))),
+    ])))),
     actions: [TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')), FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save bonus'))],
   );
 }
