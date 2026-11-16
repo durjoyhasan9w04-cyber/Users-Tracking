@@ -5,7 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import 'dart:convert';
 import '../models/user_level_config.dart';
 
-const int supportedUserHubDatabaseVersion = 17;
+const int supportedUserHubDatabaseVersion = 18;
 
 Set<String> requiredBackupTablesForVersion(int version) {
   if (version < 1 || version > supportedUserHubDatabaseVersion) {
@@ -107,6 +107,7 @@ class AppDatabase {
         if (oldVersion < 15) await _createPotentialContactHistory(db);
         if (oldVersion < 16) await _createTasks(db);
         if (oldVersion < 17) await _createQuizTables(db);
+        if (oldVersion < 18) await db.execute('ALTER TABLE quiz_users ADD COLUMN converted_user_id INTEGER');
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -763,7 +764,8 @@ class AppDatabase {
         phone TEXT NOT NULL DEFAULT '',
         quiz_name TEXT NOT NULL DEFAULT '',
         notes TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        converted_user_id INTEGER
       )
     ''');
     await db.execute('CREATE INDEX idx_quiz_users_name ON quiz_users(name)');
@@ -816,6 +818,27 @@ class AppDatabase {
     });
   }
 
+
+  Future<int> convertQuizUserToRegularUser(int quizUserId) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final rows = await txn.query('quiz_users', where: 'id = ?', whereArgs: [quizUserId], limit: 1);
+      if (rows.isEmpty) throw StateError('Quiz participant not found.');
+      final quizUser = rows.first;
+      final convertedId = quizUser['converted_user_id'] as int?;
+      if (convertedId != null) return convertedId;
+      final phone = (quizUser['phone'] as String? ?? '').trim();
+      if (phone.isEmpty) throw StateError('Add a phone number to this quiz participant before converting them.');
+      final existing = await txn.query('users', columns: ['id'], where: 'phone = ?', whereArgs: [phone], limit: 1);
+      if (existing.isNotEmpty) throw StateError('This phone number already belongs to a regular user.');
+      final userId = await txn.insert('users', {
+        'name': quizUser['name'], 'phone': phone, 'notes': quizUser['notes'] ?? '',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      await txn.update('quiz_users', {'converted_user_id': userId}, where: 'id = ?', whereArgs: [quizUserId]);
+      return userId;
+    });
+  }
   Future<double> monthBonusTotal() async {
     final db = await database;
     final now = DateTime.now();
