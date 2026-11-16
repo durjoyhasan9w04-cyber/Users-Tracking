@@ -5,7 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import 'dart:convert';
 import '../models/user_level_config.dart';
 
-const int supportedUserHubDatabaseVersion = 16;
+const int supportedUserHubDatabaseVersion = 17;
 
 Set<String> requiredBackupTablesForVersion(int version) {
   if (version < 1 || version > supportedUserHubDatabaseVersion) {
@@ -26,6 +26,8 @@ Set<String> requiredBackupTablesForVersion(int version) {
     if (version >= 15) 'potential_contact_history',
     if (version >= 16) 'tasks',
     if (version >= 16) 'task_completions',
+    if (version >= 17) 'quiz_users',
+    if (version >= 17) 'quiz_bonus_entries',
   };
 }
 
@@ -83,6 +85,7 @@ class AppDatabase {
         await _createSportsTables(db);
         await _createUserLevelSettings(db);
         await _createTasks(db);
+        await _createQuizTables(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _createDpEntries(db);
@@ -103,6 +106,7 @@ class AppDatabase {
         if (oldVersion < 14) await _createContactReminders(db);
         if (oldVersion < 15) await _createPotentialContactHistory(db);
         if (oldVersion < 16) await _createTasks(db);
+        if (oldVersion < 17) await _createQuizTables(db);
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
@@ -751,14 +755,75 @@ class AppDatabase {
     });
   }
 
+  Future<void> _createQuizTables(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE quiz_users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL DEFAULT '',
+        quiz_name TEXT NOT NULL DEFAULT '',
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_quiz_users_name ON quiz_users(name)');
+    await db.execute('''
+      CREATE TABLE quiz_bonus_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        quiz_user_id INTEGER NOT NULL,
+        entry_date TEXT NOT NULL,
+        amount REAL NOT NULL,
+        reason TEXT NOT NULL,
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(quiz_user_id) REFERENCES quiz_users(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_quiz_bonus_date ON quiz_bonus_entries(entry_date)');
+    await db.execute('CREATE INDEX idx_quiz_bonus_user ON quiz_bonus_entries(quiz_user_id)');
+  }
+
+  Future<int> addQuizUser({required String name, String phone = '', String quizName = '', String notes = ''}) async {
+    if (name.trim().isEmpty) throw ArgumentError('Participant name is required');
+    final db = await database;
+    return db.insert('quiz_users', {
+      'name': name.trim(), 'phone': phone.trim(), 'quiz_name': quizName.trim(),
+      'notes': notes.trim(), 'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, Object?>>> getQuizUsers({String search = ''}) async {
+    final db = await database;
+    final term = search.trim();
+    return db.rawQuery('''
+      SELECT q.*,
+        COALESCE((SELECT SUM(amount) FROM quiz_bonus_entries b WHERE b.quiz_user_id = q.id), 0) AS total_bonus,
+        (SELECT COUNT(*) FROM quiz_bonus_entries b WHERE b.quiz_user_id = q.id) AS bonus_count
+      FROM quiz_users q
+      WHERE ? = '' OR q.name LIKE ? OR q.phone LIKE ? OR q.quiz_name LIKE ?
+      ORDER BY q.created_at DESC, q.id DESC
+    ''', [term, '%$term%', '%$term%', '%$term%']);
+  }
+
+  Future<int> addQuizBonus({required int quizUserId, required double amount, required String reason, String notes = '', DateTime? date}) async {
+    validateBonusAmounts(amount, null);
+    final db = await database;
+    return db.insert('quiz_bonus_entries', {
+      'quiz_user_id': quizUserId,
+      'entry_date': (date ?? DateTime.now()).toIso8601String().substring(0, 10),
+      'amount': amount, 'reason': reason, 'notes': notes.trim(),
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
   Future<double> monthBonusTotal() async {
     final db = await database;
     final now = DateTime.now();
     final start = DateTime(now.year, now.month).toIso8601String().substring(0, 10);
     final end = DateTime(now.year, now.month + 1).toIso8601String().substring(0, 10);
     final rows = await db.rawQuery(
-      'SELECT COALESCE(SUM(amount), 0) AS total FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?',
-      [start, end],
+      '''SELECT COALESCE((SELECT SUM(amount) FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?), 0) + COALESCE((SELECT SUM(amount) FROM quiz_bonus_entries WHERE entry_date >= ? AND entry_date < ?), 0) AS total''',
+      [start, end, start, end],
     );
     return (rows.first['total'] as num).toDouble();
   }
@@ -766,9 +831,12 @@ class AppDatabase {
   Future<List<Map<String, Object?>>> getBonusEntries() async {
     final db = await database;
     return db.rawQuery('''
-      SELECT b.*, u.name AS user_name
+      SELECT b.*, u.name AS user_name, 'registered' AS owner_type
       FROM bonus_entries b JOIN users u ON u.id = b.user_id
-      ORDER BY b.entry_date DESC, b.id DESC
+      UNION ALL
+      SELECT b.*, q.name AS user_name, 'quiz' AS owner_type
+      FROM quiz_bonus_entries b JOIN quiz_users q ON q.id = b.quiz_user_id
+      ORDER BY entry_date DESC, id DESC
     ''');
   }
 
@@ -1065,8 +1133,8 @@ class AppDatabase {
     final db = await database;
     final today = DateTime.now().toIso8601String().substring(0, 10);
     final rows = await db.rawQuery(
-      'SELECT COALESCE(SUM(amount), 0) AS total FROM bonus_entries WHERE entry_date = ?',
-      [today],
+      '''SELECT COALESCE((SELECT SUM(amount) FROM bonus_entries WHERE entry_date = ?), 0) + COALESCE((SELECT SUM(amount) FROM quiz_bonus_entries WHERE entry_date = ?), 0) AS total''',
+      [today, today],
     );
     return (rows.first['total'] as num).toDouble();
   }
@@ -1091,8 +1159,8 @@ class AppDatabase {
       [start, end],
     );
     final bonus = await db.rawQuery(
-      'SELECT COALESCE(SUM(amount), 0) AS total FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?',
-      [start, end],
+      '''SELECT COALESCE((SELECT SUM(amount) FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?), 0) + COALESCE((SELECT SUM(amount) FROM quiz_bonus_entries WHERE entry_date >= ? AND entry_date < ?), 0) AS total''',
+      [start, end, start, end],
     );
     return {
       'dp': (dp.first['total'] as num).toDouble(),
@@ -1106,7 +1174,7 @@ class AppDatabase {
       'users', 'dp_entries', 'bonus_entries', 'potential_users',
       'contact_history', 'potential_contact_history', 'customer_issues', 'audit_log',
       'sports_interests', 'matches', 'user_level_settings', 'contact_reminders',
-      'tasks', 'task_completions',
+      'tasks', 'task_completions', 'quiz_users', 'quiz_bonus_entries',
     ];
     final data = <String, Object?>{
       'app': 'User Hub',
@@ -1130,6 +1198,8 @@ class AppDatabase {
       if (data['contact_reminders'] is List) 'contact_reminders',
       if (data['tasks'] is List) 'tasks',
       if (data['task_completions'] is List) 'task_completions',
+      if (data['quiz_users'] is List) 'quiz_users',
+      if (data['quiz_bonus_entries'] is List) 'quiz_bonus_entries',
     ];
     final tables = <String>[
       ...requiredTables,
@@ -1146,7 +1216,7 @@ class AppDatabase {
     final db = await database;
     await db.transaction((txn) async {
       for (final table in [
-        'task_completions', 'tasks', 'contact_reminders', 'user_level_settings', 'matches', 'audit_log', 'customer_issues', 'contact_history',
+        'quiz_bonus_entries', 'quiz_users', 'task_completions', 'tasks', 'contact_reminders', 'user_level_settings', 'matches', 'audit_log', 'customer_issues', 'contact_history',
         'sports_interests', 'bonus_entries', 'dp_entries', 'potential_users', 'users',
       ]) {
         if (table == 'user_level_settings' && !tables.contains(table)) continue;
