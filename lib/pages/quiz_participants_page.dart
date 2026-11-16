@@ -16,7 +16,18 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
 
   @override void initState() { super.initState(); load(); search.addListener(loadParticipants); }
   @override void dispose() { search.removeListener(loadParticipants); search.dispose(); super.dispose(); }
-  void load() { quizzes = QuizDatabase.instance.getQuizzes(); loadParticipants(); }
+  void load() {
+    quizzes = QuizDatabase.instance.getQuizzes();
+    participants = Future.value(const <Map<String, Object?>>[]);
+    _loadInitialData();
+  }
+  Future<void> _loadInitialData() async {
+    final rows = await quizzes;
+    if (!mounted) return;
+    if (selectedQuizId == null && rows.isNotEmpty) selectedQuizId = rows.first['id'] as int;
+    participants = QuizDatabase.instance.getParticipants(search: search.text, quizId: selectedQuizId);
+    if (mounted) setState(() {});
+  }
   void loadParticipants() {
     participants = QuizDatabase.instance.getParticipants(search: search.text, quizId: selectedQuizId);
     if (mounted) setState(() {});
@@ -46,7 +57,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
         FilledButton(onPressed: () => Navigator.pop(ctx, title.text.trim().isNotEmpty), child: const Text('Create'))],
     )));
     if (ok == true && title.text.trim().isNotEmpty) {
-      await QuizDatabase.instance.addQuiz(title: title.text, date: date, notes: notes.text);
+      selectedQuizId = await QuizDatabase.instance.addQuiz(title: title.text, date: date, notes: notes.text);
       await refresh();
     }
     title.dispose(); notes.dispose();
