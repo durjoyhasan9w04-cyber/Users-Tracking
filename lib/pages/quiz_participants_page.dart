@@ -69,11 +69,11 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
       title: const Text('Add quiz participant'),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
         TextField(controller: name, decoration: const InputDecoration(labelText: 'Full name')),
-        TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone (optional)')),
+        TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number')),
         TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes (optional)')),
       ]),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, name.text.trim().isNotEmpty), child: const Text('Save'))],
+        FilledButton(onPressed: () => Navigator.pop(ctx, name.text.trim().isNotEmpty && phone.text.trim().length >= 5), child: const Text('Save'))],
     ));
     if (ok == true && name.text.trim().isNotEmpty) {
       try {
