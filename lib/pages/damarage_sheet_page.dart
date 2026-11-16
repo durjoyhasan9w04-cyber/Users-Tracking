@@ -462,7 +462,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
       );
 
   Widget _bonusSection(String title, String subtitle, List<_BonusLine> rows,
-      double total, {required bool offline}) {
+      double total) {
     return _card(
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _sectionTitle(title, subtitle),
@@ -575,14 +575,12 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
             'Only regular-user bonus records marked Deposit in $monthLabel. Grouped by user.',
             offlineRows,
             offlineTotal,
-            offline: true,
           ),
           _bonusSection(
             'Quiz Money',
             'Special bonus records for regular users and quiz participants in $monthLabel.',
             quizRows,
             quizTotal,
-            offline: false,
           ),
           _card(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -734,7 +732,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                   style: const TextStyle(fontSize: 12, color: Color(0xFF7C8490))),
               const SizedBox(height: 16),
               FilledButton.icon(
-                onPressed: saving ? null : _save,
+                onPressed: saving ? null : () => _save(),
                 icon: saving
                     ? const SizedBox(width: 17, height: 17, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.save_rounded),
