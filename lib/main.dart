@@ -1,4 +1,5 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings
+import 'data/quiz_database.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
@@ -2568,12 +2569,7 @@ class MoreHubPage extends StatelessWidget {
         icon: Icons.quiz_outlined,
         title: 'Quiz Participants',
         subtitle: 'Manage quiz lists, participation history and winner bonuses',
-        onTap: () => open(context, QuizParticipantsPage(onAddBonus: (userId) async {
-          await showDialog<bool>(
-            context: context,
-            builder: (_) => BonusEntryDialog(initialUserId: userId),
-          );
-        })),
+        onTap: () => open(context, const QuizParticipantsPage()),
       ),
       const SizedBox(height: 10),
       _MoreTile(
@@ -4385,10 +4381,11 @@ class BonusPage extends StatefulWidget{
 class _BonusPageState extends State<BonusPage>{
   String filter='Newest';late Future<List<Object?>> data;
   @override void initState(){super.initState();load();}
-  void load(){final n=DateTime.now();data=Future.wait<Object?>([AppDatabase.instance.getBonusEntries(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.monthBonusTotal(),AppDatabase.instance.getReportTotals(DateTime(n.year,n.month),DateTime(n.year,n.month+1))]);}
+  void load(){final n=DateTime.now();data=Future.wait<Object?>([AppDatabase.instance.getBonusEntries(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.monthBonusTotal(),AppDatabase.instance.getReportTotals(DateTime(n.year,n.month),DateTime(n.year,n.month+1)),QuizDatabase.instance.getQuizBonusEntries(),QuizDatabase.instance.quizBonusTotal(from:DateTime(n.year,n.month,n.day),until:DateTime(n.year,n.month,n.day+1)),QuizDatabase.instance.quizBonusTotal(from:DateTime(n.year,n.month),until:DateTime(n.year,n.month+1))]);}
   @override Widget build(BuildContext context)=>FutureBuilder<List<Object?>>(future:data,builder:(context,snap){
-    final rows=snap.data?[0] as List<Map<String,Object?>>? ?? const [],today=(snap.data?[1] as num?)?.toDouble()??0,month=(snap.data?[2] as num?)?.toDouble()??0,totals=snap.data?[3] as Map<String,num>?;
+    final rows=<Map<String,Object?>>[...(snap.data?[0] as List<Map<String,Object?>>? ?? const []),...(snap.data?[4] as List<Map<String,Object?>>? ?? const [])],today=((snap.data?[1] as num?)?.toDouble()??0)+((snap.data?[5] as num?)?.toDouble()??0),month=((snap.data?[2] as num?)?.toDouble()??0)+((snap.data?[6] as num?)?.toDouble()??0),baseTotals=snap.data?[3] as Map<String,num>?,totals=<String,num>{'bonus_count':(baseTotals?['bonus_count']??0)+(snap.data?[4] as List? ?? const []).length};
     final todayKey=DateTime.now().toIso8601String().substring(0,10),monthKey=todayKey.substring(0,7);
+    rows.sort((a,b)=>(b['entry_date'] as String? ?? '').compareTo(a['entry_date'] as String? ?? ''));
     final shown=rows.where((r){final d=r['entry_date'] as String? ?? '';if(filter=='Today')return d==todayKey;if(filter=='Month')return d.startsWith(monthKey);return true;}).toList();
     return ColoredBox(color:bg,child:ListView(padding:const EdgeInsets.fromLTRB(20,12,20,110),children:[
       Row(children:[const Expanded(child:Text('Bonuses',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:24,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),FilledButton.icon(onPressed:()async{final ok=await showDialog<bool>(context:context,builder:(_)=>const BonusEntryDialog());if(ok==true&&mounted){load();widget.onChanged();}},icon:const Icon(Icons.add,size:18),label:const Text('Record'))]),
@@ -4408,7 +4405,7 @@ class _BonusPageState extends State<BonusPage>{
         return Card(margin:const EdgeInsets.only(bottom:9),child:ListTile(
           leading:const CircleAvatar(backgroundColor:Color(0xFFE8F7EF),child:Icon(Icons.card_giftcard,color:Color(0xFF238653))),
           title:Text(r['user_name'] as String? ?? 'User',style:const TextStyle(fontWeight:FontWeight.w800,color:Color(0xFF18202B))),
-          subtitle:Text(r['reason'] as String? ?? 'Bonus',style:const TextStyle(color:muted)),
+          subtitle:Text('${r['reason'] as String? ?? 'Bonus'} · ${r['bonus_owner_type'] == 'Quiz participant' ? 'Quiz participant' : 'User'}',style:const TextStyle(color:muted)),
           trailing:Column(mainAxisAlignment:MainAxisAlignment.center,crossAxisAlignment:CrossAxisAlignment.end,children:[Text('${amount.toStringAsFixed(amount%1==0?0:2)} coins',style:const TextStyle(color:Color(0xFF238653),fontWeight:FontWeight.w800,fontSize:15)),Text(ago,style:const TextStyle(color:muted,fontSize:10))]),
         ));
       }),
