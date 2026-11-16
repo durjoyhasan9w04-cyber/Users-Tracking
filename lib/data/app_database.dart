@@ -1079,8 +1079,12 @@ class AppDatabase {
       [from, until],
     );
     final bonus = await database.rawQuery(
-      'SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?',
-      [from, until],
+      '''SELECT
+        COALESCE((SELECT SUM(amount) FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?), 0) +
+        COALESCE((SELECT SUM(amount) FROM quiz_bonus_entries WHERE entry_date >= ? AND entry_date < ?), 0) AS total,
+        (SELECT COUNT(*) FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?) +
+        (SELECT COUNT(*) FROM quiz_bonus_entries WHERE entry_date >= ? AND entry_date < ?) AS count''',
+      [from, until, from, until, from, until, from, until],
     );
     return {
       'dp': dp.first['total'] as num,
