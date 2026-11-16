@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../data/app_database.dart';
 import '../data/quiz_database.dart';
 
@@ -37,6 +38,29 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
     quizzes = QuizDatabase.instance.getQuizzes();
     participants = QuizDatabase.instance.getParticipants(search: search.text, quizId: selectedQuizId);
     if (mounted) setState(() {});
+  }
+
+
+  Future<void> deleteSelectedQuiz() async {
+    final id = selectedQuizId;
+    if (id == null) return;
+    final rows = await QuizDatabase.instance.getQuizzes();
+    Map<String, Object?>? quiz;
+    for (final row in rows) { if (row['id'] == id) quiz = row; }
+    if (quiz == null || !mounted) return;
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Delete this quiz?'),
+      content: Text('Delete “${quiz['title']}” and its participation records? Participants and their bonus/user records will remain. This cannot be undone.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete quiz')),
+      ],
+    ));
+    if (confirmed != true) return;
+    await QuizDatabase.instance.deleteQuiz(id);
+    selectedQuizId = null;
+    await refresh();
+    await _loadInitialData();
   }
 
   Future<void> createQuiz() async {
@@ -116,16 +140,28 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
       }
     }
     if (!mounted) return null;
+    final fullName = TextEditingController(text: p['name'] as String? ?? '');
     final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-      title: const Text('Convert to regular user?'),
-      content: Text('This adds ${p['name']} to the existing Users database so the current Bonus function can be used. No DP record will be created.'),
+      title: const Text('Convert to regular user'),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('Enter the participant’s full name for the new Users profile. No DP record will be created.'),
+        const SizedBox(height: 12),
+        TextField(controller: fullName, textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'New full name', hintText: 'Enter full name')),
+      ]),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Convert'))],
+        FilledButton(onPressed: () {
+          if (fullName.text.trim().isEmpty) {
+            ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Enter the full name first.')));
+            return;
+          }
+          Navigator.pop(ctx, true);
+        }, child: const Text('Convert'))],
     ));
-    if (ok != true) return null;
+    if (ok != true || fullName.text.trim().isEmpty) { fullName.dispose(); return null; }
     try {
       final id = await AppDatabase.instance.addUser(
-        name: p['name'] as String, phone: phone,
+        name: fullName.text.trim(), phone: phone,
         notes: 'Converted from Quiz Participants. ${p['notes'] ?? ''}'.trim(),
       );
       await QuizDatabase.instance.linkRegularUser(p['id'] as int, id);
@@ -133,6 +169,8 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
     } catch (_) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not convert. This phone may already exist in Users or Potential users.')));
       return null;
+    } finally {
+      fullName.dispose();
     }
   }
 
@@ -149,12 +187,19 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
         if (rows.isEmpty) return const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Create a quiz to start recording participation.')));
         final current = rows.any((r) => r['id'] == selectedQuizId) ? selectedQuizId : rows.first['id'] as int;
         selectedQuizId = current;
-        return DropdownButtonFormField<int>(
+        return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          Expanded(child: DropdownButtonFormField<int>(
           initialValue: current,
-          decoration: const InputDecoration(labelText: 'Select quiz'),
+          decoration: const InputDecoration(hintText: 'Select quiz', floatingLabelBehavior: FloatingLabelBehavior.never),
           items: rows.map((r) => DropdownMenuItem<int>(value: r['id'] as int, child: Text('${r['title']} · ${r['participant_count']} joined', overflow: TextOverflow.ellipsis))).toList(),
           onChanged: (v) { selectedQuizId = v; loadParticipants(); },
-        );
+        )),
+          IconButton(
+            tooltip: 'Delete selected quiz',
+            onPressed: deleteSelectedQuiz,
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+          ),
+        ]);
       }),
       const SizedBox(height: 18),
       Row(children: [
@@ -175,7 +220,24 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
             ListTile(
               leading: const CircleAvatar(child: Icon(Icons.person_outline)),
               title: Text(p['name'] as String? ?? 'Participant', style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text('${p['phone'] ?? 'No phone'} · ${p['quiz_count'] ?? 0} quizzes · ${linked ? 'Regular user' : 'Quiz-only'}'),
+              subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${p['phone'] ?? 'No phone'} · ${p['quiz_count'] ?? 0} quizzes · ${linked ? 'Regular user' : 'Quiz-only'}'),
+                if ((p['phone'] as String? ?? '').trim().isNotEmpty)
+                  InkWell(
+                    onTap: () async {
+                      await Clipboard.setData(ClipboardData(text: (p['phone'] as String).trim()));
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Phone number copied')));
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.only(top: 6),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.copy, size: 14, color: Color(0xFFE9782A)),
+                        SizedBox(width: 5),
+                        Text('Copy phone number', style: TextStyle(fontSize: 12, color: Color(0xFFE9782A), fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                  ),
+              ]),
               trailing: selectedQuizId == null ? null : Checkbox(value: joined, onChanged: (v) async {
                 await QuizDatabase.instance.setParticipated(quizId: selectedQuizId!, participantId: p['id'] as int, participated: v ?? false);
                 await refresh();
