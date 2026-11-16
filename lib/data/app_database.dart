@@ -890,6 +890,55 @@ class AppDatabase {
     ''', [term, '%$term%', '%$term%', '%$term%']);
   }
 
+  Future<int> updateQuizUser({
+    required int id,
+    required String name,
+    String phone = '',
+    String quizName = '',
+    String notes = '',
+  }) async {
+    final cleanName = name.trim();
+    final cleanPhone = phone.trim();
+    if (cleanName.isEmpty) throw ArgumentError('Participant name is required');
+    final db = await database;
+    if (cleanPhone.isNotEmpty) {
+      final duplicate = await db.query(
+        'quiz_users',
+        columns: ['id'],
+        where: 'phone = ? AND id != ?',
+        whereArgs: [cleanPhone, id],
+        limit: 1,
+      );
+      if (duplicate.isNotEmpty) {
+        throw StateError('This phone number already belongs to another quiz participant.');
+      }
+    }
+    return db.update('quiz_users', {
+      'name': cleanName,
+      'phone': cleanPhone,
+      'quiz_name': quizName.trim(),
+      'notes': notes.trim(),
+    }, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteQuizUser(int quizUserId) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      await txn.delete('quiz_bonus_entries', where: 'quiz_user_id = ?', whereArgs: [quizUserId]);
+      return txn.delete('quiz_users', where: 'id = ?', whereArgs: [quizUserId]);
+    });
+  }
+
+  Future<List<Map<String, Object?>>> getQuizBonusHistory(int quizUserId) async {
+    final db = await database;
+    return db.query(
+      'quiz_bonus_entries',
+      where: 'quiz_user_id = ?',
+      whereArgs: [quizUserId],
+      orderBy: 'entry_date DESC, id DESC',
+    );
+  }
+
   Future<int> addQuizBonus({required int quizUserId, required double amount, required String reason, String notes = '', DateTime? date}) async {
     validateBonusAmounts(amount, null);
     final db = await database;
