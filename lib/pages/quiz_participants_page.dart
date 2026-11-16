@@ -111,7 +111,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
     if (!mounted) return null;
     final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       title: const Text('Convert to regular user?'),
-      content: Text('This adds \${p['name']} to the existing Users database so the current Bonus function can be used. No DP record will be created.'),
+      content: Text('This adds ${p['name']} to the existing Users database so the current Bonus function can be used. No DP record will be created.'),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
         FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Convert'))],
     ));
@@ -119,7 +119,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
     try {
       final id = await AppDatabase.instance.addUser(
         name: p['name'] as String, phone: phone,
-        notes: 'Converted from Quiz Participants. \${p['notes'] ?? ''}'.trim(),
+        notes: 'Converted from Quiz Participants. ${p['notes'] ?? ''}'.trim(),
       );
       await QuizDatabase.instance.linkRegularUser(p['id'] as int, id);
       return id;
@@ -145,7 +145,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
         return DropdownButtonFormField<int>(
           value: current,
           decoration: const InputDecoration(labelText: 'Select quiz'),
-          items: rows.map((r) => DropdownMenuItem<int>(value: r['id'] as int, child: Text('\${r['title']} · \${r['participant_count']} joined', overflow: TextOverflow.ellipsis))).toList(),
+          items: rows.map((r) => DropdownMenuItem<int>(value: r['id'] as int, child: Text('${r['title']} · ${r['participant_count']} joined', overflow: TextOverflow.ellipsis))).toList(),
           onChanged: (v) { selectedQuizId = v; loadParticipants(); },
         );
       }),
@@ -168,7 +168,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
             ListTile(
               leading: const CircleAvatar(child: Icon(Icons.person_outline)),
               title: Text(p['name'] as String? ?? 'Participant', style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text('\${p['phone'] ?? 'No phone'} · \${p['quiz_count'] ?? 0} quizzes · \${linked ? 'Regular user' : 'Quiz-only'}'),
+              subtitle: Text('${p['phone'] ?? 'No phone'} · ${p['quiz_count'] ?? 0} quizzes · ${linked ? 'Regular user' : 'Quiz-only'}'),
               trailing: selectedQuizId == null ? null : Checkbox(value: joined, onChanged: (v) async {
                 await QuizDatabase.instance.setParticipated(quizId: selectedQuizId!, participantId: p['id'] as int, participated: v ?? false);
                 await refresh();
