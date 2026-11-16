@@ -114,6 +114,24 @@ class QuizDatabase {
     return (rows.first['total'] as num).toDouble();
   }
 
+
+  Future<List<Map<String, Object?>>> getMonthlyQuizBonusBreakdown(
+    DateTime month, {String reason = 'Special'}
+  ) async {
+    final db = await database;
+    final start = DateTime(month.year, month.month).toIso8601String().substring(0, 10);
+    final end = DateTime(month.year, month.month + 1).toIso8601String().substring(0, 10);
+    return db.rawQuery('''
+      SELECT p.id AS participant_id, p.name AS user_name, p.phone AS user_phone,
+        COALESCE(SUM(b.amount), 0) AS total_amount, COUNT(b.id) AS record_count
+      FROM quiz_bonus_entries b
+      JOIN quiz_participants p ON p.id = b.participant_id
+      WHERE b.entry_date >= ? AND b.entry_date < ? AND b.reason = ?
+      GROUP BY p.id, p.name, p.phone
+      ORDER BY p.name COLLATE NOCASE
+    ''', [start, end, reason]);
+  }
+
   Future<List<Map<String, Object?>>> getParticipants({String search = '', int? quizId}) async {
     final db = await database;
     final q = search.trim();
