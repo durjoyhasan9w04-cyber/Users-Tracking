@@ -252,7 +252,10 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell>{
   int index=0,revision=0;
   void refresh()=>setState(()=>revision++);
-  Future<void> openMore()async{await Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const MoreHubPage()));}
+  Future<void> openMore()async{
+    final restored=await Navigator.of(context).push<bool>(MaterialPageRoute(builder:(_)=>const MoreHubPage()));
+    if(restored==true&&mounted)refresh();
+  }
   Future<void> addAction()async{
     final action=await showModalBottomSheet<String>(context:context,backgroundColor:panel,shape:const RoundedRectangleBorder(borderRadius:BorderRadius.vertical(top:Radius.circular(26))),builder:(ctx)=>SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(20,18,20,24),child:Column(mainAxisSize:MainAxisSize.min,children:[
       Container(width:42,height:4,decoration:BoxDecoration(color:panelBorder,borderRadius:BorderRadius.circular(4))),const SizedBox(height:18),
@@ -2537,6 +2540,15 @@ class MoreHubPage extends StatelessWidget {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
   }
 
+  Future<void> openBackup(BuildContext context) async {
+    final restored = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const BackupRestorePage()),
+    );
+    if (restored == true && context.mounted) {
+      Navigator.of(context).pop(true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: bg,
@@ -2600,7 +2612,7 @@ class MoreHubPage extends StatelessWidget {
         icon: Icons.backup_outlined,
         title: 'Backup & restore',
         subtitle: 'Save a complete local backup or restore one',
-        onTap: () => open(context, const BackupRestorePage()),
+        onTap: () => openBackup(context),
       ),
       const SizedBox(height: 10),
       _MoreTile(
@@ -4217,7 +4229,12 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
       await AppDatabase.instance.restoreBackupFile(picked.files.single.path!);
       // Rebuild local reminders against the restored match and interest data.
       await MatchNotificationService.rescheduleAllUpcoming();
-      if (mounted) setState(() => status = 'Backup restored successfully. Your saved records and eligible match reminders are refreshed.');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backup restored. Dashboard and user statistics will refresh.')),
+        );
+        Navigator.of(context).pop(true);
+      }
     } catch (e) {
       if (mounted) setState(() => status = 'Restore failed: ${e.toString()}');
     } finally {
