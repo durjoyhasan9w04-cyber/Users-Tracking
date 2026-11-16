@@ -4383,7 +4383,7 @@ class _BonusPageState extends State<BonusPage>{
   @override void initState(){super.initState();load();}
   void load(){final n=DateTime.now();data=Future.wait<Object?>([AppDatabase.instance.getBonusEntries(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.monthBonusTotal(),AppDatabase.instance.getReportTotals(DateTime(n.year,n.month),DateTime(n.year,n.month+1)),QuizDatabase.instance.getQuizBonusEntries()]);}
   @override Widget build(BuildContext context)=>FutureBuilder<List<Object?>>(future:data,builder:(context,snap){
-    final rows=<Map<String,Object?>>[...(snap.data?[0] as List<Map<String,Object?>>? ?? const []),...(snap.data?[4] as List<Map<String,Object?>>? ?? const [])],today=(snap.data?[1] as num?)?.toDouble()??0,month=(snap.data?[2] as num?)?.toDouble()??0,baseTotals=snap.data?[3] as Map<String,num>?,totals=<String,num>{'bonus_count':(baseTotals?['bonus_count']??0)+(snap.data?[4] as List? ?? const []).length};
+    final rows=<Map<String,Object?>>[...(snap.data?[0] as List<Map<String,Object?>>? ?? const []),...(snap.data?[4] as List<Map<String,Object?>>? ?? const [])],today=(snap.data?[1] as num?)?.toDouble()??0,month=(snap.data?[2] as num?)?.toDouble()??0,totals=snap.data?[3] as Map<String,num>?;
     final todayKey=DateTime.now().toIso8601String().substring(0,10),monthKey=todayKey.substring(0,7);
     rows.sort((a,b)=>(b['entry_date'] as String? ?? '').compareTo(a['entry_date'] as String? ?? ''));
     final shown=rows.where((r){final d=r['entry_date'] as String? ?? '';if(filter=='Today')return d==todayKey;if(filter=='Month')return d.startsWith(monthKey);return true;}).toList();
