@@ -39,15 +39,21 @@ jobs:
           if gradle is None:
               raise SystemExit("Android app Gradle file was not generated")
           source = gradle.read_text()
-          match = re.search(r'applicationId\\s*=\\s*"([^"]+)"', source)
           expected = "com.example.user_hub"
-          if not match or match.group(1) != expected:
-              actual = match.group(1) if match else "missing"
+          # Flutter templates may omit applicationId; explicitly set it in defaultConfig.
+          match = re.search(r"""applicationId\\s*(?:=\\s*)?["']([^"']+)["']""", source)
+          if match and match.group(1) != expected:
               raise SystemExit(
-                  f"Refusing to build with applicationId {actual!r}; "
-                  f"the established User Hub identity is {expected!r}. "
-                  "Changing it can make Android install a separate app without the old data."
+                  f"Refusing to build with applicationId {match.group(1)!r}; "
+                  f"the established User Hub identity is {expected!r}."
               )
+          if not match:
+              default_config = re.search(r"defaultConfig\\s*\\{", source)
+              if not default_config:
+                  raise SystemExit("Could not find defaultConfig in Android Gradle file")
+              insert_at = default_config.end()
+              source = source[:insert_at] + f'\\n        applicationId = "{expected}"' + source[insert_at:]
+              gradle.write_text(source)
           print(f"Verified stable Android applicationId: {expected}")
           PY
 
