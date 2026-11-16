@@ -1096,16 +1096,20 @@ class BonusEntryDialog extends StatefulWidget {
   @override
   State<BonusEntryDialog> createState() => _BonusEntryDialogState();
 }
+
 class _BonusEntryDialogState extends State<BonusEntryDialog> {
   final form = GlobalKey<FormState>();
   final amount = TextEditingController();
   final relatedDp = TextEditingController();
   final notes = TextEditingController();
   int? userId;
-  String userSearch = '';
+  int? participantId;
+  String ownerType = 'User';
+  String search = '';
   String reason = 'Deposit';
   bool saving = false;
-  late Future<List<Map<String, Object?>>> users;
+  late Future<List<Object?>> recipients;
+
   @override
   void initState() {
     super.initState();
@@ -1118,8 +1122,12 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
       relatedDp.text = row['related_dp'] == null ? '' : (row['related_dp'] as num).toString();
       notes.text = row['notes'] as String? ?? '';
     }
-    users = AppDatabase.instance.getUsers(includeArchivedId: userId);
+    recipients = Future.wait<Object?>([
+      AppDatabase.instance.getUsers(includeArchivedId: userId),
+      QuizDatabase.instance.getParticipants(),
+    ]);
   }
+
   @override
   void dispose() {
     amount.dispose();
@@ -1127,27 +1135,47 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
     notes.dispose();
     super.dispose();
   }
+
   Future<void> save() async {
-    if (!form.currentState!.validate() || userId == null) return;
+    if (!form.currentState!.validate()) return;
+    if (ownerType == 'User' && userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a user first.')));
+      return;
+    }
+    if (ownerType == 'Quiz participant' && participantId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a quiz participant first.')));
+      return;
+    }
     setState(() => saving = true);
     try {
       final existing = widget.existing;
-      if (existing == null) {
+      final value = double.parse(amount.text.trim());
+      final dp = relatedDp.text.trim().isEmpty ? null : double.parse(relatedDp.text.trim());
+      if (existing == null && ownerType == 'Quiz participant') {
+        await QuizDatabase.instance.addQuizBonus(
+          participantId: participantId!,
+          date: DateTime.now(),
+          amount: value,
+          reason: reason,
+          relatedDp: dp,
+          notes: notes.text,
+        );
+      } else if (existing == null) {
         await AppDatabase.instance.addBonusEntry(
           userId: userId!,
           date: DateTime.now(),
-          amount: double.parse(amount.text.trim()),
+          amount: value,
           reason: reason,
-          relatedDp: relatedDp.text.trim().isEmpty ? null : double.parse(relatedDp.text.trim()),
+          relatedDp: dp,
           notes: notes.text,
         );
       } else {
         await AppDatabase.instance.updateBonusEntry(
           id: existing['id'] as int,
           userId: userId!,
-          amount: double.parse(amount.text.trim()),
+          amount: value,
           reason: reason,
-          relatedDp: relatedDp.text.trim().isEmpty ? null : double.parse(relatedDp.text.trim()),
+          relatedDp: dp,
           notes: notes.text,
         );
       }
@@ -1158,64 +1186,131 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not save this bonus record.')));
     }
   }
+
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: Text(widget.existing == null ? 'Add bonus record' : 'Edit bonus record'),
-    content: SizedBox(width: 420, child: FutureBuilder<List<Map<String, Object?>>>(
-      future: users,
+    content: SizedBox(width: 420, child: FutureBuilder<List<Object?>>(
+      future: recipients,
       builder: (context, snap) {
-        final rows = snap.data ?? [];
-        if (snap.connectionState == ConnectionState.waiting) return const SizedBox(height: 90, child: Center(child: CircularProgressIndicator()));
-        if (rows.isEmpty) return const Text('Add a registered user before recording a bonus.');
-        userId ??= rows.first['id'] as int;
-        final filteredUsers = rows.where((u) => '${u['name']} ${u['phone']}'.toLowerCase().contains(userSearch.toLowerCase())).toList();
-        if (!filteredUsers.any((u) => u['id'] == userId) && filteredUsers.isNotEmpty) userId = filteredUsers.first['id'] as int;
-        return Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(onChanged: (value) => setState(() => userSearch = value), decoration: const InputDecoration(labelText: 'Search user by name or number', prefixIcon: Icon(Icons.search))),
-          const SizedBox(height: 8),
-          AppDropdownField<int>(
-            initialValue: filteredUsers.any((u) => u['id'] == userId) ? userId : null,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'User'),
-            items: filteredUsers.map((u) => DropdownMenuItem<int>(value: u['id'] as int, child: Text('${u['name']} · ${u['phone']}', overflow: TextOverflow.ellipsis))).toList(),
-            onChanged: saving ? null : (v) => setState(() => userId = v),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: amount,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Bonus amount (coins)'),
-            validator: (v) {
-              final n = double.tryParse(v?.trim() ?? '');
-              return n == null || n <= 0 ? 'Enter an amount greater than zero' : null;
-            },
-          ),
-          const SizedBox(height: 12),
-          AppDropdownField<String>(
-            initialValue: reason,
-            decoration: const InputDecoration(labelText: 'Reason'),
-            items: const ['Deposit', 'Special', 'Promotional', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-            onChanged: saving ? null : (v) => setState(() => reason = v ?? 'Other'),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: relatedDp,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Related DP (optional)'),
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return null;
-              final n = double.tryParse(v.trim());
-              return n == null || n < 0 ? 'Enter a valid amount' : null;
-            },
-          ),
-          const SizedBox(height: 12),
-          TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
-        ])));
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 110, child: Center(child: CircularProgressIndicator()));
+        }
+        if (snap.hasError) {
+          return const Text('Could not load recipients. Close this form and try again.');
+        }
+        final users = snap.data?[0] as List<Map<String, Object?>>? ?? const [];
+        final participants = snap.data?[1] as List<Map<String, Object?>>? ?? const [];
+        final filteredUsers = users.where((u) =>
+          '${u['name']} ${u['phone']}'.toLowerCase().contains(search.toLowerCase())).toList();
+        final filteredParticipants = participants.where((p) =>
+          '${p['name']} ${p['phone']}'.toLowerCase().contains(search.toLowerCase())).toList();
+
+        if (userId == null && users.isNotEmpty) userId = users.first['id'] as int;
+        if (participantId == null && participants.isNotEmpty) participantId = participants.first['id'] as int;
+
+        final isEditing = widget.existing != null;
+        final selectedUserExists = filteredUsers.any((u) => u['id'] == userId);
+        final selectedParticipantExists = filteredParticipants.any((p) => p['id'] == participantId);
+
+        return Form(key: form, child: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!isEditing) ...[
+              const Text('Award bonus to', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: muted)),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, children: [
+                ChoiceChip(
+                  label: const Text('Users'),
+                  selected: ownerType == 'User',
+                  onSelected: saving ? null : (_) => setState(() { ownerType = 'User'; search = ''; }),
+                ),
+                ChoiceChip(
+                  label: const Text('Quiz Participants'),
+                  selected: ownerType == 'Quiz participant',
+                  onSelected: saving ? null : (_) => setState(() { ownerType = 'Quiz participant'; search = ''; }),
+                ),
+              ]),
+              const SizedBox(height: 10),
+            ],
+            TextField(
+              onChanged: (value) => setState(() => search = value),
+              decoration: InputDecoration(
+                labelText: ownerType == 'User' ? 'Search user by name or number' : 'Search quiz participant by name or number',
+                prefixIcon: const Icon(Icons.search),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (ownerType == 'User') ...[
+              if (filteredUsers.isEmpty)
+                const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No matching users. Try another search or switch to Quiz Participants.'))
+              else
+                AppDropdownField<int>(
+                  initialValue: selectedUserExists ? userId : null,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'User'),
+                  items: filteredUsers.map((u) => DropdownMenuItem<int>(
+                    value: u['id'] as int,
+                    child: Text('${u['name']} · ${u['phone']}', overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: saving ? null : (v) => setState(() => userId = v),
+                ),
+            ] else ...[
+              if (filteredParticipants.isEmpty)
+                const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No matching quiz participants. Add one from Track Quiz first.'))
+              else
+                AppDropdownField<int>(
+                  initialValue: selectedParticipantExists ? participantId : null,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Quiz participant'),
+                  items: filteredParticipants.map((p) => DropdownMenuItem<int>(
+                    value: p['id'] as int,
+                    child: Text('${p['name']} · ${p['phone'] ?? 'No phone'}', overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: saving ? null : (v) => setState(() => participantId = v),
+                ),
+            ],
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: amount,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Bonus amount (coins)'),
+              validator: (v) {
+                final n = double.tryParse(v?.trim() ?? '');
+                return n == null || !n.isFinite || n <= 0 ? 'Enter an amount greater than zero' : null;
+              },
+            ),
+            const SizedBox(height: 12),
+            AppDropdownField<String>(
+              initialValue: reason,
+              decoration: const InputDecoration(labelText: 'Reason'),
+              items: const ['Deposit', 'Special', 'Promotional', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+              onChanged: saving ? null : (v) => setState(() => reason = v ?? 'Other'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: relatedDp,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Related DP (optional)'),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return null;
+                final n = double.tryParse(v.trim());
+                return n == null || !n.isFinite || n < 0 ? 'Enter a valid amount' : null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+          ],
+        )));
       },
     )),
     actions: [
       TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
-      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : Text(widget.existing == null ? 'Save bonus' : 'Save changes')),
+      FilledButton(
+        onPressed: saving ? null : save,
+        child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : Text(widget.existing == null ? 'Save bonus' : 'Save changes'),
+      ),
     ],
   );
 }
