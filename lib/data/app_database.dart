@@ -1066,8 +1066,12 @@ class AppDatabase {
       SELECT 'Bonus', b.entry_date, u.name, u.phone, b.amount, 1, b.notes, b.reason
       FROM bonus_entries b JOIN users u ON u.id = b.user_id
       WHERE b.entry_date >= ? AND b.entry_date < ?
+      UNION ALL
+      SELECT 'Quiz bonus', b.entry_date, q.name, q.phone, b.amount, 1, b.notes, b.reason
+      FROM quiz_bonus_entries b JOIN quiz_users q ON q.id = b.quiz_user_id
+      WHERE b.entry_date >= ? AND b.entry_date < ?
       ORDER BY transaction_date DESC, type ASC, user_name COLLATE NOCASE
-    """, [from, until, from, until]);
+    """, [from, until, from, until, from, until]);
   }
 
   Future<Map<String, num>> getReportTotals(DateTime start, DateTime end) async {
