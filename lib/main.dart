@@ -1102,6 +1102,7 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
   final amount = TextEditingController();
   final relatedDp = TextEditingController();
   final notes = TextEditingController();
+  final searchController = TextEditingController();
   int? userId;
   int? participantId;
   String ownerType = 'User';
@@ -1133,6 +1134,7 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
     amount.dispose();
     relatedDp.dispose();
     notes.dispose();
+    searchController.dispose();
     super.dispose();
   }
 
@@ -1224,12 +1226,12 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
                 ChoiceChip(
                   label: const Text('Users'),
                   selected: ownerType == 'User',
-                  onSelected: saving ? null : (_) => setState(() { ownerType = 'User'; search = ''; }),
+                  onSelected: saving ? null : (_) => setState(() { ownerType = 'User'; search = ''; searchController.clear(); }),
                 ),
                 ChoiceChip(
                   label: const Text('Quiz Participants'),
                   selected: ownerType == 'Quiz participant',
-                  onSelected: saving ? null : (_) => setState(() { ownerType = 'Quiz participant'; search = ''; }),
+                  onSelected: saving ? null : (_) => setState(() { ownerType = 'Quiz participant'; search = ''; searchController.clear(); }),
                 ),
               ]),
               const SizedBox(height: 10),
