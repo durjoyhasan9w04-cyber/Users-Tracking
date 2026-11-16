@@ -109,7 +109,18 @@ class AppDatabase {
         if (oldVersion < 15) await _createPotentialContactHistory(db);
         if (oldVersion < 16) await _createTasks(db);
         if (oldVersion < 17) await _createQuizTables(db);
-        if (oldVersion < 18) await db.execute('ALTER TABLE quiz_users ADD COLUMN converted_user_id INTEGER');
+        if (oldVersion < 18) {
+          // Some version-16 backups are upgraded by _createQuizTables(), which
+          // already includes this column. Older version-17 databases may not.
+          // Check first so both backup formats migrate safely.
+          final quizUserColumns = await db.rawQuery('PRAGMA table_info(quiz_users)');
+          final hasConvertedUserId = quizUserColumns.any(
+            (column) => column['name'] == 'converted_user_id',
+          );
+          if (!hasConvertedUserId) {
+            await db.execute('ALTER TABLE quiz_users ADD COLUMN converted_user_id INTEGER');
+          }
+        }
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
