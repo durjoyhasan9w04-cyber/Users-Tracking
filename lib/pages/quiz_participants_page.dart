@@ -94,7 +94,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
       title: const Text('Add quiz participant'),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
         TextField(controller: name, decoration: const InputDecoration(labelText: 'Full name')),
-        TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number (required)', hintText: 'Needed to convert and award bonus')),
+        TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number (required)', hintText: 'Used to link or convert this participant')),
         TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes (optional)')),
       ]),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -124,59 +124,134 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
   }
 
   Future<void> addParticipantBonus(Map<String, Object?> participant) async {
+    final users = await AppDatabase.instance.getUsers();
+    final allParticipants = await QuizDatabase.instance.getParticipants();
+    if (!mounted) return;
     final amount = TextEditingController();
     final relatedDp = TextEditingController();
     final notes = TextEditingController();
     String reason = 'Deposit';
+    String ownerType = 'User';
+    String recipientSearch = '';
+    int? selectedUserId = users.isEmpty ? null : users.first['id'] as int;
+    int? selectedParticipantId = participant['id'] as int;
     bool saving = false;
-    final saved = await showDialog<bool>(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialog) => AlertDialog(
-      title: Text('Bonus · ${participant['name']}'),
-      content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text('Quiz participant · ${participant['phone'] ?? ''}', style: const TextStyle(color: Color(0xFF7C8490), fontSize: 12)),
-        const SizedBox(height: 12),
-        TextField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Bonus amount (coins)')),
-        const SizedBox(height: 10),
-        DropdownButtonFormField<String>(
-          value: reason,
-          isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Reason'),
-          items: const ['Deposit', 'Special', 'Promotional', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-          onChanged: saving ? null : (v) => setDialog(() => reason = v ?? 'Other'),
-        ),
-        const SizedBox(height: 10),
-        TextField(controller: relatedDp, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Related DP (optional)')),
-        const SizedBox(height: 10),
-        TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
-      ])),
-      actions: [
-        TextButton(onPressed: saving ? null : () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-        FilledButton(onPressed: saving ? null : () async {
-          final value = double.tryParse(amount.text.trim());
-          final dp = relatedDp.text.trim().isEmpty ? null : double.tryParse(relatedDp.text.trim());
-          if (value == null || !value.isFinite || value <= 0 || (relatedDp.text.trim().isNotEmpty && (dp == null || !dp.isFinite || dp < 0))) {
-            ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Enter a valid bonus amount and related DP.')));
-            return;
-          }
-          setDialog(() => saving = true);
-          try {
-            await QuizDatabase.instance.addQuizBonus(
-              participantId: participant['id'] as int,
-              date: DateTime.now(), amount: value, reason: reason,
-              relatedDp: dp, notes: notes.text,
-            );
-            if (ctx.mounted) Navigator.pop(ctx, true);
-          } catch (_) {
-            if (ctx.mounted) {
-              setDialog(() => saving = false);
-              ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Could not save this quiz bonus.')));
+    final saved = await showDialog<bool>(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setDialog) {
+      final filteredUsers = users.where((u) =>
+        '${u['name']} ${u['phone']}'.toLowerCase().contains(recipientSearch.toLowerCase())).toList();
+      final filteredParticipants = allParticipants.where((p) =>
+        '${p['name']} ${p['phone']}'.toLowerCase().contains(recipientSearch.toLowerCase())).toList();
+      return AlertDialog(
+        title: const Text('Add bonus'),
+        content: SizedBox(width: 420, child: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Award bonus to', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF7C8490))),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, children: [
+              ChoiceChip(label: const Text('Users'), selected: ownerType == 'User',
+                onSelected: saving ? null : (_) => setDialog(() { ownerType = 'User'; recipientSearch = ''; })),
+              ChoiceChip(label: const Text('Quiz Participants'), selected: ownerType == 'Quiz participant',
+                onSelected: saving ? null : (_) => setDialog(() { ownerType = 'Quiz participant'; recipientSearch = ''; })),
+            ]),
+            const SizedBox(height: 10),
+            TextField(
+              onChanged: (v) => setDialog(() => recipientSearch = v),
+              decoration: InputDecoration(
+                labelText: ownerType == 'User' ? 'Search user by name or number' : 'Search quiz participant by name or number',
+                prefixIcon: const Icon(Icons.search),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (ownerType == 'User') ...[
+              if (filteredUsers.isEmpty)
+                const Text('No matching users.')
+              else
+                DropdownButtonFormField<int>(
+                  value: filteredUsers.any((u) => u['id'] == selectedUserId) ? selectedUserId : null,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'User'),
+                  items: filteredUsers.map((u) => DropdownMenuItem<int>(
+                    value: u['id'] as int,
+                    child: Text('${u['name']} · ${u['phone']}', overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: saving ? null : (v) => setDialog(() => selectedUserId = v),
+                ),
+            ] else ...[
+              if (filteredParticipants.isEmpty)
+                const Text('No matching quiz participants. Add one from Track Quiz first.')
+              else
+                DropdownButtonFormField<int>(
+                  value: filteredParticipants.any((p) => p['id'] == selectedParticipantId) ? selectedParticipantId : null,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Quiz participant'),
+                  items: filteredParticipants.map((p) => DropdownMenuItem<int>(
+                    value: p['id'] as int,
+                    child: Text('${p['name']} · ${p['phone'] ?? 'No phone'}', overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: saving ? null : (v) => setDialog(() => selectedParticipantId = v),
+                ),
+            ],
+            const SizedBox(height: 12),
+            TextField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Bonus amount (coins)')),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              value: reason,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Reason'),
+              items: const ['Deposit', 'Special', 'Promotional', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+              onChanged: saving ? null : (v) => setDialog(() => reason = v ?? 'Other'),
+            ),
+            const SizedBox(height: 10),
+            TextField(controller: relatedDp, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Related DP (optional)')),
+            const SizedBox(height: 10),
+            TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+          ],
+        ))),
+        actions: [
+          TextButton(onPressed: saving ? null : () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: saving ? null : () async {
+            final value = double.tryParse(amount.text.trim());
+            final dp = relatedDp.text.trim().isEmpty ? null : double.tryParse(relatedDp.text.trim());
+            if (value == null || !value.isFinite || value <= 0 ||
+                (relatedDp.text.trim().isNotEmpty && (dp == null || !dp.isFinite || dp < 0)) ||
+                (ownerType == 'User' && selectedUserId == null) ||
+                (ownerType == 'Quiz participant' && selectedParticipantId == null)) {
+              ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Select a recipient and enter a valid bonus amount.')));
+              return;
             }
-          }
-        }, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save bonus')),
-      ],
-    )));
-    amount.dispose(); relatedDp.dispose(); notes.dispose();
+            setDialog(() => saving = true);
+            try {
+              if (ownerType == 'User') {
+                await AppDatabase.instance.addBonusEntry(
+                  userId: selectedUserId!, date: DateTime.now(), amount: value,
+                  reason: reason, relatedDp: dp, notes: notes.text,
+                );
+              } else {
+                await QuizDatabase.instance.addQuizBonus(
+                  participantId: selectedParticipantId!, date: DateTime.now(), amount: value,
+                  reason: reason, relatedDp: dp, notes: notes.text,
+                );
+              }
+              if (ctx.mounted) Navigator.pop(ctx, true);
+            } catch (_) {
+              if (ctx.mounted) {
+                setDialog(() => saving = false);
+                ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Could not save this bonus.')));
+              }
+            }
+          }, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save bonus')),
+        ],
+      );
+    }));
+    amount.dispose();
+    relatedDp.dispose();
+    notes.dispose();
     if (saved == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Quiz participant bonus saved.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bonus saved.')));
       await refresh();
     }
   }
