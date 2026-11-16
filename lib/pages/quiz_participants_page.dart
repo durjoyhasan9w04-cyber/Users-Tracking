@@ -69,7 +69,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
       title: const Text('Add quiz participant'),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
         TextField(controller: name, decoration: const InputDecoration(labelText: 'Full name')),
-        TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number')),
+        TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number (required)', hintText: 'Needed to convert and award bonus')),
         TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes (optional)')),
       ]),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -191,4 +191,8 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
   );
 }
 
-String formatQuizDate(DateTime d) => '\${d.day.toString().padLeft(2, '0')}/\${d.month.toString().padLeft(2, '0')}/\${d.year}';
+String formatQuizDate(DateTime d) {
+  final day = d.day.toString().padLeft(2, '0');
+  final month = d.month.toString().padLeft(2, '0');
+  return '$day/$month/${d.year}';
+}
