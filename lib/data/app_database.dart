@@ -69,8 +69,10 @@ class AppDatabase {
   Future<Database> get database async {
     if (_db != null) return _db!;
     final root = await getDatabasesPath();
+    final databasePath = p.join(root, 'user_hub.db');
+    await _recoverEmptyDatabaseFromBackup(databasePath);
     _db = await openDatabase(
-      p.join(root, 'user_hub.db'),
+      databasePath,
       version: supportedUserHubDatabaseVersion,
       onCreate: (db, version) async {
         await _createUsers(db);
@@ -114,6 +116,87 @@ class AppDatabase {
       },
     );
     return _db!;
+  }
+
+  /// Recovers user data only when the live database is missing, unreadable,
+  /// or contains no users. A database that already has users is never replaced.
+  Future<void> _recoverEmptyDatabaseFromBackup(String databasePath) async {
+    Future<int> userCountIfReadable(String path) async {
+      final file = File(path);
+      if (!await file.exists() || await file.length() == 0) return 0;
+      Database? candidate;
+      try {
+        candidate = await openDatabase(path, readOnly: true);
+        final tables = await candidate.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'users'",
+        );
+        if (tables.isEmpty) return 0;
+        final rows = await candidate.rawQuery('SELECT COUNT(*) AS total FROM users');
+        return Sqflite.firstIntValue(rows) ?? 0;
+      } catch (_) {
+        return 0;
+      } finally {
+        await candidate?.close();
+      }
+    }
+
+    if (await userCountIfReadable(databasePath) > 0) return;
+
+    final support = await getApplicationSupportDirectory();
+    final backupFolder = Directory(p.join(support.path, 'backups'));
+    if (!await backupFolder.exists()) return;
+
+    final backups = backupFolder
+        .listSync()
+        .whereType<File>()
+        .where((file) =>
+            p.basename(file.path).startsWith('user-hub-') &&
+            file.path.endsWith('.db'))
+        .toList()
+      ..sort((a, b) => b.path.compareTo(a.path));
+
+    for (final backup in backups) {
+      Database? candidate;
+      try {
+        candidate = await openDatabase(backup.path, readOnly: true);
+        final integrity = await candidate.rawQuery('PRAGMA integrity_check');
+        if (integrity.isEmpty || integrity.first.values.first != 'ok') {
+          continue;
+        }
+        final versionRows = await candidate.rawQuery('PRAGMA user_version');
+        final backupVersion = (versionRows.first.values.first as num).toInt();
+        if (backupVersion < 1 || backupVersion > supportedUserHubDatabaseVersion) {
+          continue;
+        }
+        final tableRows = await candidate.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type = 'table'",
+        );
+        final tableNames = tableRows.map((row) => row['name'] as String).toSet();
+        if (!tableNames.containsAll(requiredBackupTablesForVersion(backupVersion))) {
+          continue;
+        }
+        final users = await candidate.rawQuery('SELECT COUNT(*) AS total FROM users');
+        if ((Sqflite.firstIntValue(users) ?? 0) <= 0) continue;
+
+        await candidate.close();
+        candidate = null;
+
+        final destination = File(databasePath);
+        await destination.parent.create(recursive: true);
+        // Keep a copy of the empty/unreadable database for diagnosis.
+        if (await destination.exists()) {
+          final preserved = File('$databasePath.empty-before-recovery');
+          if (!await preserved.exists()) await destination.copy(preserved.path);
+          await destination.delete();
+        }
+        await backup.copy(databasePath);
+        return;
+      } catch (_) {
+        // Try the next older backup; never fail app startup because of a bad backup.
+      } finally {
+        await candidate?.close();
+      }
+    }
   }
 
   Future<void> createDailyBackupIfNeeded() async {
