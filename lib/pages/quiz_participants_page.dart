@@ -152,9 +152,9 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
             const SizedBox(height: 8),
             Wrap(spacing: 8, children: [
               ChoiceChip(label: const Text('Users'), selected: ownerType == 'User',
-                onSelected: saving ? null : (_) => setDialog(() { ownerType = 'User'; recipientSearch = ''; })),
+                onSelected: saving ? null : (_) => setDialog(() { ownerType = 'User'; recipientSearch = ''; recipientSearchController.clear(); })),
               ChoiceChip(label: const Text('Quiz Participants'), selected: ownerType == 'Quiz participant',
-                onSelected: saving ? null : (_) => setDialog(() { ownerType = 'Quiz participant'; recipientSearch = ''; })),
+                onSelected: saving ? null : (_) => setDialog(() { ownerType = 'Quiz participant'; recipientSearch = ''; recipientSearchController.clear(); })),
             ]),
             const SizedBox(height: 10),
             TextField(
