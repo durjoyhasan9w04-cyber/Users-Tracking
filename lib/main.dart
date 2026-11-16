@@ -2555,6 +2555,13 @@ class MoreHubPage extends StatelessWidget {
       ),
       const SizedBox(height: 10),
       _MoreTile(
+        icon: Icons.quiz_outlined,
+        title: 'Quiz participants',
+        subtitle: 'Add quiz-only applicants and give them bonuses without DP profiles',
+        onTap: () => open(context, const QuizParticipantsPage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
         icon: Icons.person_search_outlined,
         title: 'Potential users',
         subtitle: 'Prospects, interest status and conversion',
@@ -4363,6 +4370,170 @@ class _ArchivedUsersPageState extends State<ArchivedUsersPage> {
   );
 }
 
+class QuizParticipantsPage extends StatefulWidget {
+  const QuizParticipantsPage({super.key});
+  @override
+  State<QuizParticipantsPage> createState() => _QuizParticipantsPageState();
+}
+
+class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
+  final search = TextEditingController();
+  late Future<List<Map<String, Object?>>> future;
+  @override
+  void initState() { super.initState(); load(); search.addListener(load); }
+  void load() { if (mounted) setState(() => future = AppDatabase.instance.getQuizUsers(search: search.text)); }
+  @override
+  void dispose() { search.removeListener(load); search.dispose(); super.dispose(); }
+
+  Future<void> addParticipant() async {
+    final saved = await showDialog<bool>(context: context, builder: (_) => const QuizParticipantDialog());
+    if (saved == true && mounted) load();
+  }
+  Future<void> giveBonus(Map<String, Object?> row) async {
+    final saved = await showDialog<bool>(context: context, builder: (_) => QuizBonusDialog(participant: row));
+    if (saved == true && mounted) {
+      load();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Quiz bonus saved.')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: bg,
+    appBar: AppBar(title: const Text('Quiz participants'), backgroundColor: bg),
+    body: SafeArea(child: Column(children: [
+      Padding(padding: const EdgeInsets.fromLTRB(18, 8, 18, 12), child: Row(children: [
+        Expanded(child: TextField(controller: search, decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search quiz participants'))),
+        const SizedBox(width: 10),
+        FilledButton.icon(onPressed: addParticipant, icon: const Icon(Icons.add), label: const Text('Add')),
+      ])),
+      Expanded(child: FutureBuilder<List<Map<String, Object?>>>(
+        future: future,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          if (snap.hasError) return const EmptyState(title: 'Could not load quiz participants', subtitle: 'Please try again.');
+          final rows = snap.data ?? [];
+          if (rows.isEmpty) return EmptyState(title: 'No quiz participants yet', subtitle: 'Add people who applied for the quiz. They stay separate from DP users.', action: addParticipant);
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(18, 4, 18, 28),
+            itemCount: rows.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final row = rows[index];
+              final bonus = (row['total_bonus'] as num?)?.toDouble() ?? 0;
+              return Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const CircleAvatar(backgroundColor: Color(0xFFFFE6D9), child: Icon(Icons.quiz_outlined, color: emerald)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(row['name'] as String, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF18202B))),
+                    if ((row['phone'] as String? ?? '').isNotEmpty) Text(row['phone'] as String, style: const TextStyle(color: muted)),
+                    if ((row['quiz_name'] as String? ?? '').isNotEmpty) Text(row['quiz_name'] as String, style: const TextStyle(color: muted, fontSize: 12)),
+                  ])),
+                ]),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(child: Text('Bonus received: ${bonus.toStringAsFixed(bonus % 1 == 0 ? 0 : 2)} coins', style: const TextStyle(color: emerald, fontWeight: FontWeight.w700))),
+                  TextButton.icon(onPressed: () => giveBonus(row), icon: const Icon(Icons.card_giftcard), label: const Text('Add bonus')),
+                ]),
+                if ((row['notes'] as String? ?? '').isNotEmpty) Text(row['notes'] as String, style: const TextStyle(color: muted)),
+              ])));
+            },
+          );
+        },
+      )),
+    ])),
+  );
+}
+
+class QuizParticipantDialog extends StatefulWidget {
+  const QuizParticipantDialog({super.key});
+  @override
+  State<QuizParticipantDialog> createState() => _QuizParticipantDialogState();
+}
+class _QuizParticipantDialogState extends State<QuizParticipantDialog> {
+  final form = GlobalKey<FormState>();
+  final name = TextEditingController(), phone = TextEditingController(), quiz = TextEditingController(), notes = TextEditingController();
+  bool saving = false;
+  @override
+  void dispose() { name.dispose(); phone.dispose(); quiz.dispose(); notes.dispose(); super.dispose(); }
+  Future<void> save() async {
+    if (!form.currentState!.validate()) return;
+    setState(() => saving = true);
+    try {
+      await AppDatabase.instance.addQuizUser(name: name.text, phone: phone.text, quizName: quiz.text, notes: notes.text);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not add participant: $e')));
+    }
+  }
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Add quiz participant'),
+    content: SizedBox(width: 420, child: Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      TextFormField(controller: name, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Participant name'), validator: (v) => v == null || v.trim().isEmpty ? 'Enter a name' : null),
+      const SizedBox(height: 10),
+      TextFormField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number (optional)')),
+      const SizedBox(height: 10),
+      TextFormField(controller: quiz, decoration: const InputDecoration(labelText: 'Quiz / application (optional)')),
+      const SizedBox(height: 10),
+      TextFormField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+    ]))),
+    actions: [TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')), FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save participant'))],
+  );
+}
+
+class QuizBonusDialog extends StatefulWidget {
+  const QuizBonusDialog({super.key, required this.participant});
+  final Map<String, Object?> participant;
+  @override
+  State<QuizBonusDialog> createState() => _QuizBonusDialogState();
+}
+class _QuizBonusDialogState extends State<QuizBonusDialog> {
+  final form = GlobalKey<FormState>();
+  final amount = TextEditingController(), notes = TextEditingController();
+  String reason = 'Quiz prize';
+  bool saving = false;
+  @override
+  void dispose() { amount.dispose(); notes.dispose(); super.dispose(); }
+  Future<void> save() async {
+    if (!form.currentState!.validate()) return;
+    setState(() => saving = true);
+    try {
+      await AppDatabase.instance.addQuizBonus(
+        quizUserId: widget.participant['id'] as int,
+        amount: double.parse(amount.text.trim()),
+        reason: reason,
+        notes: notes.text,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save quiz bonus: $e')));
+    }
+  }
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text('Bonus for ${widget.participant['name']}'),
+    content: SizedBox(width: 420, child: Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      TextFormField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Bonus amount (coins)'), validator: (v) { final n = double.tryParse(v?.trim() ?? ''); return n == null || n <= 0 ? 'Enter an amount greater than zero' : null; }),
+      const SizedBox(height: 10),
+      AppDropdownField<String>(
+        initialValue: reason, isExpanded: true,
+        decoration: const InputDecoration(labelText: 'Reason'),
+        items: const ['Quiz prize', 'Participation reward', 'Special', 'Promotional', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+        onChanged: saving ? null : (v) { if (v != null) setState(() => reason = v); },
+      ),
+      const SizedBox(height: 10),
+      TextFormField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+    ]))),
+    actions: [TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')), FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save bonus'))],
+  );
+}
+
 class BonusPage extends StatefulWidget{
   const BonusPage({super.key,required this.onChanged});final VoidCallback onChanged;
   @override State<BonusPage> createState()=>_BonusPageState();
@@ -4390,9 +4561,10 @@ class _BonusPageState extends State<BonusPage>{
       else if(shown.isEmpty)const EmptyState(title:'No bonus records',subtitle:'Bonus entries will appear here when added.')
       else ...shown.map((r){
         final amount=(r['amount'] as num?)?.toDouble()??0,date=DateTime.tryParse(r['created_at'] as String? ?? r['entry_date'] as String? ?? '')?.toLocal(),ago=date==null?(r['entry_date'] as String? ?? ''):_timeSinceContact(date.toIso8601String());
+        final isQuiz = r['owner_type'] == 'quiz';
         return Card(margin:const EdgeInsets.only(bottom:9),child:ListTile(
-          leading:const CircleAvatar(backgroundColor:Color(0xFFE8F7EF),child:Icon(Icons.card_giftcard,color:Color(0xFF238653))),
-          title:Text(r['user_name'] as String? ?? 'User',style:const TextStyle(fontWeight:FontWeight.w800,color:Color(0xFF18202B))),
+          leading:CircleAvatar(backgroundColor:isQuiz?const Color(0xFFFFE6D9):const Color(0xFFE8F7EF),child:Icon(isQuiz?Icons.quiz_outlined:Icons.card_giftcard,color:isQuiz?emerald:const Color(0xFF238653))),
+          title:Text('${r['user_name'] as String? ?? 'User'}${isQuiz ? ' · Quiz' : ''}',style:const TextStyle(fontWeight:FontWeight.w800,color:Color(0xFF18202B))),
           subtitle:Text(r['reason'] as String? ?? 'Bonus',style:const TextStyle(color:muted)),
           trailing:Column(mainAxisAlignment:MainAxisAlignment.center,crossAxisAlignment:CrossAxisAlignment.end,children:[Text('${amount.toStringAsFixed(amount%1==0?0:2)} coins',style:const TextStyle(color:Color(0xFF238653),fontWeight:FontWeight.w800,fontSize:15)),Text(ago,style:const TextStyle(color:muted,fontSize:10))]),
         ));
