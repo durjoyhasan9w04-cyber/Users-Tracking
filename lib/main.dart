@@ -4403,7 +4403,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Convert to regular user?'),
-        content: Text("Create a DP user profile for ${row['name']}? Their quiz bonuses will remain in quiz bonus history."),
+        content: Text("Create a DP user profile for ${row['name']}? Their quiz bonus records will be transferred to the new user."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Convert')),
@@ -4415,34 +4415,13 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
       await AppDatabase.instance.convertQuizUserToRegularUser(row['id'] as int);
       if (!mounted) return;
       load();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Regular user profile created. You can now record DP from Users.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Regular user profile created. Quiz bonus history was transferred; you can now record DP from Users.')));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not convert participant: $e')));
     }
   }
-  Future<void> convertToUser(Map<String, Object?> row) async {
-    final phone = (row['phone'] as String? ?? '').trim();
-    if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add a phone number before converting this participant.')));
-      return;
-    }
-    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
-      title: const Text('Convert to regular user?'),
-      content: Text('Create a DP user profile for ${row['name']}? Their quiz bonus history will be transferred.'),
-      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Convert'))],
-    ));
-    if (confirmed != true || !mounted) return;
-    try {
-      await AppDatabase.instance.convertQuizUserToRegularUser(row['id'] as int);
-      if (!mounted) return;
-      load();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Converted. This person can now receive DP entries.')));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not convert participant: $e')));
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -4489,7 +4468,6 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
                   label: const Text('Convert to DP user'),
                 )),
                 if ((row['notes'] as String? ?? '').isNotEmpty) Text(row['notes'] as String, style: const TextStyle(color: muted)),
-                if ((row['phone'] as String? ?? '').trim().isNotEmpty) Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: () => convertToUser(row), icon: const Icon(Icons.person_add_alt_1_outlined), label: const Text('Convert to regular user'))),
               ])));
             },
           );
