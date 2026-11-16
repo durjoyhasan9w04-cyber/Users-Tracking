@@ -1061,8 +1061,18 @@ class AppDatabase {
         COALESCE((SELECT SUM(total) FROM dp_entries WHERE user_id = u.id), 0) AS lifetime_dp,
         COALESCE((SELECT SUM(total) FROM dp_entries WHERE user_id = u.id AND entry_date >= date('now','localtime','start of month') AND entry_date < date('now','localtime','start of month','+1 month')), 0) AS monthly_dp,
         COALESCE((SELECT SUM(amount) FROM bonus_entries WHERE user_id = u.id), 0) AS lifetime_bonus,
-        (SELECT MAX(entry_date) FROM dp_entries WHERE user_id = u.id) AS last_dp_date,
-        CAST(julianday(date('now','localtime')) - julianday((SELECT MAX(entry_date) FROM dp_entries WHERE user_id = u.id)) AS INTEGER) AS days_since_last_dp,
+        CASE
+          WHEN date(u.previous_dp_at) > COALESCE((SELECT MAX(date(entry_date)) FROM dp_entries WHERE user_id = u.id), '')
+            THEN date(u.previous_dp_at)
+          ELSE (SELECT MAX(date(entry_date)) FROM dp_entries WHERE user_id = u.id)
+        END AS last_dp_date,
+        CAST(julianday(date('now','localtime')) - julianday(
+          CASE
+            WHEN date(u.previous_dp_at) > COALESCE((SELECT MAX(date(entry_date)) FROM dp_entries WHERE user_id = u.id), '')
+              THEN date(u.previous_dp_at)
+            ELSE (SELECT MAX(date(entry_date)) FROM dp_entries WHERE user_id = u.id)
+          END
+        ) AS INTEGER) AS days_since_last_dp,
         (SELECT MAX(contact_date) FROM contact_history WHERE user_id = u.id) AS last_contact_date,
         (SELECT COUNT(*) FROM dp_entries WHERE user_id = u.id) AS dp_transactions,
         (SELECT COUNT(*) FROM bonus_entries WHERE user_id = u.id) AS bonus_transactions
@@ -1198,11 +1208,16 @@ class AppDatabase {
     final db = await database;
     return db.rawQuery("""
       WITH activity AS (
-        SELECT u.id, u.name, u.phone, MAX(d.entry_date) AS last_dp_date
+        SELECT u.id, u.name, u.phone,
+          CASE
+            WHEN date(u.previous_dp_at) > COALESCE(MAX(date(d.entry_date)), '')
+              THEN date(u.previous_dp_at)
+            ELSE MAX(date(d.entry_date))
+          END AS last_dp_date
         FROM users u
         LEFT JOIN dp_entries d ON d.user_id = u.id
         WHERE u.archived = 0
-        GROUP BY u.id, u.name, u.phone
+        GROUP BY u.id, u.name, u.phone, u.previous_dp_at
       ),
       aged AS (
         SELECT *, CASE
