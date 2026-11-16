@@ -170,7 +170,6 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                 name: row['user_name']?.toString() ?? '',
                 phone: row['user_phone']?.toString() ?? '',
                 amount: (row['total_amount'] as num?)?.toDouble() ?? 0,
-                count: (row['record_count'] as num?)?.toInt() ?? 0,
               ))
           .toList();
 
@@ -180,7 +179,6 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
               name: row['user_name']?.toString() ?? '',
               phone: row['user_phone']?.toString() ?? '',
               amount: (row['total_amount'] as num?)?.toDouble() ?? 0,
-              count: (row['record_count'] as num?)?.toInt() ?? 0,
             )),
         ...specialParticipants.map((row) => _BonusLine(
               id: 'Q${row['participant_id']}',
@@ -767,14 +765,12 @@ class _BonusLine {
     required this.name,
     required this.phone,
     required this.amount,
-    required this.count,
   });
 
   final String id;
   final String name;
   final String phone;
   final double amount;
-  final int count;
 }
 
 class _ExpenseInput {
