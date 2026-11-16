@@ -25,8 +25,31 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Generate Android project files
-        run: flutter create --platforms=android --project-name user_hub .
+      - name: Generate Android project files with a fixed app identity
+        run: |
+          flutter create --platforms=android --org com.example --project-name user_hub .
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          gradle = next(
+              (p for p in (Path("android/app/build.gradle.kts"), Path("android/app/build.gradle")) if p.exists()),
+              None,
+          )
+          if gradle is None:
+              raise SystemExit("Android app Gradle file was not generated")
+          source = gradle.read_text()
+          match = re.search(r'applicationId\\s*(?:=\\s*)?["\\']([^"\\']+)["\\']', source)
+          expected = "com.example.user_hub"
+          if not match or match.group(1) != expected:
+              actual = match.group(1) if match else "missing"
+              raise SystemExit(
+                  f"Refusing to build with applicationId {actual!r}; "
+                  f"the established User Hub identity is {expected!r}. "
+                  "Changing it can make Android install a separate app without the old data."
+              )
+          print(f"Verified stable Android applicationId: {expected}")
+          PY
 
       - name: Install monochrome notification outline icon
         run: |
