@@ -13,7 +13,10 @@ class QuizDatabase {
     final root = await getDatabasesPath();
     _db = await openDatabase(
       p.join(root, 'quiz_participants.db'),
-      version: 1,
+      version: 2,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) await _createQuizBonuses(db);
+      },
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE quiz_participants (
@@ -49,10 +52,66 @@ class QuizDatabase {
         await db.execute("CREATE UNIQUE INDEX idx_quiz_participant_phone ON quiz_participants(phone) WHERE phone != ''");
         await db.execute('CREATE INDEX idx_quiz_date ON quizzes(quiz_date DESC)');
         await db.execute('PRAGMA foreign_keys = ON');
+        await _createQuizBonuses(db);
       },
       onOpen: (db) async => db.execute('PRAGMA foreign_keys = ON'),
     );
     return _db!;
+  }
+
+  Future<void> _createQuizBonuses(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS quiz_bonus_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        participant_id INTEGER NOT NULL,
+        entry_date TEXT NOT NULL,
+        amount REAL NOT NULL,
+        reason TEXT NOT NULL,
+        related_dp REAL,
+        notes TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(participant_id) REFERENCES quiz_participants(id) ON DELETE RESTRICT
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_bonus_date ON quiz_bonus_entries(entry_date)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_quiz_bonus_participant ON quiz_bonus_entries(participant_id)');
+  }
+
+  Future<int> addQuizBonus({required int participantId, required DateTime date, required double amount, required String reason, double? relatedDp, String notes = ''}) async {
+    if (amount <= 0 || !amount.isFinite || (relatedDp != null && (!relatedDp.isFinite || relatedDp < 0))) {
+      throw ArgumentError('Invalid bonus amount.');
+    }
+    final db = await database;
+    return db.insert('quiz_bonus_entries', {
+      'participant_id': participantId,
+      'entry_date': date.toIso8601String().substring(0, 10),
+      'amount': amount,
+      'reason': reason,
+      'related_dp': relatedDp,
+      'notes': notes.trim(),
+      'created_at': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, Object?>>> getQuizBonusEntries() async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT b.*, p.name AS user_name, p.phone AS user_phone,
+        'Quiz participant' AS bonus_owner_type, p.id AS quiz_participant_id
+      FROM quiz_bonus_entries b
+      JOIN quiz_participants p ON p.id = b.participant_id
+      ORDER BY b.entry_date DESC, b.id DESC
+    ''');
+  }
+
+  Future<double> quizBonusTotal({DateTime? from, DateTime? until}) async {
+    final db = await database;
+    final clauses = <String>[];
+    final args = <Object?>[];
+    if (from != null) { clauses.add('entry_date >= ?'); args.add(from.toIso8601String().substring(0, 10)); }
+    if (until != null) { clauses.add('entry_date < ?'); args.add(until.toIso8601String().substring(0, 10)); }
+    final rows = await db.rawQuery('SELECT COALESCE(SUM(amount), 0) AS total FROM quiz_bonus_entries ${clauses.isEmpty ? '' : 'WHERE ${clauses.join(' AND ')}'}', args);
+    return (rows.first['total'] as num).toDouble();
   }
 
   Future<List<Map<String, Object?>>> getParticipants({String search = '', int? quizId}) async {
