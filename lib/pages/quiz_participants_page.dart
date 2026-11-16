@@ -300,11 +300,27 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
                 await refresh();
               }),
             ),
-            Align(alignment: Alignment.centerRight, child: TextButton.icon(
-              onPressed: () => addParticipantBonus(p),
-              icon: const Icon(Icons.card_giftcard),
-              label: const Text('Add bonus'),
-            )),
+            Padding(
+              padding: const EdgeInsets.only(right: 8, bottom: 4),
+              child: Wrap(alignment: WrapAlignment.end, spacing: 4, children: [
+                TextButton.icon(
+                  onPressed: () => addParticipantBonus(p),
+                  icon: const Icon(Icons.card_giftcard),
+                  label: const Text('Add bonus'),
+                ),
+                TextButton.icon(
+                  onPressed: () async {
+                    final id = await ensureRegularUser(p);
+                    if (id != null && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Participant converted to a regular user. No DP was added.')));
+                      await refresh();
+                    }
+                  },
+                  icon: const Icon(Icons.person_add_alt_1),
+                  label: const Text('Convert to user'),
+                ),
+              ]),
+            ),
           ]));
         }).toList());
       }),
