@@ -186,7 +186,6 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
               name: row['user_name']?.toString() ?? '',
               phone: row['user_phone']?.toString() ?? '',
               amount: (row['total_amount'] as num?)?.toDouble() ?? 0,
-              count: (row['record_count'] as num?)?.toInt() ?? 0,
             )),
       ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     } catch (_) {
