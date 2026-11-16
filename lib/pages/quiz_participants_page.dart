@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import '../data/app_database.dart';
 import '../data/quiz_database.dart';
@@ -143,7 +144,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
         final current = rows.any((r) => r['id'] == selectedQuizId) ? selectedQuizId : rows.first['id'] as int;
         selectedQuizId = current;
         return DropdownButtonFormField<int>(
-          value: current,
+          initialValue: current,
           decoration: const InputDecoration(labelText: 'Select quiz'),
           items: rows.map((r) => DropdownMenuItem<int>(value: r['id'] as int, child: Text('${r['title']} · ${r['participant_count']} joined', overflow: TextOverflow.ellipsis))).toList(),
           onChanged: (v) { selectedQuizId = v; loadParticipants(); },
