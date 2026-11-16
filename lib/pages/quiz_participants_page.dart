@@ -46,10 +46,11 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
     final rows = await QuizDatabase.instance.getQuizzes();
     Map<String, Object?>? quiz;
     for (final row in rows) { if (row['id'] == id) quiz = row; }
-    if (quiz == null || !mounted) return;
+    final selectedQuiz = quiz;
+    if (selectedQuiz == null || !mounted) return;
     final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
       title: const Text('Delete this quiz?'),
-      content: Text('Delete “${quiz['title']}” and its participation records? Participants and their bonus/user records will remain. This cannot be undone.'),
+      content: Text('Delete “${selectedQuiz['title']}” and its participation records? Participants and their bonus/user records will remain. This cannot be undone.'),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
         FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete quiz')),
@@ -282,8 +283,10 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
                 if ((p['phone'] as String? ?? '').trim().isNotEmpty)
                   InkWell(
                     onTap: () async {
+                      final messenger = ScaffoldMessenger.of(context);
                       await Clipboard.setData(ClipboardData(text: (p['phone'] as String).trim()));
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Phone number copied')));
+                      if (!mounted) return;
+                      messenger.showSnackBar(const SnackBar(content: Text('Phone number copied')));
                     },
                     child: const Padding(
                       padding: EdgeInsets.only(top: 6),
@@ -310,9 +313,10 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
                 ),
                 TextButton.icon(
                   onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
                     final id = await ensureRegularUser(p);
                     if (id != null && mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Participant converted to a regular user. No DP was added.')));
+                      messenger.showSnackBar(const SnackBar(content: Text('Participant converted to a regular user. No DP was added.')));
                       await refresh();
                     }
                   },
