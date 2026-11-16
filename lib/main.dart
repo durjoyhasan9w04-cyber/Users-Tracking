@@ -24,6 +24,7 @@ import 'services/fixture_discovery_service.dart';
 import 'services/groq_fixture_service.dart';
 import 'models/user_level_config.dart';
 import 'pages/quiz_participants_page.dart';
+import 'pages/damarage_sheet_page.dart';
 
 
 class AppDropdownField<T> extends StatelessWidget {
@@ -2668,6 +2669,13 @@ class MoreHubPage extends StatelessWidget {
         title: 'Quiz Participants',
         subtitle: 'Manage quiz lists, participation history and winner bonuses',
         onTap: () => open(context, const QuizParticipantsPage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.receipt_long_rounded,
+        title: 'Damarage Sheet Generator',
+        subtitle: 'Prepare monthly offline coins, quiz, expenses and SIM-lock statements',
+        onTap: () => open(context, const DamarageSheetPage()),
       ),
       const SizedBox(height: 10),
       _MoreTile(
