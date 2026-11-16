@@ -39,7 +39,7 @@ jobs:
           if gradle is None:
               raise SystemExit("Android app Gradle file was not generated")
           source = gradle.read_text()
-          match = re.search(r'applicationId\\s*(?:=\\s*)?["\\']([^"\\']+)["\\']', source)
+          match = re.search(r'applicationId\\s*=\\s*"([^"]+)"', source)
           expected = "com.example.user_hub"
           if not match or match.group(1) != expected:
               actual = match.group(1) if match else "missing"
