@@ -100,6 +100,11 @@ class QuizDatabase {
     ''');
   }
 
+  Future<int> deleteQuiz(int quizId) async {
+    final db = await database;
+    return db.delete('quizzes', where: 'id = ?', whereArgs: [quizId]);
+  }
+
   Future<void> setParticipated({required int quizId, required int participantId, required bool participated}) async {
     final db = await database;
     if (participated) {
