@@ -22,8 +22,7 @@ class QuizDatabase {
             phone TEXT NOT NULL DEFAULT '',
             notes TEXT NOT NULL DEFAULT '',
             linked_user_id INTEGER,
-            created_at TEXT NOT NULL,
-            UNIQUE(phone)
+            created_at TEXT NOT NULL
           )
         ''');
         await db.execute('''
@@ -47,6 +46,7 @@ class QuizDatabase {
           )
         ''');
         await db.execute('CREATE INDEX idx_quiz_participant_name ON quiz_participants(name COLLATE NOCASE)');
+        await db.execute("CREATE UNIQUE INDEX idx_quiz_participant_phone ON quiz_participants(phone) WHERE phone != ''");
         await db.execute('CREATE INDEX idx_quiz_date ON quizzes(quiz_date DESC)');
         await db.execute('PRAGMA foreign_keys = ON');
       },
