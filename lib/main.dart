@@ -2556,7 +2556,7 @@ class MoreHubPage extends StatelessWidget {
       const SizedBox(height: 10),
       _MoreTile(
         icon: Icons.quiz_outlined,
-        title: 'Quiz participants',
+        title: 'Quiz applicants',
         subtitle: 'Add quiz-only applicants and give them bonuses without DP profiles',
         onTap: () => open(context, const QuizParticipantsPage()),
       ),
@@ -4453,7 +4453,8 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
                   Text('Total: ${total.toStringAsFixed(total % 1 == 0 ? 0 : 2)} coins · ${entries.length} records',
                     style: const TextStyle(color: emerald, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 10),
-                  Flexible(
+                  SizedBox(
+                    height: 280,
                     child: ListView.separated(
                       shrinkWrap: true,
                       itemCount: entries.length,
@@ -4466,7 +4467,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
                           contentPadding: EdgeInsets.zero,
                           title: Text('${amount.toStringAsFixed(amount % 1 == 0 ? 0 : 2)} coins',
                             style: const TextStyle(fontWeight: FontWeight.w800)),
-                          subtitle: Text('${item['reason']} · ${date == null ? item['entry_date'] : DateFormat('dd MMM yyyy').format(date)}${(item['notes'] as String? ?? '').isEmpty ? '' : '\\n${item['notes']}'}'),
+                          subtitle: Text('${item['reason']} · ${date == null ? item['entry_date'] : DateFormat('dd MMM yyyy').format(date)}${(item['notes'] as String? ?? '').isEmpty ? '' : '\n${item['notes']}'}'),
                         );
                       },
                     ),
@@ -4518,10 +4519,10 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: bg,
-    appBar: AppBar(title: const Text('Quiz participants'), backgroundColor: bg),
+    appBar: AppBar(title: const Text('Quiz applicants'), backgroundColor: bg),
     body: SafeArea(child: Column(children: [
       Padding(padding: const EdgeInsets.fromLTRB(18, 8, 18, 12), child: Row(children: [
-        Expanded(child: TextField(controller: search, decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search quiz participants'))),
+        Expanded(child: TextField(controller: search, decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search quiz applicants'))),
         const SizedBox(width: 10),
         FilledButton.icon(onPressed: addParticipant, icon: const Icon(Icons.add), label: const Text('Add')),
       ])),
@@ -4529,9 +4530,9 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
         future: future,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          if (snap.hasError) return const EmptyState(title: 'Could not load quiz participants', subtitle: 'Please try again.');
+          if (snap.hasError) return const EmptyState(title: 'Could not load quiz applicants', subtitle: 'Please try again.');
           final rows = snap.data ?? [];
-          if (rows.isEmpty) return EmptyState(title: 'No quiz participants yet', subtitle: 'Add people who applied for the quiz. They stay separate from DP users.', action: addParticipant);
+          if (rows.isEmpty) return EmptyState(title: 'No quiz applicants yet', subtitle: 'Add people who applied for the quiz. They stay separate from DP users.', action: addParticipant);
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(18, 4, 18, 28),
             itemCount: rows.length,
