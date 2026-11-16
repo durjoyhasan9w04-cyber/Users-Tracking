@@ -74,7 +74,13 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
         TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes (optional)')),
       ]),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, name.text.trim().isNotEmpty && phone.text.trim().length >= 5), child: const Text('Save'))],
+        FilledButton(onPressed: () {
+          if (name.text.trim().isEmpty || phone.text.trim().length < 5) {
+            ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Enter a name and valid phone number.')));
+            return;
+          }
+          Navigator.pop(ctx, true);
+        }, child: const Text('Save'))],
     ));
     if (ok == true && name.text.trim().isNotEmpty) {
       try {
