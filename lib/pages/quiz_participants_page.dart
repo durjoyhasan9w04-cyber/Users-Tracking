@@ -130,6 +130,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
     final amount = TextEditingController();
     final relatedDp = TextEditingController();
     final notes = TextEditingController();
+    final recipientSearchController = TextEditingController();
     String reason = 'Deposit';
     String ownerType = 'User';
     String recipientSearch = '';
@@ -157,6 +158,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
             ]),
             const SizedBox(height: 10),
             TextField(
+              controller: recipientSearchController,
               onChanged: (v) => setDialog(() => recipientSearch = v),
               decoration: InputDecoration(
                 labelText: ownerType == 'User' ? 'Search user by name or number' : 'Search quiz participant by name or number',
@@ -250,6 +252,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
     amount.dispose();
     relatedDp.dispose();
     notes.dispose();
+    recipientSearchController.dispose();
     if (saved == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bonus saved.')));
       await refresh();
