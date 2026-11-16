@@ -1237,6 +1237,7 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
               const SizedBox(height: 10),
             ],
             TextField(
+              controller: searchController,
               onChanged: (value) => setState(() => search = value),
               decoration: InputDecoration(
                 labelText: ownerType == 'User' ? 'Search user by name or number' : 'Search quiz participant by name or number',
