@@ -50,7 +50,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
         OutlinedButton.icon(onPressed: () async {
           final picked = await showDatePicker(context: ctx, initialDate: date, firstDate: DateTime(2000), lastDate: DateTime(2100));
           if (picked != null) setDialog(() => date = picked);
-        }, icon: const Icon(Icons.calendar_month), label: Text(DateFormatDate(date))),
+        }, icon: const Icon(Icons.calendar_month), label: Text(formatQuizDate(date))),
         TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes (optional)')),
       ]),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -191,4 +191,4 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
   );
 }
 
-String DateFormatDate(DateTime d) => '\${d.day.toString().padLeft(2, '0')}/\${d.month.toString().padLeft(2, '0')}/\${d.year}';
+String formatQuizDate(DateTime d) => '\${d.day.toString().padLeft(2, '0')}/\${d.month.toString().padLeft(2, '0')}/\${d.year}';
