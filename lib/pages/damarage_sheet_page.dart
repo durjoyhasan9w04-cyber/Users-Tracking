@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -321,12 +322,30 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
     await _loadMonth();
   }
 
+  Future<pw.Font> _loadBanglaPdfFont() async {
+    const candidates = [
+      '/system/fonts/NotoSansBengali-VF.ttf',
+      '/system/fonts/NotoSansBengali-Regular.ttf',
+      '/system/fonts/NotoSansBengaliUI-Regular.ttf',
+    ];
+    for (final path in candidates) {
+      final file = File(path);
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        return pw.Font.ttf(ByteData.sublistView(bytes));
+      }
+    }
+    throw StateError('Bangla system font is not available on this device.');
+  }
+
   Future<void> _generatePdf() async {
     if (saving) return;
     final saved = await _save(showMessage: false);
     if (!saved || !mounted) return;
     try {
       final pdf = pw.Document();
+      final banglaFont = await _loadBanglaPdfFont();
+      final pdfTheme = pw.ThemeData.withFont(base: banglaFont, bold: banglaFont);
       final expenseRows = <List<String>>[
         ['ওয়াইফাই বিল', '${_formatAmount(_amount(wifiAmount))} $wifiUnit'],
         ['কমিশন', '${_formatAmount(_amount(commissionAmount))} $commissionUnit'],
@@ -347,6 +366,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
       }).toList();
 
       pdf.addPage(pw.MultiPage(
+        theme: pdfTheme,
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(28),
         build: (context) => [
