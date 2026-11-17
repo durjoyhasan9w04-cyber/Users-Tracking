@@ -1,6 +1,5 @@
 // ignore_for_file: deprecated_member_use
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -28,10 +27,6 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
   final wifiAmount = TextEditingController(text: '1000');
   final commissionAmount = TextEditingController();
   final companyCompensation = TextEditingController();
-  final manualGrandTotal = TextEditingController();
-  String wifiUnit = 'টাকা';
-  String commissionUnit = 'টাকা';
-  bool useManualGrandTotal = false;
   final manualTotal = TextEditingController();
   String wifiCurrency = 'Taka';
   String commissionCurrency = 'Taka';
@@ -66,7 +61,6 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
     wifiAmount.dispose();
     commissionAmount.dispose();
     companyCompensation.dispose();
-    manualGrandTotal.dispose();
     manualTotal.dispose();
     for (final c in newSimNumbers) {
       c.dispose();
@@ -225,10 +219,6 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
     wifiAmount.text = '1000';
     commissionAmount.clear();
     companyCompensation.clear();
-    manualGrandTotal.clear();
-    wifiUnit = 'টাকা';
-    commissionUnit = 'টাকা';
-    useManualGrandTotal = false;
     wifiCurrency = 'Taka';
     commissionCurrency = 'Taka';
     manualTotalEnabled = false;
@@ -265,10 +255,6 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         'manualTotalEnabled': manualTotalEnabled,
         'manualTotal': _amount(manualTotal),
         'companyCompensation': _amount(companyCompensation),
-        'wifiUnit': wifiUnit,
-        'commissionUnit': commissionUnit,
-        'useManualGrandTotal': useManualGrandTotal,
-        'manualGrandTotal': _amount(manualGrandTotal),
         'proofGiven': proofGiven,
         'customExpenses': customExpenses
             .map((row) => {
@@ -301,7 +287,6 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
       _message('ম্যানুয়াল মোটের পরিমাণ লিখুন।');
       return false;
     }
-    if (useManualGrandTotal && manualGrandTotal.text.trim().isEmpty) { _message('নিজে মোট লিখলে পরিমাণ দিতে হবে।'); return false; }
     if (controllers.any((controller) => !_validAmount(controller))) {
       _message('সব পরিমাণের ঘরে সঠিক সংখ্যা লিখুন।');
       return false;
@@ -363,26 +348,12 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
     return null;
   }
 
-  Future<pw.Font> _loadBanglaPdfFont() async {
-    const candidates = ['/system/fonts/NotoSansBengali-VF.ttf','/system/fonts/NotoSansBengali-Regular.ttf','/system/fonts/NotoSansBengaliUI-Regular.ttf'];
-    for (final path in candidates) {
-      final file = File(path);
-      if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        return pw.Font.ttf(ByteData.sublistView(bytes));
-      }
-    }
-    throw StateError('Bangla system font is not available on this device.');
-  }
-
   Future<void> _generatePdf() async {
     if (saving) return;
     final saved = await _save(showMessage: false);
     if (!saved || !mounted) return;
     try {
       final pdf = pw.Document();
-      final banglaFont = await _loadBanglaPdfFont();
-      final pdfTheme = pw.ThemeData.withFont(base: banglaFont, bold: banglaFont);
       final bengaliFont = await _loadBengaliPdfFont();
       final expenseRows = <List<String>>[
         ['ওয়াইফাই বিল', '${_formatAmount(_amount(wifiAmount))} ${_currencyText(wifiCurrency)}'],
@@ -854,7 +825,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
     );
   }
 
-  Widget _totalLine(String label, double total, {String unit = 'কয়েন'}) => Padding(
+  Widget _totalLine(String label, double total) => Padding(
         padding: const EdgeInsets.only(top: 8),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
