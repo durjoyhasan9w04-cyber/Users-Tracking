@@ -154,6 +154,30 @@ class QuizDatabase {
     });
   }
 
+  Future<int> updateParticipant({
+    required int id,
+    required String name,
+    required String phone,
+    required String notes,
+  }) async {
+    if (name.trim().isEmpty) throw ArgumentError('Participant name is required.');
+    final db = await database;
+    return db.update('quiz_participants', {
+      'name': name.trim(),
+      'phone': phone.trim(),
+      'notes': notes.trim(),
+    }, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> deleteParticipant(int id) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('quiz_bonus_entries', where: 'participant_id = ?', whereArgs: [id]);
+      await txn.delete('quiz_participations', where: 'participant_id = ?', whereArgs: [id]);
+      await txn.delete('quiz_participants', where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
   Future<int> linkRegularUser(int participantId, int userId) async {
     final db = await database;
     return db.update('quiz_participants', {'linked_user_id': userId},
