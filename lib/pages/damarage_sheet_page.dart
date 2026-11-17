@@ -322,12 +322,35 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
     await _loadMonth();
   }
 
+  Future<pw.Font?> _loadBengaliPdfFont() async {
+    // Android ships Noto Sans Bengali on supported system images. Embedding it
+    // keeps Bengali labels readable in the exported PDF without network access.
+    const paths = [
+      '/system/fonts/NotoSansBengali-VF.ttf',
+      '/system/fonts/NotoSansBengali-Regular.ttf',
+      '/system/fonts/NotoSansBengaliUI-VF.ttf',
+      '/system/fonts/NotoSansBengaliUI-Regular.ttf',
+    ];
+    for (final path in paths) {
+      try {
+        final file = File(path);
+        if (await file.exists()) {
+          return pw.Font.ttf(await file.readAsBytes());
+        }
+      } catch (_) {
+        // Try the next system font filename.
+      }
+    }
+    return null;
+  }
+
   Future<void> _generatePdf() async {
     if (saving) return;
     final saved = await _save(showMessage: false);
     if (!saved || !mounted) return;
     try {
       final pdf = pw.Document();
+      final bengaliFont = await _loadBengaliPdfFont();
       final expenseRows = <List<String>>[
         ['ওয়াইফাই বিল', '${_formatAmount(_amount(wifiAmount))} ${_currencyText(wifiCurrency)}'],
         ['কমিশন', '${_formatAmount(_amount(commissionAmount))} ${_currencyText(commissionCurrency)}'],
@@ -348,6 +371,12 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
       }).toList();
 
       pdf.addPage(pw.MultiPage(
+        theme: bengaliFont == null ? null : pw.ThemeData.withFont(
+          base: bengaliFont,
+          bold: bengaliFont,
+          italic: bengaliFont,
+          boldItalic: bengaliFont,
+        ),
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(28),
         build: (context) => [
