@@ -27,6 +27,10 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
   final wifiAmount = TextEditingController(text: '1000');
   final commissionAmount = TextEditingController();
   final companyCompensation = TextEditingController();
+  final manualGrandTotal = TextEditingController();
+  String wifiUnit = 'টাকা';
+  String commissionUnit = 'টাকা';
+  bool useManualGrandTotal = false;
   final newSimNumbers = List.generate(3, (_) => TextEditingController());
   final customExpenses = <_ExpenseInput>[];
   final simLocks = <_SimLockInput>[_SimLockInput(number: '01')];
@@ -38,7 +42,11 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
   bool saving = false;
 
   String get monthKey => DateFormat('yyyy-MM').format(selectedMonth);
-  String get monthLabel => DateFormat('MMMM yyyy').format(selectedMonth);
+  String get monthLabel => '${_bnMonths[selectedMonth.month - 1]} ${_bnDigits(selectedMonth.year)}';
+  static const _bnMonths = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  String _bnDigits(Object value) => value.toString().replaceAll('0','০').replaceAll('1','১').replaceAll('2','২').replaceAll('3','৩').replaceAll('4','৪').replaceAll('5','৫').replaceAll('6','৬').replaceAll('7','৭').replaceAll('8','৮').replaceAll('9','৯');
+  double _toTaka(double amount, String unit) => unit == 'কয়েন' ? amount * 100 : amount;
+  String get displayGrandTotal => _formatAmount(useManualGrandTotal ? _amount(manualGrandTotal) : finalTotal);
 
   @override
   void initState() {
@@ -54,6 +62,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
     wifiAmount.dispose();
     commissionAmount.dispose();
     companyCompensation.dispose();
+    manualGrandTotal.dispose();
     for (final c in newSimNumbers) {
       c.dispose();
     }
@@ -90,11 +99,8 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         (sum, row) =>
             sum + _amount(row.bkash) + _amount(row.nagad) + _amount(row.rocket),
       );
-  double get otherExpensesTotal =>
-      _amount(wifiAmount) +
-      _amount(commissionAmount) +
-      customExpenses.fold(0, (sum, row) => sum + _amount(row.amount));
-  double get finalTotal => quizTotal + simLockTotal + otherExpensesTotal;
+  double get otherExpensesTotal => _toTaka(_amount(wifiAmount), wifiUnit) + _toTaka(_amount(commissionAmount), commissionUnit) + customExpenses.fold(0, (sum, row) => sum + _toTaka(_amount(row.amount), row.unit));
+  double get finalTotal => quizTotal * 100 + simLockTotal + otherExpensesTotal;
 
   Future<void> _loadMonth() async {
     setState(() => loading = true);
@@ -108,8 +114,11 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         agentId.text = (saved['agentId'] as String?) ?? '';
         wifiAmount.text = (saved['wifiAmount'] ?? 1000).toString();
         commissionAmount.text = (saved['commissionAmount'] ?? '').toString();
-        companyCompensation.text =
-            (saved['companyCompensation'] ?? '').toString();
+        companyCompensation.text = (saved['companyCompensation'] ?? '').toString();
+        wifiUnit = saved['wifiUnit']?.toString() ?? 'টাকা';
+        commissionUnit = saved['commissionUnit']?.toString() ?? 'টাকা';
+        useManualGrandTotal = saved['useManualGrandTotal'] == true;
+        manualGrandTotal.text = (saved['manualGrandTotal'] ?? '').toString();
         proofGiven = saved['proofGiven'] != false;
 
         final savedExpenses = saved['customExpenses'];
@@ -122,6 +131,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
             customExpenses.add(_ExpenseInput(
               name: item['name']?.toString() ?? '',
               amount: item['amount']?.toString() ?? '',
+              unit: item['unit']?.toString() ?? 'টাকা',
             ));
           }
         }
@@ -204,6 +214,10 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
     wifiAmount.text = '1000';
     commissionAmount.clear();
     companyCompensation.clear();
+    manualGrandTotal.clear();
+    wifiUnit = 'টাকা';
+    commissionUnit = 'টাকা';
+    useManualGrandTotal = false;
     proofGiven = true;
     for (final row in customExpenses) {
       row.dispose();
@@ -232,11 +246,16 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         'wifiAmount': _amount(wifiAmount),
         'commissionAmount': _amount(commissionAmount),
         'companyCompensation': _amount(companyCompensation),
+        'wifiUnit': wifiUnit,
+        'commissionUnit': commissionUnit,
+        'useManualGrandTotal': useManualGrandTotal,
+        'manualGrandTotal': _amount(manualGrandTotal),
         'proofGiven': proofGiven,
         'customExpenses': customExpenses
             .map((row) => {
                   'name': row.name.text.trim(),
                   'amount': _amount(row.amount),
+                  'unit': row.unit,
                 })
             .toList(),
         'newSimNumbers': newSimNumbers.map((c) => c.text.trim()).toList(),
@@ -255,6 +274,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
       wifiAmount,
       commissionAmount,
       companyCompensation,
+      manualGrandTotal,
       ...customExpenses.map((row) => row.amount),
       ...simLocks.expand((row) => [row.bkash, row.nagad, row.rocket]),
     ];
@@ -304,11 +324,11 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
     try {
       final pdf = pw.Document();
       final expenseRows = <List<String>>[
-        ['WiFi bill', _formatAmount(_amount(wifiAmount))],
-        ['Commission', _formatAmount(_amount(commissionAmount))],
+        ['ওয়াইফাই বিল', '${_formatAmount(_amount(wifiAmount))} $wifiUnit'],
+        ['কমিশন', '${_formatAmount(_amount(commissionAmount))} $commissionUnit'],
         ...customExpenses.map((row) => [
-              row.name.text.trim().isEmpty ? 'Other expense' : row.name.text.trim(),
-              _formatAmount(_amount(row.amount)),
+              row.name.text.trim().isEmpty ? 'অন্যান্য খরচ' : row.name.text.trim(),
+              '${_formatAmount(_amount(row.amount))} ${row.unit}',
             ]),
       ];
       final lockRows = simLocks.map((row) {
@@ -326,77 +346,77 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(28),
         build: (context) => [
-          pw.Text('DAMARAGE SHEET',
+          pw.Text('ডেমারেজের বিস্তারিত হিসাব',
               style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 5),
-          pw.Text('Month: $monthLabel'),
+          pw.Text('মাস: $monthLabel'),
           pw.SizedBox(height: 12),
           pw.TableHelper.fromTextArray(
-            headers: ['Super name', 'Agent name', 'Agent ID'],
+            headers: ['সুপারের নাম', 'এজেন্টের নাম', 'এজেন্ট আইডি'],
             data: [[superName.text.trim(), agentName.text.trim(), agentId.text.trim()]],
           ),
           pw.SizedBox(height: 16),
-          pw.Text('OFFLINE COINS (USER DEPOSIT BONUSES)',
+          pw.Text('অফলাইন থেকে কয়েন দিতে বলা হলে',
               style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 6),
           _pdfBonusTable(offlineRows),
           pw.Align(
             alignment: pw.Alignment.centerRight,
-            child: pw.Text('Offline coins total: ${_formatAmount(offlineTotal)}',
+            child: pw.Text('মোট কয়েন: ${_formatAmount(offlineTotal)}',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(height: 14),
-          pw.Text('QUIZ MONEY (SPECIAL BONUSES)',
+          pw.Text('কুইজের টাকার হিসাব',
               style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 6),
           _pdfBonusTable(quizRows),
           pw.Align(
             alignment: pw.Alignment.centerRight,
-            child: pw.Text('Quiz total: ${_formatAmount(quizTotal)}',
+            child: pw.Text('মোট কয়েন: ${_formatAmount(quizTotal)}',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(height: 14),
-          pw.Text('OTHER EXPENSES',
+          pw.Text('অন্যান্য খরচ হিসাব',
               style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 6),
           pw.TableHelper.fromTextArray(
-            headers: ['Expense', 'Coins'],
+            headers: ['খরচের বিবরণ', 'পরিমাণ'],
             data: expenseRows,
           ),
           pw.Align(
             alignment: pw.Alignment.centerRight,
-            child: pw.Text('Other expenses total: ${_formatAmount(otherExpensesTotal)}',
+            child: pw.Text('অন্যান্য খরচের মোট: ${_formatAmount(otherExpensesTotal)} টাকা',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(height: 14),
-          pw.Text('NEW SIM NUMBERS',
+          pw.Text('নতুন সিমের নাম্বার',
               style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
           pw.Text(newSimNumbers.asMap().entries
               .map((entry) => '${entry.key + 1}. ${entry.value.text.trim()}')
               .join('     ')),
           pw.SizedBox(height: 14),
-          pw.Text('SIM LOCK DETAILS',
+          pw.Text('সিম লকের বিস্তারিত হিসাব',
               style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 6),
           pw.TableHelper.fromTextArray(
-            headers: ['Number', 'Bkash', 'Nagad', 'Rocket', 'Total'],
+            headers: ['নাম্বার', 'বিকাশ', 'নগদ', 'রকেট', 'মোট (টাকা)'],
             data: lockRows.isEmpty ? [['-', '0', '0', '0', '0']] : lockRows,
           ),
           pw.Align(
             alignment: pw.Alignment.centerRight,
-            child: pw.Text('SIM lock total: ${_formatAmount(simLockTotal)}',
+            child: pw.Text('সিম লকের মোট: ${_formatAmount(simLockTotal)} টাকা',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(height: 14),
-          pw.Text('Proof given to super: ${proofGiven ? 'YES' : 'NO'}'),
-          pw.Text('Company SIM compensation: ${_formatAmount(_amount(companyCompensation))}'),
+          pw.Text('প্রমাণ সুপারকে দেওয়া হয়েছে: ${proofGiven ? 'হ্যাঁ' : 'না'}'),
+          pw.Text('কোম্পানি সিম ক্ষতিপূরণ: ${_formatAmount(_amount(companyCompensation))} টাকা'),
           pw.Divider(),
           pw.Text(
-            'GRAND TOTAL = QUIZ + SIM LOCK + OTHER EXPENSES = ${_formatAmount(finalTotal)} COINS',
+            'মোট= কুইজ+সিম লক+অন্যান্য খরচ = ${displayGrandTotal} টাকা',
             style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 8),
-          pw.Text('Offline coins are listed separately and are not included in the grand total.',
+          pw.Text('অফলাইন কয়েন আলাদাভাবে দেখানো হয়েছে; মোটের মধ্যে অন্তর্ভুক্ত নয়।',
               style: const pw.TextStyle(fontSize: 9)),
         ],
       ));
@@ -512,7 +532,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         const Divider(height: 18),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           const Text('Section total', style: TextStyle(fontWeight: FontWeight.w700)),
-          Text('${_formatAmount(total)} coins',
+          Text('${_formatAmount(total)} $unit',
               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
         ]),
       ]),
@@ -529,10 +549,10 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Damarage Sheet Generator'),
+        title: const Text('ডেমারেজ শিট তৈরি'),
         actions: [
           IconButton(
-            tooltip: 'Reload month data',
+            tooltip: 'তথ্য রিফ্রেশ করুন',
             onPressed: _loadMonth,
             icon: const Icon(Icons.refresh_rounded),
           ),
@@ -543,7 +563,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         children: [
           _card(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _sectionTitle('Sheet month', 'Each month has its own saved sheet.'),
+              _sectionTitle('মাস নির্বাচন', 'প্রতিটি মাসের হিসাব আলাদাভাবে সংরক্ষিত থাকবে।'),
               OutlinedButton.icon(
                 onPressed: _chooseMonth,
                 icon: const Icon(Icons.calendar_month_rounded),
@@ -553,39 +573,41 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
               TextField(
                 controller: superName,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Super name'),
+                decoration: const InputDecoration(labelText: 'সুপারের নাম'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: agentName,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Agent name'),
+                decoration: const InputDecoration(labelText: 'এজেন্টের নাম'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: agentId,
-                decoration: const InputDecoration(labelText: 'Agent ID'),
+                decoration: const InputDecoration(labelText: 'এজেন্ট আইডি'),
               ),
             ]),
           ),
           _bonusSection(
-            'Offline Coins',
-            'Only regular-user bonus records marked Deposit in $monthLabel. Grouped by user.',
+            'অফলাইন থেকে কয়েন দিতে বলা হলে',
+            '$monthLabel মাসের সাধারণ ইউজারের Deposit বোনাস থেকে হিসাব।',
             offlineRows,
             offlineTotal,
           ),
           _bonusSection(
-            'Quiz Money',
-            'Special bonus records for regular users and quiz participants in $monthLabel.',
+            'কুইজের টাকার হিসাব',
+            '$monthLabel মাসের Special বোনাসের হিসাব।',
             quizRows,
             quizTotal,
           ),
           _card(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _sectionTitle('Other expenses', 'WiFi starts at 1,000 coins. Edit it whenever needed.'),
-              _amountField('WiFi bill (coins)', wifiAmount),
+              _sectionTitle('অন্যান্য খরচ হিসাব', 'প্রতিটি খরচ টাকা অথবা কয়েনে লিখুন।'),
+              _amountField('ওয়াইফাই বিল', wifiAmount),
+              DropdownButtonFormField<String>(value: wifiUnit, decoration: const InputDecoration(labelText: 'ওয়াইফাই বিলের একক'), items: const [DropdownMenuItem(value: 'টাকা', child: Text('টাকা')), DropdownMenuItem(value: 'কয়েন', child: Text('কয়েন'))], onChanged: (v) => setState(() => wifiUnit = v ?? 'টাকা')),
               const SizedBox(height: 10),
-              _amountField('Commission (coins)', commissionAmount),
+              _amountField('কমিশন', commissionAmount),
+              DropdownButtonFormField<String>(value: commissionUnit, decoration: const InputDecoration(labelText: 'কমিশনের একক'), items: const [DropdownMenuItem(value: 'টাকা', child: Text('টাকা')), DropdownMenuItem(value: 'কয়েন', child: Text('কয়েন'))], onChanged: (v) => setState(() => commissionUnit = v ?? 'টাকা')),
               const SizedBox(height: 12),
               ...customExpenses.asMap().entries.map((entry) => Padding(
                     padding: const EdgeInsets.only(bottom: 9),
@@ -594,13 +616,23 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                         flex: 3,
                         child: TextField(
                           controller: entry.value.name,
-                          decoration: InputDecoration(labelText: 'Expense ${entry.key + 1}'),
+                          decoration: InputDecoration(labelText: 'খরচের বিবরণ ${_bnDigits(entry.key + 1)}'),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         flex: 2,
-                        child: _amountField('Coins', entry.value.amount),
+                        child: _amountField('পরিমাণ', entry.value.amount),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        flex: 2,
+                        child: DropdownButtonFormField<String>(
+                          value: entry.value.unit,
+                          decoration: const InputDecoration(labelText: 'একক'),
+                          items: const [DropdownMenuItem(value: 'টাকা', child: Text('টাকা')), DropdownMenuItem(value: 'কয়েন', child: Text('কয়েন'))],
+                          onChanged: (v) => setState(() => entry.value.unit = v ?? 'টাকা'),
+                        ),
                       ),
                       IconButton(
                         tooltip: 'Remove expense',
@@ -617,23 +649,23 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                 child: TextButton.icon(
                   onPressed: () => setState(() => customExpenses.add(_ExpenseInput())),
                   icon: const Icon(Icons.add_rounded),
-                  label: const Text('Add another expense'),
+                  label: const Text('আরও খরচ যোগ করুন'),
                 ),
               ),
               const Divider(),
-              _totalLine('Other expenses total', otherExpensesTotal),
+              _totalLine('অন্যান্য খরচের মোট', otherExpensesTotal, unit: 'টাকা'),
             ]),
           ),
           _card(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _sectionTitle('New SIM numbers', 'Add up to three new SIM numbers.'),
+              _sectionTitle('নতুন সিমের নাম্বার', 'সর্বোচ্চ তিনটি নতুন সিমের নাম্বার লিখুন।'),
               Row(children: List.generate(3, (index) => Expanded(
                 child: Padding(
                   padding: EdgeInsets.only(right: index == 2 ? 0 : 8),
                   child: TextField(
                     controller: newSimNumbers[index],
                     keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(labelText: 'SIM ${index + 1}'),
+                    decoration: InputDecoration(labelText: 'সিম ${_bnDigits(index + 1)}'),
                   ),
                 ),
               ))),
@@ -641,7 +673,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
           ),
           _card(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _sectionTitle('SIM lock details', 'Add one or more locked SIM records.'),
+              _sectionTitle('সিম লকের বিস্তারিত হিসাব', 'এক বা একাধিক সিমের হিসাব যোগ করুন।'),
               ...simLocks.asMap().entries.map((entry) {
                 final row = entry.value;
                 final total = _amount(row.bkash) + _amount(row.nagad) + _amount(row.rocket);
@@ -658,7 +690,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                       Expanded(
                         child: TextField(
                           controller: row.number,
-                          decoration: const InputDecoration(labelText: 'SIM / phone number'),
+                          decoration: const InputDecoration(labelText: 'সিম / ফোন নাম্বার'),
                         ),
                       ),
                       IconButton(
@@ -672,16 +704,16 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                     ]),
                     const SizedBox(height: 9),
                     Row(children: [
-                      Expanded(child: _amountField('Bkash balance', row.bkash)),
+                      Expanded(child: _amountField('বিকাশের ব্যালেন্স (টাকা)', row.bkash)),
                       const SizedBox(width: 8),
-                      Expanded(child: _amountField('Nagad balance', row.nagad)),
+                      Expanded(child: _amountField('নগদের ব্যালেন্স (টাকা)', row.nagad)),
                     ]),
                     const SizedBox(height: 9),
-                    _amountField('Rocket balance', row.rocket),
+                    _amountField('রকেটের ব্যালেন্স (টাকা)', row.rocket),
                     const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerRight,
-                      child: Text('SIM total: ${_formatAmount(total)} coins',
+                      child: Text('সিমের মোট: ${_formatAmount(total)} টাকা',
                           style: const TextStyle(fontWeight: FontWeight.w800)),
                     ),
                   ]),
@@ -691,42 +723,44 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                 onPressed: () => setState(() => simLocks.add(
                     _SimLockInput(number: (simLocks.length + 1).toString().padLeft(2, '0')))),
                 icon: const Icon(Icons.add_rounded),
-                label: const Text('Add another SIM lock'),
+                label: const Text('আরও সিম যোগ করুন'),
               ),
-              _totalLine('Total SIM lock', simLockTotal),
+              _totalLine('সিম লকের মোট', simLockTotal, unit: 'টাকা'),
             ]),
           ),
           _card(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _sectionTitle('Proof and compensation', 'These details are shown separately in the PDF.'),
+              _sectionTitle('প্রমাণ ও ক্ষতিপূরণ', 'এই তথ্যগুলো আলাদাভাবে দেখানো হবে।'),
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Proof given to super'),
-                subtitle: Text(proofGiven ? 'Yes' : 'No'),
+                title: const Text('প্রমাণ সুপারকে দেওয়া হয়েছে'),
+                subtitle: Text(proofGiven ? 'হ্যাঁ' : 'না'),
                 value: proofGiven,
                 onChanged: (value) => setState(() => proofGiven = value),
               ),
               const SizedBox(height: 8),
-              _amountField('Company SIM compensation (coins)', companyCompensation),
+              _amountField('কোম্পানি সিম ক্ষতিপূরণ (টাকা)', companyCompensation),
               const SizedBox(height: 6),
-              const Text('Company compensation is displayed separately and is not deducted from the grand total.',
+              const Text('কোম্পানির ক্ষতিপূরণ আলাদাভাবে দেখানো হবে এবং মোটের সঙ্গে যোগ হবে না।',
                   style: TextStyle(fontSize: 12, color: Color(0xFF7C8490))),
             ]),
           ),
           _card(
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              const Text('Grand total',
+              const Text('মোট= কুইজ+সিম লক+অন্যান্য খরচ =',
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
               const SizedBox(height: 5),
               Text(
-                'Quiz + SIM lock + Other expenses',
+                '১ কয়েন = ১০০ টাকা · মোট টাকায় দেখানো হবে',
                 style: const TextStyle(color: Color(0xFF7C8490), fontSize: 12),
               ),
               const SizedBox(height: 8),
-              Text('${_formatAmount(finalTotal)} coins',
+              SwitchListTile.adaptive(contentPadding: EdgeInsets.zero, title: const Text('মোট নিজে লিখব'), value: useManualGrandTotal, onChanged: (v) => setState(() { useManualGrandTotal = v; if (!v) manualGrandTotal.text = _formatAmount(finalTotal); })),
+              if (useManualGrandTotal) _amountField('নিজে নির্ধারণ করা মোট (টাকা)', manualGrandTotal),
+              Text('${displayGrandTotal} টাকা',
                   style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Color(0xFFE9782A))),
               const SizedBox(height: 5),
-              Text('Offline coins: ${_formatAmount(offlineTotal)} coins (not included)',
+              Text('অফলাইন কয়েন: ${_formatAmount(offlineTotal)} (মোটে যোগ হবে না)',
                   style: const TextStyle(fontSize: 12, color: Color(0xFF7C8490))),
               const SizedBox(height: 16),
               FilledButton.icon(
@@ -734,13 +768,13 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                 icon: saving
                     ? const SizedBox(width: 17, height: 17, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.save_rounded),
-                label: const Text('Save this month’s sheet'),
+                label: const Text('এই মাসের হিসাব সংরক্ষণ করুন'),
               ),
               const SizedBox(height: 9),
               OutlinedButton.icon(
                 onPressed: saving ? null : _generatePdf,
                 icon: const Icon(Icons.picture_as_pdf_rounded),
-                label: const Text('Save and generate PDF'),
+                label: const Text('PDF তৈরি ও শেয়ার করুন'),
               ),
             ]),
           ),
@@ -749,7 +783,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
     );
   }
 
-  Widget _totalLine(String label, double total) => Padding(
+  Widget _totalLine(String label, double total, {String unit = 'কয়েন'}) => Padding(
         padding: const EdgeInsets.only(top: 8),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -774,12 +808,13 @@ class _BonusLine {
 }
 
 class _ExpenseInput {
-  _ExpenseInput({String name = '', String amount = ''})
+  _ExpenseInput({String name = '', String amount = '', this.unit = 'টাকা'})
       : name = TextEditingController(text: name),
         amount = TextEditingController(text: amount);
 
   final TextEditingController name;
   final TextEditingController amount;
+  String unit;
 
   void dispose() {
     name.dispose();
