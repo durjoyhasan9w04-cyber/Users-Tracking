@@ -123,6 +123,62 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
     name.dispose(); phone.dispose(); notes.dispose();
   }
 
+  Future<void> editParticipant(Map<String, Object?> participant) async {
+    final name = TextEditingController(text: participant['name']?.toString() ?? '');
+    final phone = TextEditingController(text: participant['phone']?.toString() ?? '');
+    final notes = TextEditingController(text: participant['notes']?.toString() ?? '');
+    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Edit participant'),
+      content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: name, decoration: const InputDecoration(labelText: 'Full name')),
+        TextField(controller: phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone number')),
+        TextField(controller: notes, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () {
+          if (name.text.trim().isEmpty || (phone.text.trim().isNotEmpty && phone.text.trim().length < 5)) {
+            ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Enter a name and a valid phone number.')));
+            return;
+          }
+          Navigator.pop(ctx, true);
+        }, child: const Text('Save changes')),
+      ],
+    ));
+    if (ok == true) {
+      try {
+        await QuizDatabase.instance.updateParticipant(
+          participantId: participant['id'] as int,
+          name: name.text,
+          phone: phone.text,
+          notes: notes.text,
+        );
+        await refresh();
+      } catch (_) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update participant. This phone number may already be used.')),
+        );
+      }
+    }
+    name.dispose(); phone.dispose(); notes.dispose();
+  }
+
+  Future<void> deleteParticipant(Map<String, Object?> participant) async {
+    final name = participant['name']?.toString() ?? 'this participant';
+    final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Delete participant?'),
+      content: Text('Delete "$name"? Their quiz participation history and quiz-only bonus records will also be deleted. This cannot be undone.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+      ],
+    ));
+    if (confirmed != true) return;
+    await QuizDatabase.instance.deleteParticipant(participant['id'] as int);
+    await refresh();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Participant deleted.')));
+  }
+
   Future<void> addParticipantBonus(Map<String, Object?> participant) async {
     final users = await AppDatabase.instance.getUsers();
     final allParticipants = await QuizDatabase.instance.getParticipants();
@@ -384,6 +440,16 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
             Padding(
               padding: const EdgeInsets.only(right: 8, bottom: 4),
               child: Wrap(alignment: WrapAlignment.end, spacing: 4, children: [
+                TextButton.icon(
+                  onPressed: () => editParticipant(p),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Edit'),
+                ),
+                TextButton.icon(
+                  onPressed: () => deleteParticipant(p),
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  label: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                ),
                 TextButton.icon(
                   onPressed: () => addParticipantBonus(p),
                   icon: const Icon(Icons.card_giftcard),
