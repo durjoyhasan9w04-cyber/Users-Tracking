@@ -385,18 +385,23 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(28),
         build: (context) => [
-          pw.Text('ডেমারেজের বিস্তারিত হিসাব',
-              style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold)),
+          pw.Center(child: pw.Text('ডেমারেজের বিস্তারিত হিসাব',
+              style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold))),
           pw.SizedBox(height: 5),
-          pw.Text('মাস: $monthLabel'),
+          pw.Center(child: pw.Text('মাস: $monthLabel')),
           pw.SizedBox(height: 12),
           pw.TableHelper.fromTextArray(
-            headers: ['সুপারের নাম', 'এজেন্টের নাম', 'এজেন্ট আইডি'],
-            data: [[superName.text.trim(), agentName.text.trim(), agentId.text.trim()]],
+            headers: ['সুপারের নাম', 'এজেন্টের নাম'],
+            data: [[superName.text.trim(), agentName.text.trim()]],
+            headerAlignment: pw.Alignment.center,
+            cellAlignment: pw.Alignment.center,
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey100),
+            border: pw.TableBorder.all(color: PdfColors.blueGrey300, width: 0.6),
+            cellPadding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           ),
           pw.SizedBox(height: 16),
-          pw.Text('অফলাইন থেকে কয়েন দিতে বলা হলে',
-              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+          pw.Center(child: pw.Text('অফলাইন থেকে কয়েন দিতে বলা হলে',
+              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold))),
           pw.SizedBox(height: 6),
           _pdfBonusTable(offlineRows),
           pw.Align(
@@ -405,8 +410,8 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(height: 14),
-          pw.Text('কুইজের টাকার হিসাব',
-              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+          pw.Center(child: pw.Text('কুইজের টাকার হিসাব',
+              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold))),
           pw.SizedBox(height: 6),
           _pdfBonusTable(quizRows),
           pw.Align(
@@ -415,12 +420,17 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(height: 14),
-          pw.Text('অন্যান্য খরচ হিসাব',
-              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+          pw.Center(child: pw.Text('অন্যান্য খরচ হিসাব',
+              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold))),
           pw.SizedBox(height: 6),
           pw.TableHelper.fromTextArray(
             headers: ['খরচের বিবরণ', 'পরিমাণ'],
             data: expenseRows,
+            headerAlignment: pw.Alignment.center,
+            cellAlignment: pw.Alignment.center,
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey100),
+            border: pw.TableBorder.all(color: PdfColors.blueGrey300, width: 0.6),
+            cellPadding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           ),
           pw.Align(
             alignment: pw.Alignment.centerRight,
@@ -428,18 +438,23 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(height: 14),
-          pw.Text('নতুন সিম নিলে নিচে নাম্বারগুলো লিখুন',
-              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+          pw.Center(child: pw.Text('নতুন সিম নিলে নিচে নাম্বারগুলো লিখুন',
+              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold))),
           pw.Text(newSimNumbers.asMap().entries
               .map((entry) => '${entry.key + 1}. ${entry.value.text.trim()}')
               .join('     ')),
           pw.SizedBox(height: 14),
-          pw.Text('সিম লকের বিস্তারিত হিসাব',
-              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
+          pw.Center(child: pw.Text('সিম লকের বিস্তারিত হিসাব',
+              style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold))),
           pw.SizedBox(height: 6),
           pw.TableHelper.fromTextArray(
             headers: ['নাম্বার', 'বিকাশ', 'নগদ', 'রকেট', 'মোট (টাকা)'],
             data: lockRows.isEmpty ? [['-', '0', '0', '0', '0']] : lockRows,
+            headerAlignment: pw.Alignment.center,
+            cellAlignment: pw.Alignment.center,
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey100),
+            border: pw.TableBorder.all(color: PdfColors.blueGrey300, width: 0.6),
+            cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 7),
           ),
           pw.Align(
             alignment: pw.Alignment.centerRight,
@@ -476,18 +491,48 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
   }
 
   pw.Widget _pdfBonusTable(List<_BonusLine> rows) {
-    return pw.TableHelper.fromTextArray(
-      headers: ['আইডি', 'নাম', 'হোয়াটসঅ্যাপ', 'কয়েন'],
-      data: rows.isEmpty
-          ? [['-', 'কোনো তথ্য নেই', '-', '0']]
-          : rows
-              .map((row) => [
-                    row.id,
-                    row.name,
-                    row.phone,
-                    _formatAmount(row.amount),
-                  ])
-              .toList(),
+    pw.Widget cell(String value, {bool header = false, bool english = false}) {
+      return pw.Container(
+        alignment: pw.Alignment.center,
+        padding: const pw.EdgeInsets.symmetric(horizontal: 7, vertical: 7),
+        decoration: pw.BoxDecoration(
+          color: header ? PdfColors.blueGrey100 : PdfColors.white,
+          border: pw.Border.all(color: PdfColors.blueGrey300, width: 0.6),
+        ),
+        child: pw.Text(
+          value,
+          textAlign: pw.TextAlign.center,
+          style: pw.TextStyle(
+            fontSize: header ? 9 : 9.5,
+            fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
+            font: english ? pw.Font.helvetica() : null,
+          ),
+        ),
+      );
+    }
+
+    final dataRows = rows.isEmpty
+        ? <List<String>>[['কোনো তথ্য নেই', '-', '0']]
+        : rows.map((row) => [row.name, row.phone, _formatAmount(row.amount)]).toList();
+
+    return pw.Table(
+      columnWidths: const {
+        0: pw.FlexColumnWidth(1.35),
+        1: pw.FlexColumnWidth(1.55),
+        2: pw.FlexColumnWidth(0.7),
+      },
+      children: [
+        pw.TableRow(children: [
+          cell('নাম', header: true),
+          cell('হোয়াটসঅ্যাপ', header: true),
+          cell('কয়েন', header: true),
+        ]),
+        ...dataRows.map((row) => pw.TableRow(children: [
+          cell(row[0], english: true),
+          cell(row[1], english: true),
+          cell(row[2], english: true),
+        ])),
+      ],
     );
   }
 
