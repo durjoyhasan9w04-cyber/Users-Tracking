@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -339,7 +340,8 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
       try {
         final file = File(path);
         if (await file.exists()) {
-          return pw.Font.ttf(await file.readAsBytes());
+          final bytes = await file.readAsBytes();
+          return pw.Font.ttf(ByteData.sublistView(bytes));
         }
       } catch (_) {
         // Try the next system font filename.
