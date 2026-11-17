@@ -283,6 +283,10 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
       ...customExpenses.map((row) => row.amount),
       ...simLocks.expand((row) => [row.bkash, row.nagad, row.rocket]),
     ];
+    if (manualTotalEnabled && manualTotal.text.trim().isEmpty) {
+      _message('ম্যানুয়াল মোটের পরিমাণ লিখুন।');
+      return false;
+    }
     if (controllers.any((controller) => !_validAmount(controller))) {
       _message('সব পরিমাণের ঘরে সঠিক সংখ্যা লিখুন।');
       return false;
