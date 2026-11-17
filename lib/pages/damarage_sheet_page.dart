@@ -514,7 +514,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(row.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      Text('${row.id} · ${row.phone.isEmpty ? 'No phone' : row.phone}',
+                      Text('${row.id} · ${row.phone.isEmpty ? 'নাম্বার নেই' : row.phone}',
                           style: const TextStyle(fontSize: 11, color: Color(0xFF7C8490))),
                     ]),
                   ),
@@ -614,39 +614,41 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
               DropdownButtonFormField<String>(value: commissionUnit, decoration: const InputDecoration(labelText: 'কমিশনের একক'), items: const [DropdownMenuItem(value: 'টাকা', child: Text('টাকা')), DropdownMenuItem(value: 'কয়েন', child: Text('কয়েন'))], onChanged: (v) => setState(() => commissionUnit = v ?? 'টাকা')),
               const SizedBox(height: 12),
               ...customExpenses.asMap().entries.map((entry) => Padding(
-                    padding: const EdgeInsets.only(bottom: 9),
-                    child: Row(children: [
-                      Expanded(
-                        flex: 3,
-                        child: TextField(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
                           controller: entry.value.name,
                           decoration: InputDecoration(labelText: 'খরচের বিবরণ ${_bnDigits(entry.key + 1)}'),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 2,
-                        child: _amountField('পরিমাণ', entry.value.amount),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        flex: 2,
-                        child: DropdownButtonFormField<String>(
-                          value: entry.value.unit,
-                          decoration: const InputDecoration(labelText: 'একক'),
-                          items: const [DropdownMenuItem(value: 'টাকা', child: Text('টাকা')), DropdownMenuItem(value: 'কয়েন', child: Text('কয়েন'))],
-                          onChanged: (v) => setState(() => entry.value.unit = v ?? 'টাকা'),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Remove expense',
-                        onPressed: () => setState(() {
-                          entry.value.dispose();
-                          customExpenses.removeAt(entry.key);
-                        }),
-                        icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                      ),
-                    ]),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Expanded(child: _amountField('পরিমাণ', entry.value.amount)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: entry.value.unit,
+                              decoration: const InputDecoration(labelText: 'একক'),
+                              items: const [
+                                DropdownMenuItem(value: 'টাকা', child: Text('টাকা')),
+                                DropdownMenuItem(value: 'কয়েন', child: Text('কয়েন')),
+                              ],
+                              onChanged: (v) => setState(() => entry.value.unit = v ?? 'টাকা'),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'খরচ মুছুন',
+                            onPressed: () => setState(() {
+                              entry.value.dispose();
+                              customExpenses.removeAt(entry.key);
+                            }),
+                            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+                          ),
+                        ]),
+                        const Divider(height: 16),
+                      ],
+                    ),
                   )),
               Align(
                 alignment: Alignment.centerLeft,
@@ -663,16 +665,14 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
           _card(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _sectionTitle('নতুন সিমের নাম্বার', 'সর্বোচ্চ তিনটি নতুন সিমের নাম্বার লিখুন।'),
-              Row(children: List.generate(3, (index) => Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(right: index == 2 ? 0 : 8),
-                  child: TextField(
-                    controller: newSimNumbers[index],
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(labelText: 'সিম ${_bnDigits(index + 1)}'),
-                  ),
+              ...List.generate(3, (index) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: TextField(
+                  controller: newSimNumbers[index],
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(labelText: 'সিম ${_bnDigits(index + 1)} এর নাম্বার'),
                 ),
-              ))),
+              )),
             ]),
           ),
           _card(
@@ -698,7 +698,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Remove SIM lock entry',
+                        tooltip: 'সিমের তথ্য মুছুন',
                         onPressed: simLocks.length == 1 ? null : () => setState(() {
                           row.dispose();
                           simLocks.removeAt(entry.key);
