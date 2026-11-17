@@ -42,7 +42,10 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
   bool saving = false;
 
   String get monthKey => DateFormat('yyyy-MM').format(selectedMonth);
-  String get monthLabel => DateFormat('MMMM yyyy').format(selectedMonth);
+  String get monthLabel {
+    const months = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+    return '${months[selectedMonth.month - 1]} ${selectedMonth.year}';
+  }
 
   @override
   void initState() {
@@ -430,7 +433,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
       await file.writeAsBytes(await pdf.save(), flush: true);
       await SharePlus.instance.share(ShareParams(
         files: [XFile(file.path)],
-        text: 'Damarage sheet · $monthLabel',
+        text: 'ডেমারেজ শিট · $monthLabel',
       ));
     } catch (_) {
       _message('পিডিএফ তৈরি করা যায়নি। আবার চেষ্টা করুন।');
@@ -441,7 +444,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
     return pw.TableHelper.fromTextArray(
       headers: ['আইডি', 'নাম', 'হোয়াটসঅ্যাপ', 'কয়েন'],
       data: rows.isEmpty
-          ? [['-', 'No records', '-', '0']]
+          ? [['-', 'কোনো তথ্য নেই', '-', '0']]
           : rows
               .map((row) => [
                     row.id,
@@ -499,7 +502,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         Row(children: [
           Expanded(
             child: Text(
-              '${rows.length} users/participants · ${_formatAmount(total)} coins',
+              '${rows.length} জন · ${_formatAmount(total)} কয়েন',
               style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFE9782A)),
             ),
           ),
@@ -527,13 +530,13 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                     ]),
                   ),
                   IconButton(
-                    tooltip: 'Copy phone number',
+                    tooltip: 'ফোন নম্বর কপি করুন',
                     visualDensity: VisualDensity.compact,
                     onPressed: row.phone.isEmpty
                         ? null
                         : () async {
                             await Clipboard.setData(ClipboardData(text: row.phone));
-                            _message('Phone number copied.');
+                            _message('ফোন নম্বর কপি হয়েছে।');
                           },
                     icon: const Icon(Icons.copy_rounded, size: 17),
                   ),
@@ -543,8 +546,8 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
               )),
         const Divider(height: 18),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('Section total', style: TextStyle(fontWeight: FontWeight.w700)),
-          Text('${_formatAmount(total)} টাকা',
+          const Text('সর্বমোট', style: TextStyle(fontWeight: FontWeight.w700)),
+          Text('${_formatAmount(total)} কয়েন',
               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
         ]),
       ]),
@@ -798,7 +801,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         padding: const EdgeInsets.only(top: 8),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-          Text('${_formatAmount(total)} coins',
+          Text('${_formatAmount(total)} টাকা',
               style: const TextStyle(fontWeight: FontWeight.w900)),
         ]),
       );
