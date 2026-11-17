@@ -200,7 +200,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
       ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     } catch (_) {
       if (mounted) {
-        _message('Could not load this month’s sheet data.');
+        _message('এই মাসের হিসাব লোড করা যায়নি।');
       }
     } finally {
       if (mounted) setState(() => loading = false);
@@ -278,13 +278,17 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
       ...customExpenses.map((row) => row.amount),
       ...simLocks.expand((row) => [row.bkash, row.nagad, row.rocket]),
     ];
+    if (useManualGrandTotal && manualGrandTotal.text.trim().isEmpty) {
+      _message('নিজে মোট লিখলে পরিমাণ দিতে হবে।');
+      return false;
+    }
     if (controllers.any((controller) => !_validAmount(controller))) {
-      _message('Enter valid non-negative amounts in all amount fields.');
+      _message('সব টাকার ঘরে সঠিক শূন্য বা তার বেশি পরিমাণ লিখুন।');
       return false;
     }
     if (superName.text.trim().isEmpty || agentName.text.trim().isEmpty ||
         agentId.text.trim().isEmpty) {
-      _message('Enter the super name, agent name and agent ID.');
+      _message('সুপারের নাম, এজেন্টের নাম ও এজেন্ট আইডি লিখুন।');
       return false;
     }
 
@@ -294,10 +298,10 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         monthKey: monthKey,
         data: _buildData(),
       );
-      if (showMessage) _message('Damarage sheet saved for $monthLabel.');
+      if (showMessage) _message('$monthLabel মাসের হিসাব সংরক্ষণ হয়েছে।');
       return true;
     } catch (_) {
-      _message('Could not save the Damarage sheet.');
+      _message('হিসাব সংরক্ষণ করা যায়নি।');
       return false;
     } finally {
       if (mounted) setState(() => saving = false);
@@ -428,18 +432,18 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
       await file.writeAsBytes(await pdf.save(), flush: true);
       await SharePlus.instance.share(ShareParams(
         files: [XFile(file.path)],
-        text: 'Damarage sheet · $monthLabel',
+        text: 'ডেমারেজের হিসাব · $monthLabel',
       ));
     } catch (_) {
-      _message('Could not generate the PDF. Please try again.');
+      _message('PDF তৈরি করা যায়নি। আবার চেষ্টা করুন।');
     }
   }
 
   pw.Widget _pdfBonusTable(List<_BonusLine> rows) {
     return pw.TableHelper.fromTextArray(
-      headers: ['ID', 'Name', 'WhatsApp', 'Coins'],
+      headers: ['আইডি', 'নাম', 'হোয়াটসঅ্যাপ', 'কয়েন'],
       data: rows.isEmpty
-          ? [['-', 'No records', '-', '0']]
+          ? [['-', 'কোনো তথ্য নেই', '-', '০']]
           : rows
               .map((row) => [
                     row.id,
@@ -487,14 +491,14 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         Row(children: [
           Expanded(
             child: Text(
-              '${rows.length} users/participants · ${_formatAmount(total)} coins',
+              '${_bnDigits(rows.length)} জন · ${_formatAmount(total)} কয়েন',
               style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFE9782A)),
             ),
           ),
         ]),
         const SizedBox(height: 10),
         if (rows.isEmpty)
-          const Text('No matching bonus records for this month.',
+          const Text('এই মাসে কোনো বোনাস রেকর্ড পাওয়া যায়নি।',
               style: TextStyle(color: Color(0xFF7C8490)))
         else
           ...rows.map((row) => Padding(
@@ -515,13 +519,13 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                     ]),
                   ),
                   IconButton(
-                    tooltip: 'Copy phone number',
+                    tooltip: 'ফোন নাম্বার কপি করুন',
                     visualDensity: VisualDensity.compact,
                     onPressed: row.phone.isEmpty
                         ? null
                         : () async {
                             await Clipboard.setData(ClipboardData(text: row.phone));
-                            _message('Phone number copied.');
+                            _message('ফোন নাম্বার কপি হয়েছে।');
                           },
                     icon: const Icon(Icons.copy_rounded, size: 17),
                   ),
@@ -531,7 +535,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
               )),
         const Divider(height: 18),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('Section total', style: TextStyle(fontWeight: FontWeight.w700)),
+          const Text('সর্বমোট', style: TextStyle(fontWeight: FontWeight.w700)),
           Text('${_formatAmount(total)} $unit',
               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
         ]),
@@ -543,7 +547,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
   Widget build(BuildContext context) {
     if (loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Damarage Sheet Generator')),
+        appBar: AppBar(title: const Text('ডেমারেজ শিট তৈরি')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -787,7 +791,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         padding: const EdgeInsets.only(top: 8),
         child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-          Text('${_formatAmount(total)} coins',
+          Text('${_formatAmount(total)} $unit',
               style: const TextStyle(fontWeight: FontWeight.w900)),
         ]),
       );
