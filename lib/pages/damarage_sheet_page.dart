@@ -624,33 +624,29 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
               _currencyAmountField('কমিশন', commissionAmount, commissionCurrency, (v) => setState(() => commissionCurrency = v)), 
               const SizedBox(height: 12),
               ...customExpenses.asMap().entries.map((entry) => Padding(
-                    padding: const EdgeInsets.only(bottom: 9),
-                    child: Row(children: [
-                      Expanded(
-                        flex: 3,
-                        child: TextField(
-                          controller: entry.value.name,
-                          decoration: InputDecoration(labelText: 'Expense ${entry.key + 1}'),
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      TextField(
+                        controller: entry.value.name,
+                        decoration: InputDecoration(labelText: 'খরচের বিবরণ ${entry.key + 1}'),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(children: [
+                        Expanded(child: _amountField('পরিমাণ', entry.value.amount)),
+                        const SizedBox(width: 8),
+                        DropdownButton<String>(value: entry.value.currency, items: const [
+                          DropdownMenuItem(value: 'Taka', child: Text('টাকা')),
+                          DropdownMenuItem(value: 'Coin', child: Text('কয়েন')),
+                        ], onChanged: (v) => setState(() => entry.value.currency = v ?? 'Taka')),
+                        IconButton(
+                          tooltip: 'খরচ মুছুন',
+                          onPressed: () => setState(() {
+                            entry.value.dispose();
+                            customExpenses.removeAt(entry.key);
+                          }),
+                          icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 2,
-                        child: _amountField('পরিমাণ', entry.value.amount),
-                      ),
-                      const SizedBox(width: 6),
-                      DropdownButton<String>(value: entry.value.currency, items: const [
-                        DropdownMenuItem(value: 'Taka', child: Text('টাকা')),
-                        DropdownMenuItem(value: 'Coin', child: Text('কয়েন')),
-                      ], onChanged: (v) => setState(() => entry.value.currency = v ?? 'Taka')),
-                      IconButton(
-                        tooltip: 'খরচ মুছুন',
-                        onPressed: () => setState(() {
-                          entry.value.dispose();
-                          customExpenses.removeAt(entry.key);
-                        }),
-                        icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                      ),
+                      ]),
                     ]),
                   )),
               Align(
@@ -668,16 +664,14 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
           _card(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _sectionTitle('নতুন সিম নিলে নিচে নাম্বারগুলো লিখুন', 'সর্বোচ্চ তিনটি নম্বর যোগ করতে পারবেন।'),
-              Row(children: List.generate(3, (index) => Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(right: index == 2 ? 0 : 8),
-                  child: TextField(
-                    controller: newSimNumbers[index],
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(labelText: 'সিম ${index + 1}'),
-                  ),
+              ...List.generate(3, (index) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: TextField(
+                  controller: newSimNumbers[index],
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(labelText: 'সিম ${index + 1} নম্বর'),
                 ),
-              ))),
+              )),
             ]),
           ),
           _card(
