@@ -391,8 +391,8 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
           pw.Center(child: pw.Text('মাস: $monthLabel')),
           pw.SizedBox(height: 12),
           pw.TableHelper.fromTextArray(
-            headers: ['সুপারের নাম', 'এজেন্টের নাম'],
-            data: [[superName.text.trim(), agentName.text.trim()]],
+            headers: ['সুপারের নাম', 'এজেন্টের নাম', 'এজেন্ট আইডি'],
+            data: [[superName.text.trim(), agentName.text.trim(), agentId.text.trim()]],
             headerAlignment: pw.Alignment.center,
             cellAlignment: pw.Alignment.center,
             headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey100),
