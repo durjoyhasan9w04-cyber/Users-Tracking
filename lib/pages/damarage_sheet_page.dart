@@ -421,6 +421,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
             style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 8),
+          pw.Text('মুদ্রা রূপান্তর: ১ কয়েন = ১০০ টাকা।', style: const pw.TextStyle(fontSize: 9)),
           pw.Text('অফলাইন কয়েন আলাদাভাবে দেখানো হয়েছে; মোট হিসাবের অন্তর্ভুক্ত নয়।',
               style: const pw.TextStyle(fontSize: 9)),
         ],
@@ -759,7 +760,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
                   style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
               const SizedBox(height: 5),
               Text(
-                'কুইজ কয়েন × ১০০ + সিম লক টাকা + অন্যান্য খরচ (টাকা)',
+                '১ কয়েন = ১০০ টাকা · কুইজ কয়েন × ১০০ + সিম লক টাকা + অন্যান্য খরচ (টাকা)',
                 style: const TextStyle(color: Color(0xFF7C8490), fontSize: 12),
               ),
               const SizedBox(height: 8),
