@@ -154,6 +154,25 @@ class QuizDatabase {
     });
   }
 
+  Future<int> updateParticipant({required int participantId, required String name, required String phone, String notes = ''}) async {
+    final db = await database;
+    return db.update('quiz_participants', {
+      'name': name.trim(),
+      'phone': phone.trim(),
+      'notes': notes.trim(),
+    }, where: 'id = ?', whereArgs: [participantId]);
+  }
+
+  Future<void> deleteParticipant(int participantId) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      // Remove dependent quiz-only bonuses explicitly because their FK is RESTRICT.
+      await txn.delete('quiz_bonus_entries', where: 'participant_id = ?', whereArgs: [participantId]);
+      await txn.delete('quiz_participations', where: 'participant_id = ?', whereArgs: [participantId]);
+      await txn.delete('quiz_participants', where: 'id = ?', whereArgs: [participantId]);
+    });
+  }
+
   Future<int> linkRegularUser(int participantId, int userId) async {
     final db = await database;
     return db.update('quiz_participants', {'linked_user_id': userId},
