@@ -6,7 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
-import 'package:bangla_pdf/widgets.dart' as pw;
+import 'package:bangla_pdf/bangla_pdf.dart' as bp;
+import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 
 import '../data/app_database.dart';
@@ -356,93 +357,108 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(28),
         build: (context) => [
-          pw.Center(child: pw.Text('ডেমারেজের বিস্তারিত হিসাব',
+          pw.Center(child: bp.Text('ডেমারেজের বিস্তারিত হিসাব',
               style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold))),
           pw.SizedBox(height: 5),
-          pw.Center(child: pw.Text('মাস: $monthLabel')),
+          pw.Center(child: bp.Text('মাস: $monthLabel')),
           pw.SizedBox(height: 12),
-          pw.TableHelper.fromTextArray(
-            headers: ['সুপারের নাম', 'এজেন্টের নাম', 'এজেন্ট আইডি'],
-            data: [[superName.text.trim(), agentName.text.trim(), agentId.text.trim()]],
-            headerAlignment: pw.Alignment.center,
+          bp.Table(
+            data: [
+              ['সুপারের নাম', 'এজেন্টের নাম', 'এজেন্ট আইডি'],
+              [superName.text.trim(), agentName.text.trim(), agentId.text.trim()],
+            ],
+            headerCount: 1,
+            fontSize: 9.5,
+            headerStyle: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+            headerAlignment: pw.TextAlign.center,
             cellAlignment: pw.Alignment.center,
-            headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey100),
-            border: pw.TableBorder.all(color: PdfColors.blueGrey300, width: 0.6),
+            headerColor: PdfColors.blueGrey100,
+            borderColor: PdfColors.blueGrey300,
             cellPadding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           ),
           pw.SizedBox(height: 16),
-          pw.Center(child: pw.Text('অফলাইন থেকে কয়েন দিতে বলা হলে',
+          pw.Center(child: bp.Text('অফলাইন থেকে কয়েন দিতে বলা হলে',
               style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold))),
           pw.SizedBox(height: 6),
           _pdfBonusTable(offlineRows),
           pw.Align(
             alignment: pw.Alignment.centerRight,
-            child: pw.Text('মোট কয়েন: ${_formatAmount(offlineTotal)}',
+            child: bp.Text('মোট কয়েন: ${_formatAmount(offlineTotal)}',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(height: 14),
-          pw.Center(child: pw.Text('কুইজের টাকার হিসাব',
+          pw.Center(child: bp.Text('কুইজের টাকার হিসাব',
               style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold))),
           pw.SizedBox(height: 6),
           _pdfBonusTable(quizRows),
           pw.Align(
             alignment: pw.Alignment.centerRight,
-            child: pw.Text('মোট কয়েন: ${_formatAmount(quizTotal)}',
+            child: bp.Text('মোট কয়েন: ${_formatAmount(quizTotal)}',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(height: 14),
-          pw.Center(child: pw.Text('অন্যান্য খরচ হিসাব',
+          pw.Center(child: bp.Text('অন্যান্য খরচ হিসাব',
               style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold))),
           pw.SizedBox(height: 6),
-          pw.TableHelper.fromTextArray(
-            headers: ['খরচের বিবরণ', 'পরিমাণ'],
-            data: expenseRows,
-            headerAlignment: pw.Alignment.center,
+          bp.Table(
+            data: [
+              ['খরচের বিবরণ', 'পরিমাণ'],
+              ...expenseRows,
+            ],
+            headerCount: 1,
+            fontSize: 9.5,
+            headerStyle: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
+            headerAlignment: pw.TextAlign.center,
             cellAlignment: pw.Alignment.center,
-            headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey100),
-            border: pw.TableBorder.all(color: PdfColors.blueGrey300, width: 0.6),
+            headerColor: PdfColors.blueGrey100,
+            borderColor: PdfColors.blueGrey300,
             cellPadding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           ),
           pw.Align(
             alignment: pw.Alignment.centerRight,
-            child: pw.Text('অন্যান্য খরচ মোট: ${_formatAmount(otherExpensesTotal)} টাকা',
+            child: bp.Text('অন্যান্য খরচ মোট: ${_formatAmount(otherExpensesTotal)} টাকা',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(height: 14),
-          pw.Center(child: pw.Text('নতুন সিম নিলে নিচে নাম্বারগুলো লিখুন',
+          pw.Center(child: bp.Text('নতুন সিম নিলে নিচে নাম্বারগুলো লিখুন',
               style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold))),
-          pw.Text(newSimNumbers.asMap().entries
+          bp.Text(newSimNumbers.asMap().entries
               .map((entry) => '${entry.key + 1}. ${entry.value.text.trim()}')
               .join('     ')),
           pw.SizedBox(height: 14),
-          pw.Center(child: pw.Text('সিম লকের বিস্তারিত হিসাব',
+          pw.Center(child: bp.Text('সিম লকের বিস্তারিত হিসাব',
               style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold))),
           pw.SizedBox(height: 6),
-          pw.TableHelper.fromTextArray(
-            headers: ['নাম্বার', 'বিকাশ', 'নগদ', 'রকেট', 'মোট (টাকা)'],
-            data: lockRows.isEmpty ? [['-', '0', '0', '0', '0']] : lockRows,
-            headerAlignment: pw.Alignment.center,
+          bp.Table(
+            data: [
+              ['নাম্বার', 'বিকাশ', 'নগদ', 'রকেট', 'মোট (টাকা)'],
+              ...(lockRows.isEmpty ? [['-', '0', '0', '0', '0']] : lockRows),
+            ],
+            headerCount: 1,
+            fontSize: 9,
+            headerStyle: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+            headerAlignment: pw.TextAlign.center,
             cellAlignment: pw.Alignment.center,
-            headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey100),
-            border: pw.TableBorder.all(color: PdfColors.blueGrey300, width: 0.6),
+            headerColor: PdfColors.blueGrey100,
+            borderColor: PdfColors.blueGrey300,
             cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 7),
           ),
           pw.Align(
             alignment: pw.Alignment.centerRight,
-            child: pw.Text('সিম লক মোট: ${_formatAmount(simLockTotal)} টাকা',
+            child: bp.Text('সিম লক মোট: ${_formatAmount(simLockTotal)} টাকা',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
           ),
           pw.SizedBox(height: 14),
-          pw.Text('প্রমাণ সুপারকে দেওয়া হয়েছে: ${proofGiven ? 'হ্যাঁ' : 'না'}'),
-          pw.Text('কোম্পানি সিম ক্ষতিপূরণ: ${_formatAmount(_amount(companyCompensation))} টাকা'),
+          bp.Text('প্রমাণ সুপারকে দেওয়া হয়েছে: ${proofGiven ? 'হ্যাঁ' : 'না'}'),
+          bp.Text('কোম্পানি সিম ক্ষতিপূরণ: ${_formatAmount(_amount(companyCompensation))} টাকা'),
           pw.Divider(),
-          pw.Text(
+          bp.Text(
             'মোট= কুইজ+সিম লক+অন্যান্য খরচ = ${_formatAmount(finalTotal)} টাকা',
             style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
           ),
           pw.SizedBox(height: 8),
-          pw.Text('মুদ্রা রূপান্তর: ১ কয়েন = ১০০ টাকা।', style: const pw.TextStyle(fontSize: 9)),
-          pw.Text('অফলাইন কয়েন আলাদাভাবে দেখানো হয়েছে; মোট হিসাবের অন্তর্ভুক্ত নয়।',
+          bp.Text('মুদ্রা রূপান্তর: ১ কয়েন = ১০০ টাকা।', style: const pw.TextStyle(fontSize: 9)),
+          bp.Text('অফলাইন কয়েন আলাদাভাবে দেখানো হয়েছে; মোট হিসাবের অন্তর্ভুক্ত নয়।',
               style: const pw.TextStyle(fontSize: 9)),
         ],
       ));
@@ -470,7 +486,7 @@ class _DamarageSheetPageState extends State<DamarageSheetPage> {
           color: header ? PdfColors.blueGrey100 : PdfColors.white,
           border: pw.Border.all(color: PdfColors.blueGrey300, width: 0.6),
         ),
-        child: pw.Text(
+        child: bp.Text(
           value,
           textAlign: pw.TextAlign.center,
           style: pw.TextStyle(
