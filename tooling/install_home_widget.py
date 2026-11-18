@@ -373,7 +373,7 @@ if not any(n.tag == "receiver" and n.get(A + "name") == receiver_name for n in a
 if not any(n.tag == "activity" and n.get(A + "name") == activity_name for n in app):
     ET.SubElement(app, "activity", {
         A+"name": activity_name, A+"exported": "false",
-        A+"excludeFromRecents": "true", A+"theme": "@android:style/Theme.Material.DayNight.Dialog.Alert",
+        A+"excludeFromRecents": "true", A+"theme": "@android:style/Theme.Material.Light.Dialog.Alert",
         A+"windowSoftInputMode": "adjustResize"
     })
 tree.write(manifest, encoding="utf-8", xml_declaration=True)
