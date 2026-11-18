@@ -376,18 +376,18 @@ installer_resources = {
 ''',
     "drawable/widget_user_hub_background.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="@color/widget_background"/><corners android:radius="16dp"/></shape>''',
     "drawable/widget_metric_background.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="@color/widget_surface"/><corners android:radius="10dp"/></shape>''',
-    "drawable/widget_dp_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#176B50"/><corners android:radius="8dp"/></shape>''',
-    "drawable/widget_bonus_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#315D9A"/><corners android:radius="8dp"/></shape>''',
+    "drawable/widget_dp_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#F36B21"/><corners android:radius="8dp"/></shape>''',
+    "drawable/widget_bonus_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#F08A36"/><corners android:radius="8dp"/></shape>''',
     "values/widget_strings.xml": r'''<resources><string name="user_hub_widget_description">Quick DP and bonus entry</string></resources>''',
     "values/widget_colors.xml": r'''<resources>
-<color name="widget_background">#FFFFFFFF</color><color name="widget_surface">#FFF1F4F7</color>
-<color name="widget_text_primary">#FF18202B</color><color name="widget_text_secondary">#FF687385</color>
-<color name="widget_dp_accent">#FF176B50</color><color name="widget_bonus_accent">#FF315D9A</color>
+<color name="widget_background">#FFF4F5F7</color><color name="widget_surface">#FFFFFFFF</color>
+<color name="widget_text_primary">#FF18202B</color><color name="widget_text_secondary">#FF7C8490</color>
+<color name="widget_dp_accent">#FFF36B21</color><color name="widget_bonus_accent">#FFF08A36</color>
 </resources>''',
     "values-night/widget_colors.xml": r'''<resources>
-<color name="widget_background">#FF171C24</color><color name="widget_surface">#FF252D38</color>
-<color name="widget_text_primary">#FFF2F5F8</color><color name="widget_text_secondary">#FFABB6C4</color>
-<color name="widget_dp_accent">#FF70D6AF</color><color name="widget_bonus_accent">#FF91B9F5</color>
+<color name="widget_background">#FFF4F5F7</color><color name="widget_surface">#FFFFFFFF</color>
+<color name="widget_text_primary">#FF18202B</color><color name="widget_text_secondary">#FF7C8490</color>
+<color name="widget_dp_accent">#FFF36B21</color><color name="widget_bonus_accent">#FFF08A36</color>
 </resources>''',
 }
 src = base / "kotlin" / package_path / "widget"
