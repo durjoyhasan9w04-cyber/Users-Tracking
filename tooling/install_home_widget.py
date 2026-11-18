@@ -331,12 +331,13 @@ installer_resources = {
     android:targetCellWidth="4" android:targetCellHeight="2"
     android:updatePeriodMillis="0" android:initialLayout="@layout/widget_user_hub"
     android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"
-    android:description="@string/app_name" />
+    android:description="@string/user_hub_widget_description" />
 ''',
     "drawable/widget_user_hub_background.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="@color/widget_background"/><corners android:radius="16dp"/></shape>''',
     "drawable/widget_metric_background.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="@color/widget_surface"/><corners android:radius="10dp"/></shape>''',
     "drawable/widget_dp_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#176B50"/><corners android:radius="8dp"/></shape>''',
     "drawable/widget_bonus_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#315D9A"/><corners android:radius="8dp"/></shape>''',
+    "values/widget_strings.xml": r'''<resources><string name="user_hub_widget_description">Quick DP and bonus entry</string></resources>''',
     "values/widget_colors.xml": r'''<resources>
 <color name="widget_background">#FFFFFFFF</color><color name="widget_surface">#FFF1F4F7</color>
 <color name="widget_text_primary">#FF18202B</color><color name="widget_text_secondary">#FF687385</color>
