@@ -51,11 +51,11 @@ object WidgetStore {
         catch (_: Exception) { null }
     }
 
-    fun users(context: Context): List<Pair<Long, String>> {
+    fun users(context: Context): List<WidgetUser> {
         val db = database(context) ?: return emptyList()
         return try {
-            db.rawQuery("SELECT id, name FROM users WHERE archived = 0 ORDER BY name COLLATE NOCASE", null).use { c ->
-                buildList { while (c.moveToNext()) add(c.getLong(0) to c.getString(1)) }
+            db.rawQuery("SELECT id, name, phone FROM users WHERE archived = 0 ORDER BY name COLLATE NOCASE", null).use { c ->
+                buildList { while (c.moveToNext()) add(WidgetUser(c.getLong(0), c.getString(1), c.getString(2))) }
             }
         } catch (_: Exception) { emptyList() } finally { db.close() }
     }
@@ -63,7 +63,7 @@ object WidgetStore {
     fun selectedUserId(context: Context): Long {
         val saved = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(SELECTED_USER, -1L)
         val available = users(context)
-        return if (available.any { it.first == saved }) saved else available.firstOrNull()?.first ?: -1L
+        return if (available.any { it.id == saved }) saved else available.firstOrNull()?.id ?: -1L
     }
 
     fun setSelectedUser(context: Context, id: Long) {
@@ -132,21 +132,20 @@ class UserHubWidgetProvider : AppWidgetProvider() {
 activity = r'''package __PACKAGE__.widget
 
 import __PACKAGE__.R
-
 import android.app.Activity
 import android.os.Bundle
 import android.content.ContentValues
-import android.database.sqlite.SQLiteDatabase
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
-import android.view.View
-import android.view.Window
 import android.view.WindowManager
 import android.widget.ArrayAdapter
-import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ListView
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -154,109 +153,154 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+data class WidgetUser(val id: Long, val name: String, val phone: String)
+
 class WidgetQuickEntryActivity : Activity() {
     private var action = WidgetStore.ACTION_ADD_DP
-    private var users = emptyList<Pair<Long, String>>()
-    private lateinit var userSpinner: Spinner
+    private var users = emptyList<WidgetUser>()
+    private var filtered = emptyList<WidgetUser>()
+    private var selectedId = -1L
+    private lateinit var search: EditText
+    private lateinit var list: ListView
+    private lateinit var adapter: ArrayAdapter<String>
     private lateinit var amount: EditText
-    private lateinit var reasonSpinner: Spinner
+    private lateinit var reason: Spinner
+    private val ink = Color.rgb(24, 32, 43)
+    private val muted = Color.rgb(124, 132, 144)
+    private val orange = Color.rgb(243, 107, 33)
+    private val border = Color.rgb(233, 235, 239)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         action = intent.action ?: WidgetStore.ACTION_ADD_DP
         users = WidgetStore.users(this)
-        window.requestFeature(Window.FEATURE_NO_TITLE)
+        selectedId = WidgetStore.selectedUserId(this)
         window.setBackgroundDrawableResource(android.R.color.transparent)
-        window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
-        if (users.isEmpty()) {
-            showMessage("No users found. Open User Hub and add a user first.")
-            return
-        }
+        window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        window.setDimAmount(0.58f)
+        if (users.isEmpty()) { showMessage("No users found. Open User Hub and add a user first."); return }
         buildForm()
     }
 
-    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
-    private fun label(text: String, size: Float = 14f): TextView = TextView(this).apply {
-        this.text = text; textSize = size; setTextColor(Color.rgb(31, 41, 55))
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+    private fun shape(color: Int, radius: Int, stroke: Int = 0) = GradientDrawable().apply {
+        setColor(color); cornerRadius = dp(radius).toFloat()
+        if (stroke != 0) setStroke(dp(1), stroke)
     }
+    private fun text(value: String, size: Float, color: Int = ink) = TextView(this).apply {
+        text = value; textSize = size; setTextColor(color)
+    }
+    private fun field(hintText: String, numeric: Boolean = false) = EditText(this).apply {
+        hint = hintText; textSize = 15f; setTextColor(ink); setHintTextColor(muted)
+        setSingleLine(true); setPadding(dp(15), 0, dp(15), 0); background = shape(Color.WHITE, 15, border)
+        if (numeric) inputType = 8194
+    }
+
     private fun buildForm() {
-        val isSelect = action == WidgetStore.ACTION_SELECT
+        val selectOnly = action == WidgetStore.ACTION_SELECT
         val isBonus = action == WidgetStore.ACTION_ADD_BONUS
         val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(22), dp(18), dp(22), dp(18))
-            setBackgroundColor(Color.WHITE)
+            orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(20), dp(20), dp(18))
+            background = shape(Color.WHITE, 26)
         }
-        panel.addView(label(if (isSelect) "Choose user" else if (isBonus) "Add bonus" else "Add DP", 19f).apply { setTypeface(null, Typeface.BOLD) })
-        panel.addView(label("User", 12f).apply { setPadding(0, dp(14), 0, dp(5)) })
-        userSpinner = Spinner(this)
-        val names = users.map { it.second }
-        userSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, names)
-        val selected = WidgetStore.selectedUserId(this)
-        userSpinner.setSelection(users.indexOfFirst { it.first == selected }.coerceAtLeast(0))
-        panel.addView(userSpinner, LinearLayout.LayoutParams(-1, dp(48)))
+        panel.addView(text(if (selectOnly) "Choose user" else if (isBonus) "Add bonus" else "Add DP", 20f).apply {
+            setTypeface(null, Typeface.BOLD)
+        })
+        panel.addView(text("Search by user name or phone number", 12f, muted).apply {
+            setPadding(0, dp(6), 0, dp(12))
+        })
+        search = field("Search users")
+        search.setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_menu_search, 0, 0, 0)
+        search.compoundDrawablePadding = dp(8)
+        panel.addView(search, LinearLayout.LayoutParams(-1, dp(50)))
 
-        if (!isSelect) {
-            panel.addView(label("Amount (৳)", 12f).apply { setPadding(0, dp(12), 0, dp(5)) })
-            amount = EditText(this).apply {
-                hint = "Enter amount"; inputType = 8194
-                textSize = 18f; setSingleLine(true)
+        filtered = users
+        adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, users.map { it.name + "  ·  " + it.phone })
+        list = ListView(this).apply {
+            this.adapter = this@WidgetQuickEntryActivity.adapter
+            divider = android.graphics.drawable.ColorDrawable(border); dividerHeight = dp(1)
+            background = shape(Color.rgb(244, 245, 247), 14)
+            setPadding(dp(5), dp(3), dp(5), dp(3))
+        }
+        panel.addView(list, LinearLayout.LayoutParams(-1, dp(if (selectOnly) 190 else 128)))
+        list.setOnItemClickListener { _, _, position, _ ->
+            selectedId = filtered[position].id
+            search.setText(filtered[position].name)
+            search.setSelection(search.text.length)
+        }
+        search.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val q = s.toString().trim().lowercase(Locale.ROOT)
+                filtered = users.filter { it.name.lowercase(Locale.ROOT).contains(q) || it.phone.lowercase(Locale.ROOT).contains(q) }
+                adapter.clear()
+                adapter.addAll(filtered.map { it.name + "  ·  " + it.phone })
+                list.visibility = if (filtered.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
             }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        if (!selectOnly) {
+            panel.addView(text("Amount (৳)", 12f, muted).apply { setPadding(0, dp(13), 0, dp(5)) })
+            amount = field("Enter amount", true)
             panel.addView(amount, LinearLayout.LayoutParams(-1, dp(52)))
             if (isBonus) {
-                panel.addView(label("Reason", 12f).apply { setPadding(0, dp(10), 0, dp(4)) })
-                reasonSpinner = Spinner(this)
-                reasonSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, listOf("Other", "Deposit", "Special", "Promotional"))
-                panel.addView(reasonSpinner, LinearLayout.LayoutParams(-1, dp(44)))
+                panel.addView(text("Reason", 12f, muted).apply { setPadding(0, dp(10), 0, dp(4)) })
+                reason = Spinner(this)
+                reason.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, listOf("Other", "Deposit", "Special", "Promotional"))
+                panel.addView(reason, LinearLayout.LayoutParams(-1, dp(44)))
             }
         }
-        val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END; setPadding(0, dp(16), 0, 0) }
-        val cancel = Button(this).apply { text = "Cancel"; setOnClickListener { finish() } }
-        val save = Button(this).apply {
-            text = if (isSelect) "Use this user" else "Save"
-            setOnClickListener { if (isSelect) saveUser() else saveEntry(isBonus) }
-        }
-        buttons.addView(cancel)
-        buttons.addView(save)
-        panel.addView(buttons)
-        setContentView(panel)
-        window.setLayout(dp(330), WindowManager.LayoutParams.WRAP_CONTENT)
+        val actions = LinearLayout(this).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; setPadding(0, dp(15), 0, 0) }
+        actions.addView(TextView(this).apply {
+            text = "Cancel"; textSize = 13f; setTextColor(muted); gravity = Gravity.CENTER
+            setPadding(dp(18), 0, dp(18), 0); setOnClickListener { finish() }
+        }, LinearLayout.LayoutParams(-2, dp(48)))
+        actions.addView(TextView(this).apply {
+            text = if (selectOnly) "Use this user" else "Save"; textSize = 13f
+            setTypeface(null, Typeface.BOLD); setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            setPadding(dp(22), 0, dp(22), 0); background = shape(orange, 30)
+            setOnClickListener { if (selectOnly) saveUser() else saveEntry(isBonus) }
+        }, LinearLayout.LayoutParams(-2, dp(48)))
+        panel.addView(actions)
+        val scroll = android.widget.ScrollView(this).apply { isFillViewport = true; addView(panel) }
+        setContentView(scroll)
+        window.setLayout((resources.displayMetrics.widthPixels * 0.92f).toInt(), WindowManager.LayoutParams.WRAP_CONTENT)
     }
 
     private fun showMessage(message: String) {
-        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(22), dp(20), dp(22), dp(18)); setBackgroundColor(Color.WHITE) }
-        panel.addView(label(message))
-        panel.addView(Button(this).apply { text = "Close"; setOnClickListener { finish() } })
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(22), dp(22), dp(22), dp(18))
+            background = shape(Color.WHITE, 24)
+        }
+        panel.addView(text(message, 15f))
+        panel.addView(TextView(this).apply {
+            text = "Close"; gravity = Gravity.CENTER; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD)
+            background = shape(orange, 28); setPadding(dp(20), dp(13), dp(20), dp(13))
+            setOnClickListener { finish() }
+        })
         setContentView(panel)
-        window.setLayout(dp(330), WindowManager.LayoutParams.WRAP_CONTENT)
+        window.setLayout((resources.displayMetrics.widthPixels * 0.9f).toInt(), WindowManager.LayoutParams.WRAP_CONTENT)
     }
 
     private fun saveUser() {
-        WidgetStore.setSelectedUser(this, users[userSpinner.selectedItemPosition].first)
-        WidgetStore.refresh(this)
-        finish()
+        if (users.none { it.id == selectedId }) { Toast.makeText(this, "Select a user first", Toast.LENGTH_SHORT).show(); return }
+        WidgetStore.setSelectedUser(this, selectedId); WidgetStore.refresh(this); finish()
     }
 
     private fun saveEntry(isBonus: Boolean) {
         val value = amount.text.toString().trim().replace(",", "").toDoubleOrNull()
-        if (value == null || !value.isFinite() || value <= 0.0) {
-            amount.error = "Enter an amount greater than zero"; return
-        }
-        val userId = users[userSpinner.selectedItemPosition].first
+        if (value == null || !value.isFinite() || value <= 0.0) { amount.error = "Enter an amount greater than zero"; return }
+        if (users.none { it.id == selectedId }) { Toast.makeText(this, "Select a user first", Toast.LENGTH_SHORT).show(); return }
         val db = WidgetStore.database(this)
-        if (db == null) {
-            Toast.makeText(this, "Open User Hub once before using the widget.", Toast.LENGTH_LONG).show()
-            finish(); return
-        }
+        if (db == null) { Toast.makeText(this, "Open User Hub once before using the widget.", Toast.LENGTH_LONG).show(); finish(); return }
         try {
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
             val now = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US).format(Date())
-            val values = ContentValues().apply {
-                put("user_id", userId); put("entry_date", today); put("created_at", now)
-            }
+            val values = ContentValues().apply { put("user_id", selectedId); put("entry_date", today); put("created_at", now) }
             if (isBonus) {
                 values.put("amount", value)
-                values.put("reason", listOf("Other", "Deposit", "Special", "Promotional")[reasonSpinner.selectedItemPosition])
+                values.put("reason", listOf("Other", "Deposit", "Special", "Promotional")[reason.selectedItemPosition])
                 values.putNull("related_dp"); values.put("notes", "")
                 db.insertOrThrow("bonus_entries", null, values)
             } else {
@@ -264,8 +308,7 @@ class WidgetQuickEntryActivity : Activity() {
                 values.put("total", value); values.put("dp_count", 1); values.put("contacted", 0); values.put("notes", "")
                 db.insertOrThrow("dp_entries", null, values)
             }
-            WidgetStore.setSelectedUser(this, userId)
-            WidgetStore.refresh(this)
+            WidgetStore.setSelectedUser(this, selectedId); WidgetStore.refresh(this)
             Toast.makeText(this, if (isBonus) "Bonus saved" else "DP saved", Toast.LENGTH_SHORT).show()
             finish()
         } catch (_: Exception) {
@@ -273,7 +316,7 @@ class WidgetQuickEntryActivity : Activity() {
         } finally { db.close() }
     }
 }
-'''.replace("__PACKAGE__", package)
+'''.replace("__PACKAGE__", package);
 
 layout = r'''<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
