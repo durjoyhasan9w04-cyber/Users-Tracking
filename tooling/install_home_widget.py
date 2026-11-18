@@ -237,7 +237,7 @@ class WidgetQuickEntryActivity : Activity() {
         panel.addView(search, LinearLayout.LayoutParams(-1, dp(50)))
 
         filtered = users
-        adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, users.map { it.name + "  ·  " + it.phone })
+        adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, users.map { (if (it.id == selectedId) "✓  " else "") + it.name + "  ·  " + it.phone })
         list = ListView(this).apply {
             this.adapter = this@WidgetQuickEntryActivity.adapter
             divider = android.graphics.drawable.ColorDrawable(border); dividerHeight = dp(1)
@@ -247,6 +247,7 @@ class WidgetQuickEntryActivity : Activity() {
         panel.addView(list, LinearLayout.LayoutParams(-1, dp(if (selectOnly) 190 else 128)))
         list.setOnItemClickListener { _, _, position, _ ->
             selectedId = filtered[position].id
+            adapter.clear(); adapter.addAll(filtered.map { (if (it.id == selectedId) "✓  " else "") + it.name + "  ·  " + it.phone }); adapter.notifyDataSetChanged()
             search.setText(filtered[position].name)
             search.setSelection(search.text.length)
         }
@@ -256,7 +257,7 @@ class WidgetQuickEntryActivity : Activity() {
                 val q = s.toString().trim().lowercase(Locale.ROOT)
                 filtered = users.filter { it.name.lowercase(Locale.ROOT).contains(q) || it.phone.lowercase(Locale.ROOT).contains(q) }
                 adapter.clear()
-                adapter.addAll(filtered.map { it.name + "  ·  " + it.phone })
+                adapter.addAll(filtered.map { (if (it.id == selectedId) "✓  " else "") + it.name + "  ·  " + it.phone })
                 list.visibility = if (filtered.isEmpty()) android.view.View.GONE else android.view.View.VISIBLE
             }
             override fun afterTextChanged(s: Editable?) {}
@@ -399,7 +400,7 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="BONUS TODAY"
                 android:textColor="@color/widget_text_secondary" android:textSize="9sp" android:textStyle="bold"/>
             <TextView android:id="@+id/widget_bonus_total" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="৳0" android:textColor="@color/widget_bonus_accent" android:textSize="18sp" android:textStyle="bold" android:maxLines="1"/>
+                android:text="0 coins" android:textColor="@color/widget_bonus_accent" android:textSize="18sp" android:textStyle="bold" android:maxLines="1"/>
         </LinearLayout>
     </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical"
