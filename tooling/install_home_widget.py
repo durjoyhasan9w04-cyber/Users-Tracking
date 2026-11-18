@@ -292,13 +292,12 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
     <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
         android:orientation="horizontal" android:paddingTop="5dp">
         <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-            android:orientation="vertical" android:padding="7dp" android:background="@drawable/widget_metric_background">
+            android:orientation="vertical" android:padding="7dp" android:layout_marginEnd="7dp" android:background="@drawable/widget_metric_background">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DP TODAY"
                 android:textColor="@color/widget_text_secondary" android:textSize="9sp" android:textStyle="bold"/>
             <TextView android:id="@+id/widget_dp_total" android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="৳0" android:textColor="@color/widget_dp_accent" android:textSize="18sp" android:textStyle="bold" android:maxLines="1"/>
         </LinearLayout>
-        <View android:layout_width="7dp" android:layout_height="1dp"/>
         <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
             android:orientation="vertical" android:padding="7dp" android:background="@drawable/widget_metric_background">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="BONUS TODAY"
@@ -313,9 +312,8 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
             android:layout_weight="1" android:text="Select user" android:textColor="@color/widget_text_primary"
             android:textSize="11sp" android:textStyle="bold" android:maxLines="1"/>
         <TextView android:id="@+id/widget_add_dp" android:layout_width="wrap_content" android:layout_height="30dp"
-            android:gravity="center" android:paddingLeft="9dp" android:paddingRight="9dp" android:text="+ Add DP"
+            android:gravity="center" android:paddingLeft="9dp" android:paddingRight="9dp" android:layout_marginEnd="5dp" android:text="+ Add DP"
             android:textColor="#FFFFFFFF" android:textSize="10sp" android:textStyle="bold" android:background="@drawable/widget_dp_button"/>
-        <View android:layout_width="5dp" android:layout_height="1dp"/>
         <TextView android:id="@+id/widget_add_bonus" android:layout_width="wrap_content" android:layout_height="30dp"
             android:gravity="center" android:paddingLeft="9dp" android:paddingRight="9dp" android:text="+ Bonus"
             android:textColor="#FFFFFFFF" android:textSize="10sp" android:textStyle="bold" android:background="@drawable/widget_bonus_button"/>
