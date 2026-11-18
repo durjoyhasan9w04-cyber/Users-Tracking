@@ -162,6 +162,8 @@ import android.graphics.drawable.GradientDrawable
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ArrayAdapter
 import android.widget.EditText
@@ -233,6 +235,7 @@ class WidgetQuickEntryActivity : Activity() {
     private fun buildForm() {
         val selectOnly = action == WidgetStore.ACTION_SELECT
         val isBonus = action == WidgetStore.ACTION_ADD_BONUS
+        if (selectOnly) { buildUserPickerSheet(); return }
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(20), dp(20), dp(18))
             background = shape(Color.WHITE, 26)
@@ -301,6 +304,91 @@ class WidgetQuickEntryActivity : Activity() {
         val scroll = android.widget.ScrollView(this).apply { isFillViewport = true; addView(panel) }
         setContentView(scroll)
         window.setLayout((resources.displayMetrics.widthPixels * 0.92f).toInt(), WindowManager.LayoutParams.WRAP_CONTENT)
+    }
+
+    // Mirrors the app's AppDropdownSheet: bottom sheet, search, orange selected row and confirm.
+    private fun buildUserPickerSheet() {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(12), dp(20), dp(20))
+            background = GradientDrawable().apply {
+                setColor(Color.WHITE)
+                cornerRadii = floatArrayOf(dp(28).toFloat(), dp(28).toFloat(), dp(28).toFloat(), dp(28).toFloat(), 0f, 0f, 0f, 0f)
+            }
+        }
+        panel.addView(View(this).apply {
+            background = shape(Color.rgb(213, 217, 224), 8)
+        }, LinearLayout.LayoutParams(dp(42), dp(4)).apply { gravity = Gravity.CENTER; bottomMargin = dp(16) })
+        val heading = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; orientation = LinearLayout.HORIZONTAL }
+        heading.addView(text("Select user", 19f).apply { setTypeface(null, Typeface.BOLD) }, LinearLayout.LayoutParams(0, dp(42), 1f))
+        heading.addView(TextView(this).apply {
+            text = "✕"; textSize = 21f; setTextColor(muted); gravity = Gravity.CENTER
+            setOnClickListener { finish() }
+        }, LinearLayout.LayoutParams(dp(42), dp(42)))
+        panel.addView(heading)
+        search = field("Search users")
+        search.setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_menu_search, 0, 0, 0)
+        search.compoundDrawablePadding = dp(10)
+        search.background = shape(Color.rgb(242, 243, 246), 14)
+        panel.addView(search, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(8); bottomMargin = dp(12) })
+        filtered = users
+        val rows = object : android.widget.BaseAdapter() {
+            override fun getCount() = filtered.size
+            override fun getItem(position: Int) = filtered[position]
+            override fun getItemId(position: Int) = filtered[position].id
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val user = getItem(position)
+                val active = user.id == selectedId
+                val row = LinearLayout(this@WidgetQuickEntryActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(12), dp(12), dp(12), dp(12))
+                    background = shape(if (active) Color.rgb(255, 240, 231) else Color.TRANSPARENT, 15)
+                }
+                val label = LinearLayout(this@WidgetQuickEntryActivity).apply { orientation = LinearLayout.VERTICAL }
+                label.addView(text(user.name, 15f, if (active) Color.rgb(232, 93, 22) else ink).apply {
+                    setTypeface(null, if (active) Typeface.BOLD else Typeface.NORMAL)
+                })
+                label.addView(text(user.phone, 12f, muted).apply { setPadding(0, dp(3), 0, 0) })
+                row.addView(label, LinearLayout.LayoutParams(0, -2, 1f))
+                row.addView(TextView(this@WidgetQuickEntryActivity).apply {
+                    text = if (active) "✓" else ""
+                    textSize = 16f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
+                    background = if (active) shape(orange, 30) else GradientDrawable().apply {
+                        setColor(Color.TRANSPARENT); shape = GradientDrawable.OVAL; setStroke(dp(2), Color.rgb(205, 210, 220))
+                    }
+                }, LinearLayout.LayoutParams(dp(26), dp(26)))
+                return row
+            }
+        }
+        list = ListView(this).apply {
+            adapter = rows
+            divider = null
+            isVerticalScrollBarEnabled = false
+        }
+        panel.addView(list, LinearLayout.LayoutParams(-1, dp(260)))
+        list.setOnItemClickListener { _, _, position, _ ->
+            selectedId = filtered[position].id
+            rows.notifyDataSetChanged()
+        }
+        search.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val q = s.toString().trim().lowercase(Locale.ROOT)
+                filtered = users.filter { it.name.lowercase(Locale.ROOT).contains(q) || it.phone.lowercase(Locale.ROOT).contains(q) }
+                rows.notifyDataSetChanged()
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+        panel.addView(TextView(this).apply {
+            text = "Confirm"; textSize = 14f; setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            background = shape(orange, 16)
+            setOnClickListener { saveUser() }
+        }, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(12) })
+        setContentView(panel)
+        window.setGravity(Gravity.BOTTOM)
+        window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
     }
 
     private fun showAddUserForm() {
