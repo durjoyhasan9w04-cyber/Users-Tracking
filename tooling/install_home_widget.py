@@ -22,6 +22,8 @@ A = "{" + android_ns + "}"
 # Native widget provider and refresh actions.
 provider = r'''package __PACKAGE__.widget
 
+import __PACKAGE__.R
+
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -128,6 +130,8 @@ class UserHubWidgetProvider : AppWidgetProvider() {
 '''.replaceAll("__PACKAGE__", package)
 
 activity = r'''package __PACKAGE__.widget
+
+import __PACKAGE__.R
 
 import android.app.Activity
 import android.os.Bundle
