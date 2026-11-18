@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, 'feature/**']
   pull_request:
-    branches: [main]
+    branches: [main, 'feature/**']
   workflow_dispatch:
 
 permissions:
@@ -29,6 +29,9 @@ jobs:
 
       - name: Generate Android project files
         run: flutter create --platforms=android --project-name user_hub .
+
+      - name: Install compact User Hub home-screen widget
+        run: python3 tooling/install_home_widget.py
 
       - name: Install monochrome notification outline icon
         run: |
