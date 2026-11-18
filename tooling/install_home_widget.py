@@ -43,6 +43,8 @@ object WidgetStore {
     const val ACTION_ADD_DP = "com.userhub.widget.ADD_DP"
     const val ACTION_ADD_BONUS = "com.userhub.widget.ADD_BONUS"
     const val ACTION_SELECT = "com.userhub.widget.SELECT_USER"
+    const val ACTION_ADD_USER = "com.userhub.widget.ADD_USER"
+    const val RECENT_USERS = "recent_user_ids"
 
     fun database(context: Context): SQLiteDatabase? {
         val file = context.getDatabasePath("user_hub.db")
@@ -67,7 +69,14 @@ object WidgetStore {
     }
 
     fun setSelectedUser(context: Context, id: Long) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong(SELECTED_USER, id).apply()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val recent = prefs.getString(RECENT_USERS, "")!!.split(",").mapNotNull { it.toLongOrNull() }.filter { it != id }
+        prefs.edit().putLong(SELECTED_USER, id).putString(RECENT_USERS, (listOf(id) + recent).take(3).joinToString(",")).apply()
+    }
+    fun recentUsers(context: Context): List<WidgetUser> {
+        val ids = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(RECENT_USERS, "")!!.split(",").mapNotNull { it.toLongOrNull() }
+        val all = users(context).associateBy { it.id }
+        return ids.mapNotNull { all[it] }.take(3)
     }
 
     fun refresh(context: Context) {
@@ -109,8 +118,8 @@ class UserHubWidgetProvider : AppWidgetProvider() {
         }
         val users = WidgetStore.users(context)
         if (users.isEmpty()) name = "No users yet"
-        views.setTextViewText(R.id.widget_dp_total, "৳" + WidgetStore.money(dp))
-        views.setTextViewText(R.id.widget_bonus_total, "৳" + WidgetStore.money(bonus))
+        views.setTextViewText(R.id.widget_dp_total, WidgetStore.money(dp) + " coins")
+        views.setTextViewText(R.id.widget_bonus_total, WidgetStore.money(bonus) + " coins")
         views.setTextViewText(R.id.widget_user_name, name)
         views.setTextViewText(R.id.widget_status, if (users.isEmpty()) "Add a user in User Hub" else "Today")
 
@@ -121,6 +130,18 @@ class UserHubWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_add_dp, activityIntent(WidgetStore.ACTION_ADD_DP, 11))
         views.setOnClickPendingIntent(R.id.widget_add_bonus, activityIntent(WidgetStore.ACTION_ADD_BONUS, 12))
         views.setOnClickPendingIntent(R.id.widget_user_name, activityIntent(WidgetStore.ACTION_SELECT, 13))
+        views.setOnClickPendingIntent(R.id.widget_quick_add_user, activityIntent(WidgetStore.ACTION_ADD_USER, 15))
+        val recent = WidgetStore.recentUsers(context)
+        val recentIds = intArrayOf(R.id.widget_recent_1, R.id.widget_recent_2, R.id.widget_recent_3)
+        recentIds.forEachIndexed { index, viewId ->
+            val user = recent.getOrNull(index)
+            views.setTextViewText(viewId, if (user == null) "—" else (if (user.id == userId) "✓ " else "") + user.name.take(9))
+            views.setViewVisibility(viewId, if (user == null) android.view.View.GONE else android.view.View.VISIBLE)
+            if (user != null) {
+                val pick = Intent(context, WidgetQuickEntryActivity::class.java).setAction(WidgetStore.ACTION_SELECT).putExtra("selected_user_id", user.id)
+                views.setOnClickPendingIntent(viewId, PendingIntent.getActivity(context, 30 + index, pick, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            }
+        }
         val refresh = Intent(context, UserHubWidgetProvider::class.java).setAction(WidgetStore.ACTION_REFRESH)
         val refreshPending = PendingIntent.getBroadcast(context, 14, refresh, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         views.setOnClickPendingIntent(R.id.widget_refresh, refreshPending)
@@ -178,7 +199,8 @@ class WidgetQuickEntryActivity : Activity() {
         window.setBackgroundDrawableResource(android.R.color.transparent)
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         window.setDimAmount(0.58f)
-        if (users.isEmpty()) { showMessage("No users found. Open User Hub and add a user first."); return }
+        if (action == WidgetStore.ACTION_ADD_USER || users.isEmpty()) { showAddUserForm(); return }
+        intent.getLongExtra("selected_user_id", -1L).takeIf { it > 0 }?.let { selectedId = it }
         buildForm()
     }
 
@@ -241,7 +263,7 @@ class WidgetQuickEntryActivity : Activity() {
         })
 
         if (!selectOnly) {
-            panel.addView(text("Amount (৳)", 12f, muted).apply { setPadding(0, dp(13), 0, dp(5)) })
+            panel.addView(text("Amount (coins)", 12f, muted).apply { setPadding(0, dp(13), 0, dp(5)) })
             amount = field("Enter amount", true)
             panel.addView(amount, LinearLayout.LayoutParams(-1, dp(52)))
             if (isBonus) {
@@ -266,6 +288,37 @@ class WidgetQuickEntryActivity : Activity() {
         val scroll = android.widget.ScrollView(this).apply { isFillViewport = true; addView(panel) }
         setContentView(scroll)
         window.setLayout((resources.displayMetrics.widthPixels * 0.92f).toInt(), WindowManager.LayoutParams.WRAP_CONTENT)
+    }
+
+    private fun showAddUserForm() {
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(20), dp(20), dp(18)); background = shape(Color.WHITE, 26) }
+        panel.addView(text("Quick add user", 20f).apply { setTypeface(null, Typeface.BOLD) })
+        panel.addView(text("Add a profile to your existing User Hub database", 12f, muted).apply { setPadding(0, dp(5), 0, dp(14)) })
+        val name = field("Full name")
+        val phone = field("Phone number")
+        panel.addView(name, LinearLayout.LayoutParams(-1, dp(50)))
+        panel.addView(phone, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(10) })
+        panel.addView(TextView(this).apply {
+            text = "Save user"; gravity = Gravity.CENTER; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD)
+            background = shape(orange, 28); setPadding(dp(20), dp(14), dp(20), dp(14))
+            setOnClickListener {
+                val n = name.text.toString().trim(); val p = phone.text.toString().trim()
+                if (n.isBlank()) { name.error = "Enter a name"; return@setOnClickListener }
+                if (p.isBlank()) { phone.error = "Enter a phone number"; return@setOnClickListener }
+                val db = WidgetStore.database(this@WidgetQuickEntryActivity) ?: run { Toast.makeText(this@WidgetQuickEntryActivity, "Open User Hub once first", Toast.LENGTH_LONG).show(); return@setOnClickListener }
+                try {
+                    val duplicate = db.rawQuery("SELECT name FROM users WHERE phone=? UNION ALL SELECT name FROM potential_users WHERE phone=? AND status != 'Registered' LIMIT 1", arrayOf(p,p)).use { it.moveToFirst() }
+                    if (duplicate) { phone.error = "This number already exists"; return@setOnClickListener }
+                    val values = ContentValues().apply { put("name", n); put("phone", p); put("notes", ""); put("do_not_contact", 0); put("preferred_language", ""); put("preferred_contact_method", ""); putNull("previous_dp_at"); put("created_at", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US).format(Date())) }
+                    val id = db.insertOrThrow("users", null, values)
+                    WidgetStore.setSelectedUser(this@WidgetQuickEntryActivity, id); WidgetStore.refresh(this@WidgetQuickEntryActivity)
+                    Toast.makeText(this@WidgetQuickEntryActivity, "User added", Toast.LENGTH_SHORT).show(); finish()
+                } catch (_: Exception) { Toast.makeText(this@WidgetQuickEntryActivity, "Could not add user. Check the phone number.", Toast.LENGTH_LONG).show() }
+                finally { db.close() }
+            }
+        }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(16) })
+        setContentView(panel)
+        window.setLayout((resources.displayMetrics.widthPixels * .9f).toInt(), WindowManager.LayoutParams.WRAP_CONTENT)
     }
 
     private fun showMessage(message: String) {
@@ -339,7 +392,7 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DP TODAY"
                 android:textColor="@color/widget_text_secondary" android:textSize="9sp" android:textStyle="bold"/>
             <TextView android:id="@+id/widget_dp_total" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="৳0" android:textColor="@color/widget_dp_accent" android:textSize="18sp" android:textStyle="bold" android:maxLines="1"/>
+                android:text="0 coins" android:textColor="@color/widget_dp_accent" android:textSize="18sp" android:textStyle="bold" android:maxLines="1"/>
         </LinearLayout>
         <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
             android:orientation="vertical" android:padding="7dp" android:background="@drawable/widget_metric_background">
@@ -360,6 +413,13 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
         <TextView android:id="@+id/widget_add_bonus" android:layout_width="wrap_content" android:layout_height="30dp"
             android:gravity="center" android:paddingLeft="9dp" android:paddingRight="9dp" android:text="+ Bonus"
             android:textColor="#FFFFFFFF" android:textSize="10sp" android:textStyle="bold" android:background="@drawable/widget_bonus_button"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingTop="3dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Recent" android:textSize="9sp" android:textColor="@color/widget_text_secondary" android:layout_marginEnd="5dp"/>
+        <TextView android:id="@+id/widget_recent_1" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:gravity="center" android:textSize="9sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background" android:maxLines="1"/>
+        <TextView android:id="@+id/widget_recent_2" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:layout_marginStart="4dp" android:gravity="center" android:textSize="9sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background" android:maxLines="1"/>
+        <TextView android:id="@+id/widget_recent_3" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:layout_marginStart="4dp" android:gravity="center" android:textSize="9sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background" android:maxLines="1"/>
+        <TextView android:id="@+id/widget_quick_add_user" android:layout_width="wrap_content" android:layout_height="24dp" android:layout_marginStart="5dp" android:gravity="center" android:text="+ User" android:textSize="9sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:paddingLeft="7dp" android:paddingRight="7dp" android:background="@drawable/widget_dp_button"/>
     </LinearLayout>
 </LinearLayout>
 '''
