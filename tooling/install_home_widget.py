@@ -200,7 +200,19 @@ class WidgetQuickEntryActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         window.setDimAmount(0.58f)
         if (action == WidgetStore.ACTION_ADD_USER || users.isEmpty()) { showAddUserForm(); return }
-        intent.getLongExtra("selected_user_id", -1L).takeIf { it > 0 }?.let { selectedId = it }
+        // Recent-user chips send an ID: select immediately and close, without showing the picker.
+        val tappedRecentUserId = intent.getLongExtra("selected_user_id", -1L)
+        if (action == WidgetStore.ACTION_SELECT && tappedRecentUserId > 0L) {
+            if (users.any { it.id == tappedRecentUserId }) {
+                WidgetStore.setSelectedUser(this, tappedRecentUserId)
+                WidgetStore.refresh(this)
+                finish()
+            } else {
+                Toast.makeText(this, "That user is no longer available", Toast.LENGTH_SHORT).show()
+                finish()
+            }
+            return
+        }
         buildForm()
     }
 
