@@ -127,7 +127,7 @@ class UserHubWidgetProvider : AppWidgetProvider() {
         return views
     }
 }
-'''.replaceAll("__PACKAGE__", package)
+'''.replace("__PACKAGE__", package)
 
 activity = r'''package __PACKAGE__.widget
 
@@ -273,7 +273,7 @@ class WidgetQuickEntryActivity : Activity() {
         } finally { db.close() }
     }
 }
-'''.replaceAll("__PACKAGE__", package)
+'''.replace("__PACKAGE__", package)
 
 layout = r'''<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
