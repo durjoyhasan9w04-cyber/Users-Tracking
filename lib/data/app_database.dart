@@ -1038,11 +1038,11 @@ class AppDatabase {
           a.action || ' ' || a.entity_type, a.details, NULL, 'audit'
         FROM audit_log a
       )
-      WHERE (? = '' OR name LIKE ? OR phone LIKE ? OR title LIKE ? OR detail LIKE ?
+      WHERE (? = '' OR kind LIKE ? OR name LIKE ? OR phone LIKE ? OR title LIKE ? OR detail LIKE ?
         OR CAST(amount AS TEXT) LIKE ? OR event_date LIKE ?)
       ORDER BY created_at DESC, record_id DESC
       LIMIT ?
-    ''', [term, pattern, pattern, pattern, pattern, pattern, pattern, limit]);
+    ''', [term, pattern, pattern, pattern, pattern, pattern, pattern, pattern, limit]);
   }
 
   Future<List<Map<String, Object?>>> getUserDpCalendar(int userId, {int days = 30}) async {

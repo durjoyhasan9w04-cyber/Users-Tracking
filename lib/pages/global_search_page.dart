@@ -67,7 +67,7 @@ class _GlobalSearchPageState extends State<GlobalSearchPage>{
                 }
               },
               decoration: InputDecoration(
-                hintText: 'Search name, phone, DP, bonus, quiz, task or issue',
+                hintText: 'Search users, phone, DP, bonus, quiz, tasks, reports or issues',
                 prefixIcon: const Icon(Icons.search_rounded),
                 suffixIcon: IconButton(
                   onPressed: () {
