@@ -846,6 +846,7 @@ class AppDatabase {
     required String reason,
     double? relatedDp,
     String notes = '',
+    String? createdAt,
   }) async {
     validateBonusAmounts(amount, relatedDp);
     final db = await database;
@@ -856,7 +857,7 @@ class AppDatabase {
       'reason': reason,
       'related_dp': relatedDp,
       'notes': notes.trim(),
-      'created_at': DateTime.now().toIso8601String(),
+      'created_at': createdAt ?? DateTime.now().toIso8601String(),
     });
   }
 
@@ -917,6 +918,73 @@ class AppDatabase {
       'usual_minute': usualMinute,
       'usual_time_records': usualTimeCount,
     };
+  }
+
+
+  Future<List<Map<String, Object?>>> getUnifiedActivityEvents({int limit = 500}) async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT * FROM (
+        SELECT 'DP' AS kind, d.entry_date AS event_date, d.created_at AS created_at,
+          d.user_id AS user_id, d.id AS record_id, u.name AS name,
+          'DP recorded' AS title, CAST(d.dp_count AS TEXT) || ' DP item(s)' AS detail,
+          d.total AS amount, 'dp' AS source
+        FROM dp_entries d JOIN users u ON u.id = d.user_id
+        UNION ALL
+        SELECT 'Contact', d.entry_date, d.created_at, d.user_id, d.id, u.name,
+          'Marked contacted', 'Contacted today from DP entry', NULL, 'dp_contact'
+        FROM dp_entries d JOIN users u ON u.id = d.user_id WHERE d.contacted = 1
+        UNION ALL
+        SELECT 'Bonus', b.entry_date, b.created_at, b.user_id, b.id, u.name,
+          'Bonus added', b.reason, b.amount, 'bonus'
+        FROM bonus_entries b JOIN users u ON u.id = b.user_id
+        UNION ALL
+        SELECT 'Contact', substr(c.contact_date, 1, 10), c.created_at, c.user_id, c.id, u.name,
+          'Contact logged', c.channel || ' · ' || c.outcome, NULL, 'contact'
+        FROM contact_history c JOIN users u ON u.id = c.user_id
+        UNION ALL
+        SELECT 'Potential contact', substr(pc.contact_at, 1, 10), pc.created_at, NULL,
+          pc.id, p.name, 'Prospect contact', pc.channel || ' · ' || pc.outcome, NULL, 'potential_contact'
+        FROM potential_contact_history pc JOIN potential_users p ON p.id = pc.potential_user_id
+        UNION ALL
+        SELECT 'Potential user', substr(p.created_at, 1, 10), p.created_at, NULL,
+          p.id, p.name, 'Potential user added', p.status, NULL, 'potential_user'
+        FROM potential_users p
+        UNION ALL
+        SELECT 'Issue', substr(i.updated_at, 1, 10), i.updated_at, i.user_id, i.id,
+          COALESCE(u.name, ''), 'Issue updated', i.title || ' · ' || i.status, NULL, 'issue'
+        FROM customer_issues i LEFT JOIN users u ON u.id = i.user_id
+        UNION ALL
+        SELECT 'Task', c.completed_on, c.completed_at, NULL, c.task_id, '',
+          'Task completed', t.title, NULL, 'task'
+        FROM task_completions c JOIN tasks t ON t.id = c.task_id
+        UNION ALL
+        SELECT 'Contact reminder', substr(r.remind_at, 1, 10), r.created_at, r.user_id, r.id,
+          u.name, 'Contact reminder set', r.reason, NULL, 'reminder'
+        FROM contact_reminders r JOIN users u ON u.id = r.user_id
+        UNION ALL
+        SELECT 'System', substr(a.created_at, 1, 10), a.created_at, NULL, a.entity_id, '',
+          a.action || ' ' || a.entity_type, a.details, NULL, 'audit'
+        FROM audit_log a
+      )
+      ORDER BY created_at DESC, record_id DESC
+      LIMIT ?
+    ''', [limit]);
+  }
+
+  Future<List<Map<String, Object?>>> getUserDpCalendar(int userId, {int days = 30}) async {
+    final db = await database;
+    final today = DateTime.now();
+    final start = DateTime(today.year, today.month, today.day).subtract(Duration(days: days - 1));
+    final from = start.toIso8601String().substring(0, 10);
+    final until = DateTime(today.year, today.month, today.day).add(const Duration(days: 1)).toIso8601String().substring(0, 10);
+    return db.rawQuery('''
+      SELECT entry_date, SUM(total) AS day_total, COUNT(*) AS record_count
+      FROM dp_entries
+      WHERE user_id = ? AND entry_date >= ? AND entry_date < ?
+      GROUP BY entry_date
+      ORDER BY entry_date ASC
+    ''', [userId, from, until]);
   }
 
   Future<List<Map<String, Object?>>> getUserTimeline(int userId) async {
@@ -1105,6 +1173,7 @@ class AppDatabase {
     required List<double> amounts,
     bool contacted = false,
     String notes = '',
+    String? createdAt,
   }) async {
     final values = validateDpAmounts(amounts);
     final count = values.where((v) => v > 0).length;
@@ -1116,7 +1185,7 @@ class AppDatabase {
       'dp1': values[0], 'dp2': values[1], 'dp3': values[2],
       'dp4': values[3], 'dp5': values[4],
       'total': total, 'dp_count': count, 'contacted': contacted ? 1 : 0,
-      'notes': notes.trim(), 'created_at': DateTime.now().toIso8601String(),
+      'notes': notes.trim(), 'created_at': createdAt ?? DateTime.now().toIso8601String(),
     });
   }
 
@@ -1525,6 +1594,63 @@ class AppDatabase {
         'created_at': DateTime.now().toIso8601String(),
       });
       return txn.delete('bonus_entries', where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
+
+  Future<bool> undoQuickDpEntry({required int id, required String createdAt}) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final rows = await txn.query('dp_entries', where: 'id = ?', whereArgs: [id], limit: 1);
+      if (rows.isEmpty || rows.first['created_at'] != createdAt) return false;
+      final edits = await txn.query(
+        'audit_log',
+        columns: ['id'],
+        where: "entity_type = ? AND entity_id = ? AND action = 'Edited' AND created_at >= ?",
+        whereArgs: ['DP', id, createdAt],
+        limit: 1,
+      );
+      if (edits.isNotEmpty) return false;
+      final stamp = DateTime.tryParse(createdAt);
+      if (stamp == null) return false;
+      final age = DateTime.now().difference(stamp);
+      if (age.isNegative || age > const Duration(minutes: 10)) return false;
+      final row = rows.first;
+      await txn.insert('audit_log', {
+        'entity_type': 'DP', 'entity_id': id, 'action': 'Quick entry undone',
+        'details': 'User ID ${row['user_id']} · Date ${row['entry_date']} · Total ${row['total']}',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      await txn.delete('dp_entries', where: 'id = ?', whereArgs: [id]);
+      return true;
+    });
+  }
+
+  Future<bool> undoQuickBonusEntry({required int id, required String createdAt}) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final rows = await txn.query('bonus_entries', where: 'id = ?', whereArgs: [id], limit: 1);
+      if (rows.isEmpty || rows.first['created_at'] != createdAt) return false;
+      final edits = await txn.query(
+        'audit_log',
+        columns: ['id'],
+        where: "entity_type = ? AND entity_id = ? AND action = 'Edited' AND created_at >= ?",
+        whereArgs: ['Bonus', id, createdAt],
+        limit: 1,
+      );
+      if (edits.isNotEmpty) return false;
+      final stamp = DateTime.tryParse(createdAt);
+      if (stamp == null) return false;
+      final age = DateTime.now().difference(stamp);
+      if (age.isNegative || age > const Duration(minutes: 10)) return false;
+      final row = rows.first;
+      await txn.insert('audit_log', {
+        'entity_type': 'Bonus', 'entity_id': id, 'action': 'Quick entry undone',
+        'details': 'User ID ${row['user_id']} · Date ${row['entry_date']} · Amount ${row['amount']}',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      await txn.delete('bonus_entries', where: 'id = ?', whereArgs: [id]);
+      return true;
     });
   }
 

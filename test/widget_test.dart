@@ -8,6 +8,18 @@ void main() {
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
     // The refreshed light dashboard uses the new Dashboard title and Sales chart card.
     expect(find.text('Dashboard'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.text('DP Transactions'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('DP Transactions'), findsOneWidget);
+    expect(find.text('Contacted Today'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Sales'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Sales'), findsOneWidget);
     // Quick actions sit below the recent-activity section in the scrollable dashboard.
     await tester.scrollUntilVisible(
