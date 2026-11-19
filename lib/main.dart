@@ -273,7 +273,10 @@ class _MainShellState extends State<MainShell>{
     if(!mounted||action==null)return;
     if(action=='quick') {
       final quick = await QuickEntrySheet.show(context);
-      if (quick != null && mounted) showQuickEntryUndo(context, quick, refresh);
+      if (quick != null && mounted) {
+        refresh();
+        showQuickEntryUndo(context, quick, refresh);
+      }
       return;
     }
     bool? saved;
@@ -319,6 +322,7 @@ class DashboardPage extends StatelessWidget{
       AppDatabase.instance.getDpEntries(),AppDatabase.instance.getBonusEntries(),AppDatabase.instance.monthDpTotal(),
       AppDatabase.instance.getReportTotals(monthStart,nextMonth),AppDatabase.instance.getReportTotals(previousStart,monthStart),
       AppDatabase.instance.todayContactMetrics(),AppDatabase.instance.todayDpTransactions(),AppDatabase.instance.countUsers(),
+      AppDatabase.instance.getUnifiedActivityEvents(limit: 20),QuizDatabase.instance.getActivityEvents(limit: 20),
     ]),builder:(context,snap){
       final d=snap.data,activity=d?[0] as List<Map<String,Object?>>? ?? const [];
       final active=activity.where((r)=>r['activity_status']=='Active').length,attention=(d?[3] as num?)?.toInt()??0,issues=(d?[4] as num?)?.toInt()??0;
@@ -326,10 +330,15 @@ class DashboardPage extends StatelessWidget{
       final totals=d?[8] as Map<String,num>?;
       final contacts=d?[10] as Map<String,int>? ?? const {};
       final dpTransactions=(d?[11] as num?)?.toInt()??0,totalUsers=(d?[12] as num?)?.toInt()??0;
-      final recent=<Map<String,Object?>>[
-        ...dpRows.take(10).map((r)=><String,Object?>{'kind':'DP recorded','name':r['user_name'],'date':r['created_at']??r['entry_date'],'amount':r['total']}),
-        ...bonusRows.take(10).map((r)=><String,Object?>{'kind':'Bonus added','name':r['user_name'],'date':r['created_at']??r['entry_date'],'amount':r['amount']}),
-      ]..sort((x,y)=>(y['date'] as String? ?? '').compareTo(x['date'] as String? ?? ''));
+      final feed=<Map<String,Object?>>[
+        ...(d?[13] as List<Map<String,Object?>>? ?? const []),
+        ...(d?[14] as List<Map<String,Object?>>? ?? const []),
+      ]..sort((a,b)=>(b['created_at'] as String? ?? b['event_date'] as String? ?? '').compareTo(a['created_at'] as String? ?? a['event_date'] as String? ?? ''));
+      final recent=feed.take(5).map((event)=><String,Object?>{
+        'kind':event['title']??event['kind'],'name':event['name'],
+        'date':event['created_at']??event['event_date'],'amount':event['amount'],
+        'detail':event['detail'],'user_id':event['user_id'],
+      }).toList();
       return ListView(padding:const EdgeInsets.fromLTRB(20,4,20,110),children:[
         Row(children:[
           Expanded(child:_DesignMetricCard(label:'Active DP Users',value:'$active',foot:'DP in last 3 days',icon:Icons.people_alt_outlined,tint:const Color(0xFFE8F7EF),iconColor:const Color(0xFF1B9B59),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ActivityStatusPage())))),
@@ -359,8 +368,8 @@ class DashboardPage extends StatelessWidget{
         SectionHeading('Recent Activity',trailing:'View All',onTrailingTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>ActivityCenterPage(onOpenUser:(id)=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>UserProfilePage(userId:id,onChanged:onChanged))))))),
         const SizedBox(height:10),
         if(snap.connectionState==ConnectionState.waiting)const Center(child:Padding(padding:EdgeInsets.all(24),child:CircularProgressIndicator()))
-        else if(recent.isEmpty)const EmptyState(title:'No recent activity',subtitle:'New DP and bonus records will appear here.',compact:true)
-        else ...recent.take(5).map((e)=>_DesignRecentTile(event:e)),
+        else if(recent.isEmpty)const EmptyState(title:'No recent activity',subtitle:'DP, bonuses, contacts, tasks and quiz activity will appear here.',compact:true)
+        else ...recent.map((e)=>_DesignRecentTile(event:e)),
         const SizedBox(height:12),
         Row(children:[
           Expanded(child:OutlinedButton.icon(onPressed:()async{final ok=await showDialog<bool>(context:context,builder:(_)=>const DpEntryDialog());if(ok==true)onChanged();},icon:const Icon(Icons.add),label:const Text('Record DP'))),
