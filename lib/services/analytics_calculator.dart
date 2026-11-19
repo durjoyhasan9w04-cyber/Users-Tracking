@@ -13,15 +13,15 @@ class AnalyticsCalculator {
  static PeriodComparison compare({required Iterable<Map<String,Object?>> dpRows,required Iterable<Map<String,Object?>> bonusRows,required DateTime start,required DateTime end}) {
   final previousStart=start.subtract(end.difference(start));
   double sum(Iterable<Map<String,Object?>> rows,String key,DateTime from,DateTime until)=>rows.where((r){final d=DateTime.tryParse((r['entry_date']??'').toString());return d!=null&&!d.isBefore(from)&&d.isBefore(until);}).fold<double>(0,(s,r)=>s+((r[key] as num?)?.toDouble()??0));
-  int count(Iterable<Map<String,Object?>> rows,DateTime from,DateTime until)=>rows.where((r){final d=DateTime.tryParse((r['entry_date']??'').toString());return d!=null&&!d.isBefore(from)&&d.isBefore(until);}).length;
+  int count(Iterable<Map<String,Object?>> rows,DateTime from,DateTime until)=>rows.where((r){final d=DateTime.tryParse((r['entry_date']??'').toString());return d!=null&&!d.isBefore(from)&&d.isBefore(until);}).fold<int>(0,(s,r)=>s+((r['transaction_count'] as num?)?.toInt()??1));
   return PeriodComparison(currentDp:sum(dpRows,'total',start,end),previousDp:sum(dpRows,'total',previousStart,start),currentBonus:sum(bonusRows,'amount',start,end),previousBonus:sum(bonusRows,'amount',previousStart,start),currentDpCount:count(dpRows,start,end),previousDpCount:count(dpRows,previousStart,start));
  }
  static List<UserConsistency> consistency({required List<Map<String,Object?>> users,required List<Map<String,Object?>> dpRows,required DateTime start,required DateTime end}) {
-  final days=math.max(1,end.difference(start).inDays);final yesterday=DateTime(end.year,end.month,end.day).subtract(const Duration(days:2));
+  final days=math.max(1,end.difference(start).inDays);final today=DateTime(end.year,end.month,end.day).subtract(const Duration(days:1));
   final grouped=<int,Set<String>>{};final totals=<int,double>{};
   for(final r in dpRows){final id=(r['user_id'] as num?)?.toInt();final raw=(r['entry_date']??'').toString();final d=DateTime.tryParse(raw);if(id==null||d==null||d.isBefore(start)||!d.isBefore(end))continue;grouped.putIfAbsent(id,()=>{}).add(raw.substring(0,10));totals[id]=(totals[id]??0)+((r['total'] as num?)?.toDouble()??0);}
   final out=<UserConsistency>[];
-  for(final u in users){final id=(u['id'] as num?)?.toInt();if(id==null)continue;final dates=grouped[id]??<String>{};var streak=0;var cursor=yesterday;while(dates.contains(cursor.toIso8601String().substring(0,10))){streak++;cursor=cursor.subtract(const Duration(days:1));}out.add(UserConsistency(userId:id,name:u['name']?.toString()??'Unknown',activeDays:dates.length,score:((dates.length/days)*100).round().clamp(0,100),currentStreak:streak,totalDp:totals[id]??0));}
+  for(final u in users){final id=(u['id'] as num?)?.toInt();if(id==null)continue;final dates=grouped[id]??<String>{};var streak=0;var cursor=dates.contains(today.toIso8601String().substring(0,10))?today:today.subtract(const Duration(days:1));while(dates.contains(cursor.toIso8601String().substring(0,10))){streak++;cursor=cursor.subtract(const Duration(days:1));}out.add(UserConsistency(userId:id,name:u['name']?.toString()??'Unknown',activeDays:dates.length,score:((dates.length/days)*100).round().clamp(0,100),currentStreak:streak,totalDp:totals[id]??0));}
   out.sort((a,b)=>b.score.compareTo(a.score));return out;
  }
  static Map<String,double> bonusByReason(Iterable<Map<String,Object?>> rows){final out=<String,double>{};for(final r in rows){final k=(r['reason']??'Other').toString();out[k]=(out[k]??0)+((r['amount'] as num?)?.toDouble()??0);}return out;}
