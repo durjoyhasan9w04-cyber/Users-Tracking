@@ -31,6 +31,7 @@ import 'pages/quick_entry_sheet.dart';
 import 'pages/insights_page.dart';
 import 'pages/global_search_page.dart';
 import 'pages/dashboard_layout_page.dart';
+import 'pages/google_drive_backup_page.dart';
 
 
 class AppDropdownField<T> extends StatelessWidget {
@@ -2893,6 +2894,13 @@ class MoreHubPage extends StatelessWidget {
         title: 'Audit history',
         subtitle: 'Review recorded DP and bonus deletions',
         onTap: () => open(context, const AuditHistoryPage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.cloud_lock_outlined,
+        title: 'Encrypted Google Drive backup',
+        subtitle: 'Upload both local databases encrypted with your own passphrase',
+        onTap: () => open(context, const GoogleDriveBackupPage()),
       ),
       const SizedBox(height: 10),
       _MoreTile(
