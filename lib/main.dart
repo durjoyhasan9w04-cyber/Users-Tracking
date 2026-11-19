@@ -29,6 +29,7 @@ import 'ui/sales_chart_card.dart';
 import 'pages/activity_center_page.dart';
 import 'pages/quick_entry_sheet.dart';
 import 'pages/insights_page.dart';
+import 'pages/global_search_page.dart';
 
 
 class AppDropdownField<T> extends StatelessWidget {
@@ -2743,6 +2744,16 @@ class MoreHubPage extends StatelessWidget {
       const SizedBox(height: 6),
       const Text('Manage prospects and customer support records.', maxLines:2, style: TextStyle(color: muted, fontSize:14, height:1.35)),
       const SizedBox(height: 18),
+      _MoreTile(
+        icon: Icons.search_rounded,
+        title: 'Global Search',
+        subtitle: 'Find users, transactions, quizzes, tasks, issues and activity from one place',
+        onTap: () => open(context, GlobalSearchPage(
+          onOpenUser: (id) => open(context, UserProfilePage(userId: id, onChanged: () {})),
+          onOpenReports: () => open(context, const ReportsPage()),
+        )),
+      ),
+      const SizedBox(height: 10),
       _MoreTile(
         icon: Icons.insights_rounded,
         title: 'Advanced Analytics',
