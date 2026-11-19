@@ -6,9 +6,9 @@ void main() {
   testWidgets('User Hub premium dashboard renders', (tester) async {
     await tester.pumpWidget(const UserHubApp());
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
-    // The refreshed light dashboard uses the new Dashboard title and DP Activity card.
+    // The refreshed light dashboard uses the new Dashboard title and Sales chart card.
     expect(find.text('Dashboard'), findsWidgets);
-    expect(find.text('DP Activity'), findsOneWidget);
+    expect(find.text('Sales'), findsOneWidget);
     // Quick actions sit below the recent-activity section in the scrollable dashboard.
     await tester.scrollUntilVisible(
       find.text('Record DP'),
