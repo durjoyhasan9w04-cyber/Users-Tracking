@@ -220,7 +220,7 @@ class QuizDatabase {
   }
 
 
-  Future<List<Map<String, Object?>>> getActivityEvents({int limit = 250}) async {
+  Future<List<Map<String, Object?>>> getActivityEvents({int limit = 250, String search = ''}) async {
     final db = await database;
     return db.rawQuery('''
       SELECT * FROM (
@@ -240,9 +240,10 @@ class QuizDatabase {
           q.title, 'Quiz created', NULL, 'quiz'
         FROM quizzes q
       )
+      WHERE (? = '' OR name LIKE ? OR title LIKE ? OR detail LIKE ?)
       ORDER BY created_at DESC, record_id DESC
       LIMIT ?
-    ''', [limit]);
+    ''', [search.trim(), '%${search.trim()}%', '%${search.trim()}%', '%${search.trim()}%', limit]);
   }
 
   Future<void> close() async {

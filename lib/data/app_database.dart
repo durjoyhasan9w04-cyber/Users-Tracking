@@ -110,6 +110,8 @@ class AppDatabase {
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_users_name_nocase ON users(name COLLATE NOCASE)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at)');
       },
     );
     return _db!;
@@ -921,7 +923,7 @@ class AppDatabase {
   }
 
 
-  Future<List<Map<String, Object?>>> getUnifiedActivityEvents({int limit = 500}) async {
+  Future<List<Map<String, Object?>>> getUnifiedActivityEvents({int limit = 500, String search = ''}) async {
     final db = await database;
     return db.rawQuery('''
       SELECT * FROM (
@@ -967,9 +969,10 @@ class AppDatabase {
           a.action || ' ' || a.entity_type, a.details, NULL, 'audit'
         FROM audit_log a
       )
+      WHERE (? = '' OR name LIKE ? OR title LIKE ? OR detail LIKE ?)
       ORDER BY created_at DESC, record_id DESC
       LIMIT ?
-    ''', [limit]);
+    ''', [search.trim(), '%${search.trim()}%', '%${search.trim()}%', '%${search.trim()}%', limit]);
   }
 
   Future<List<Map<String, Object?>>> getUserDpCalendar(int userId, {int days = 30}) async {

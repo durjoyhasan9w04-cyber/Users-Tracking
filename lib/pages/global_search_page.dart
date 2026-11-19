@@ -16,10 +16,10 @@ class _GlobalSearchPageState extends State<GlobalSearchPage>{
   final term=raw.trim().toLowerCase();if(term.length<2)return [];
   final data=await Future.wait<Object>([
    AppDatabase.instance.getUsers(search:raw),
-   AppDatabase.instance.getUnifiedActivityEvents(limit:500),
+   AppDatabase.instance.getUnifiedActivityEvents(limit:500, search:raw),
    QuizDatabase.instance.getParticipants(search:raw),
    QuizDatabase.instance.getQuizzes(),
-   QuizDatabase.instance.getActivityEvents(limit:250),
+   QuizDatabase.instance.getActivityEvents(limit:250, search:raw),
   ]);
   final hits=<_SearchHit>[];
   for(final u in data[0] as List<Map<String,Object?>>){
