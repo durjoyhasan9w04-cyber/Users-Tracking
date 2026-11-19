@@ -7,13 +7,38 @@ class InsightsPage extends StatefulWidget {const InsightsPage({super.key});@over
 class _InsightsPageState extends State<InsightsPage>{
  late Future<_InsightsData> future;int days=30;
  @override void initState(){super.initState();load();}
- void load(){future=Future.wait<Object>([AppDatabase.instance.getUsers(),AppDatabase.instance.getDpEntries(from:fetchStart,until:end,limit:5000),AppDatabase.instance.getBonusEntries(from:fetchStart,until:end,limit:5000),QuizDatabase.instance.getQuizBonusEntries(from:fetchStart,until:end,limit:5000)]).then((v){
-  final now=DateTime.now();final end=DateTime(now.year,now.month,now.day).add(const Duration(days:1));final start=end.subtract(Duration(days:days));final fetchStart=end.subtract(const Duration(days:180));
-  final users=v[0] as List<Map<String,Object?>>;final dp=v[1] as List<Map<String,Object?>>;final bonus=<Map<String,Object?>>[...(v[2] as List<Map<String,Object?>>),...(v[3] as List<Map<String,Object?>>)];
-  bool inRange(Map<String,Object?> r){final d=DateTime.tryParse((r['entry_date']??'').toString());return d!=null&&!d.isBefore(start)&&d.isBefore(end);}
-  final scopedDp=dp.where(inRange).toList();final scopedBonus=bonus.where(inRange).toList();
-  return _InsightsData(AnalyticsCalculator.compare(dpRows:dp,bonusRows:bonus,start:start,end:end),AnalyticsCalculator.consistency(users:users,dpRows:dp,start:start,end:end),AnalyticsCalculator.bonusByReason(scopedBonus),AnalyticsCalculator.userGrowthByMonth(users),scopedDp);
- });}
+ void load(){
+  final now=DateTime.now();
+  final end=DateTime(now.year,now.month,now.day).add(const Duration(days:1));
+  final start=end.subtract(Duration(days:days));
+  final fetchStart=end.subtract(const Duration(days:180));
+  future=Future.wait<Object>([
+    AppDatabase.instance.getUsers(),
+    AppDatabase.instance.getDpEntries(from:fetchStart,until:end,limit:5000),
+    AppDatabase.instance.getBonusEntries(from:fetchStart,until:end,limit:5000),
+    QuizDatabase.instance.getQuizBonusEntries(from:fetchStart,until:end,limit:5000),
+  ]).then((v){
+    final users=v[0] as List<Map<String,Object?>>;
+    final dp=v[1] as List<Map<String,Object?>>;
+    final bonus=<Map<String,Object?>>[
+      ...(v[2] as List<Map<String,Object?>>),
+      ...(v[3] as List<Map<String,Object?>>),
+    ];
+    bool inRange(Map<String,Object?> row){
+      final date=DateTime.tryParse((row['entry_date']??'').toString());
+      return date!=null&&!date.isBefore(start)&&date.isBefore(end);
+    }
+    final scopedDp=dp.where(inRange).toList();
+    final scopedBonus=bonus.where(inRange).toList();
+    return _InsightsData(
+      AnalyticsCalculator.compare(dpRows:dp,bonusRows:bonus,start:start,end:end),
+      AnalyticsCalculator.consistency(users:users,dpRows:dp,start:start,end:end),
+      AnalyticsCalculator.bonusByReason(scopedBonus),
+      AnalyticsCalculator.userGrowthByMonth(users),
+      scopedDp,
+    );
+  });
+ }
  String coins(num n)=>n.toStringAsFixed(n%1==0?0:2);
  Widget section(String title,Widget child)=>Card(margin:const EdgeInsets.only(bottom:14),child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(title,style:const TextStyle(fontSize:16,fontWeight:FontWeight.w800)),const SizedBox(height:12),child])));
  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Advanced Analytics')),body:FutureBuilder<_InsightsData>(future:future,builder:(context,snap){
