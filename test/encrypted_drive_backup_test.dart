@@ -13,10 +13,10 @@ void main(){
   });
   test('rejects an incorrect passphrase',()async{
    final encrypted=await EncryptedBackupCodec.encrypt(Uint8List.fromList([1,2,3]),'long enough test passphrase');
-   expect(()=>EncryptedBackupCodec.decrypt(encrypted,'wrong passphrase'),throwsA(anything));
+   await expectLater(EncryptedBackupCodec.decrypt(encrypted,'wrong passphrase'),throwsA(anything));
   });
   test('requires a sufficiently long passphrase',()async{
-   expect(()=>EncryptedBackupCodec.encrypt(Uint8List.fromList([1]),'short'),throwsArgumentError);
+   await expectLater(EncryptedBackupCodec.encrypt(Uint8List.fromList([1]),'short'),throwsArgumentError);
   });
  });
 }

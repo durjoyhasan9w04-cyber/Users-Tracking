@@ -454,6 +454,15 @@ class DashboardPage extends StatelessWidget {
   }
 }
 
+class _DesignMetricCard extends StatelessWidget{
+  const _DesignMetricCard({required this.label,required this.value,required this.foot,required this.icon,required this.tint,required this.iconColor,this.onTap});
+  final String label,value,foot;final IconData icon;final Color tint,iconColor;final VoidCallback? onTap;
+  @override Widget build(BuildContext context)=>Card(clipBehavior:Clip.antiAlias,child:InkWell(onTap:onTap,child:Padding(padding:const EdgeInsets.all(15),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    Row(children:[Expanded(child:Text(label,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:12,fontWeight:FontWeight.w600))),const Icon(Icons.more_horiz,color:muted,size:19)]),
+    const SizedBox(height:10),Text(value,maxLines:1,overflow:TextOverflow.ellipsis,style:GoogleFonts.spaceGrotesk(fontSize:27,fontWeight:FontWeight.w800,color:const Color(0xFF18202B))),
+    const SizedBox(height:8),Row(children:[Icon(icon,size:14,color:iconColor),const SizedBox(width:5),Expanded(child:Text(foot,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:10)))]),
+  ]))));
+}
 class _DesignRecentTile extends StatelessWidget{
   const _DesignRecentTile({required this.event});final Map<String,Object?> event;
   @override Widget build(BuildContext context){

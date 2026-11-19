@@ -82,8 +82,7 @@ class GoogleDriveBackupService {
       throw StateError('Google Sign-In is not supported on this device.');
     }
     _account = await GoogleSignIn.instance.authenticate();
-    final authorization = await _account!.authorizationClient.authorizationForScopes(_scopes)
-        ?? await _account!.authorizationClient.authorizeScopes(_scopes);
+    await _token();
     return _account!.email;
   }
 
