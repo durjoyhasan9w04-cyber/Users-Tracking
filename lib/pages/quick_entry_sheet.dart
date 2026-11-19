@@ -49,8 +49,19 @@ class _QuickEntrySheetState extends State<QuickEntrySheet> {
     super.initState();
     mode = widget.initialType == 'Bonus' ? 'Bonus' : 'DP';
     selectedUserId = widget.initialUserId;
-    usersFuture = AppDatabase.instance.getUsers();
+    usersFuture = _loadUsers();
     search.addListener(() => setState(() => query = search.text));
+  }
+
+  Future<List<Map<String, Object?>>> _loadUsers() async {
+    final rows = await AppDatabase.instance.getUsers();
+    if (selectedUserId == null || !rows.any((u) => u['id'] == selectedUserId)) {
+      final prefs = await SharedPreferences.getInstance();
+      final remembered = prefs.getInt(_lastUserKey);
+      selectedUserId = rows.any((u) => u['id'] == remembered) ? remembered : null;
+    }
+    selectedUserId ??= rows.isEmpty ? null : rows.first['id'] as int;
+    return rows;
   }
 
   @override
@@ -110,22 +121,6 @@ class _QuickEntrySheetState extends State<QuickEntrySheet> {
       if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
       if (snapshot.hasError) return const Center(child: Text('Could not load users. Please close and retry.'));
       users = snapshot.data ?? [];
-      if (selectedUserId == null || !users.any((u) => u['id'] == selectedUserId)) {
-        selectedUserId = widget.initialUserId;
-        if (selectedUserId == null || !users.any((u) => u['id'] == selectedUserId)) {
-          return FutureBuilder<SharedPreferences>(
-            future: SharedPreferences.getInstance(),
-            builder: (context, prefsSnapshot) {
-              if (prefsSnapshot.hasData && selectedUserId == null) {
-                final remembered = prefsSnapshot.data!.getInt(_lastUserKey);
-                if (users.any((u) => u['id'] == remembered)) selectedUserId = remembered;
-              }
-              selectedUserId ??= users.isEmpty ? null : users.first['id'] as int;
-              return _form(context);
-            },
-          );
-        }
-      }
       return _form(context);
     },
   );
@@ -134,7 +129,7 @@ class _QuickEntrySheetState extends State<QuickEntrySheet> {
     final filtered = users.where((u) => '${u['name']} ${u['phone']}'.toLowerCase().contains(query.toLowerCase())).toList();
     return SafeArea(child: Padding(
       padding: EdgeInsets.fromLTRB(18, 14, 18, MediaQuery.of(context).viewInsets.bottom + 18),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Center(child: Container(width: 42, height: 4, decoration: BoxDecoration(
           color: Theme.of(context).dividerColor, borderRadius: BorderRadius.circular(4),
         ))),
@@ -186,13 +181,13 @@ class _QuickEntrySheetState extends State<QuickEntrySheet> {
         ),
         const SizedBox(height: 8),
         TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
-        const Spacer(),
+        const SizedBox(height: 16),
         FilledButton.icon(
           onPressed: saving || users.isEmpty ? null : _save,
           icon: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.check_rounded),
           label: Text(saving ? 'Saving…' : 'Save $mode'),
         ),
-      ]),
+      ])),
     ));
   }
 }
