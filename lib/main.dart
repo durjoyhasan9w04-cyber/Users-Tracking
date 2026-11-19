@@ -326,7 +326,6 @@ class DashboardPage extends StatelessWidget {
     final now = DateTime.now();
     final monthStart = DateTime(now.year, now.month);
     final nextMonth = DateTime(now.year, now.month + 1);
-    final previousStart = DateTime(now.year, now.month - 1);
     return FutureBuilder<List<Object?>>(
       future: Future.wait<Object?>([
         AppDatabase.instance.getActivityStatusUsers(),
@@ -334,11 +333,12 @@ class DashboardPage extends StatelessWidget {
         AppDatabase.instance.todayDpTotal(),
         AppDatabase.instance.countFollowUpsDue(),
         AppDatabase.instance.countOpenCustomerIssues(),
-        AppDatabase.instance.getDpEntries(),
-        AppDatabase.instance.getBonusEntries(),
-        AppDatabase.instance.monthDpTotal(),
+        AppDatabase.instance.getDpEntries(
+          from: DateTime(now.year - 1, now.month, now.day),
+          until: DateTime(now.year, now.month, now.day + 1),
+          limit: 3000,
+        ),
         AppDatabase.instance.getReportTotals(monthStart, nextMonth),
-        AppDatabase.instance.getReportTotals(previousStart, monthStart),
         AppDatabase.instance.todayContactMetrics(),
         AppDatabase.instance.todayDpTransactions(),
         AppDatabase.instance.countUsers(),
@@ -355,13 +355,13 @@ class DashboardPage extends StatelessWidget {
         final bonus = (d?[1] as num?)?.toDouble() ?? 0;
         final dpToday = (d?[2] as num?)?.toDouble() ?? 0;
         final dpRows = d?[5] as List<Map<String, Object?>>? ?? const [];
-        final totals = d?[8] as Map<String, num>?;
-        final contacts = d?[10] as Map<String, int>? ?? const {};
-        final dpTransactions = (d?[11] as num?)?.toInt() ?? 0;
-        final totalUsers = (d?[12] as num?)?.toInt() ?? 0;
+        final totals = d?[6] as Map<String, num>?;
+        final contacts = d?[7] as Map<String, int>? ?? const {};
+        final dpTransactions = (d?[8] as num?)?.toInt() ?? 0;
+        final totalUsers = (d?[9] as num?)?.toInt() ?? 0;
         final feed = <Map<String, Object?>>[
-          ...(d?[13] as List<Map<String, Object?>>? ?? const []),
-          ...(d?[14] as List<Map<String, Object?>>? ?? const []),
+          ...(d?[10] as List<Map<String, Object?>>? ?? const []),
+          ...(d?[11] as List<Map<String, Object?>>? ?? const []),
         ]..sort((a, b) => (b['created_at'] as String? ?? b['event_date'] as String? ?? '')
             .compareTo(a['created_at'] as String? ?? a['event_date'] as String? ?? ''));
         final recent = feed.take(5).map((event) => <String, Object?>{
