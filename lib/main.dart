@@ -659,6 +659,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
       AppDatabase.instance.getUserDpInsights(widget.userId),
       AppDatabase.instance.getUserLevelConfig(),
       AppDatabase.instance.getContactReminders(userId: widget.userId),
+      AppDatabase.instance.getUserDpCalendar(widget.userId, days: 30),
     ]);
   }
   Future<void> edit(Map<String, Object?> user) async {
@@ -689,6 +690,17 @@ class _UserProfilePageState extends State<UserProfilePage> {
     await MatchNotificationService.cancelContactReminder(id);
     if (mounted) { setState(load); widget.onChanged(); }
   }
+  Future<void> quickEntry(String type) async {
+    final saved = await QuickEntrySheet.show(context, initialUserId: widget.userId, initialType: type);
+    if (!mounted || saved == null) return;
+    setState(load);
+    widget.onChanged();
+    showQuickEntryUndo(context, saved, () {
+      if (mounted) setState(load);
+      widget.onChanged();
+    });
+  }
+
   String amount(Object? value) {
     final n = (value as num?)?.toDouble() ?? 0;
     return n.toStringAsFixed(n % 1 == 0 ? 0 : 2);
@@ -708,6 +720,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
         final insights = snap.data![2] as Map<String, Object?>;
         final levelConfig = snap.data![3] as UserLevelConfig? ?? UserLevelConfig.defaults;
         final reminders = snap.data![4] as List<Map<String, Object?>>? ?? const [];
+        final dpCalendar = snap.data![5] as List<Map<String, Object?>>? ?? const [];
         final lifetimeLevel = levelConfig.labelFor((user['lifetime_dp'] as num? ?? 0).toDouble(), monthly: false);
         final monthlyLevel = levelConfig.labelFor((user['monthly_dp'] as num? ?? 0).toDouble(), monthly: true);
         final name = user['name'] as String? ?? 'User';
@@ -755,6 +768,20 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 onPressed: () => setContactReminder(user),
                 icon: const Icon(Icons.notifications_active_outlined),
                 label: const Text('Set Reminder'),
+              )),
+            ]),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: OutlinedButton.icon(
+                onPressed: () => quickEntry('DP'),
+                icon: const Icon(Icons.account_balance_wallet_outlined),
+                label: const Text('Quick DP'),
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: FilledButton.icon(
+                onPressed: () => quickEntry('Bonus'),
+                icon: const Icon(Icons.card_giftcard_outlined),
+                label: const Text('Quick Bonus'),
               )),
             ]),
             if (reminders.isNotEmpty) ...[
@@ -845,6 +872,47 @@ class _UserProfilePageState extends State<UserProfilePage> {
                   : 'Average gap between DP days: ${(insights['average_gap'] as num).toStringAsFixed(1)} days',
               style: const TextStyle(color: muted, fontSize: 12),
             ),
+            const SizedBox(height: 20),
+            const SectionHeading('DP activity · Last 30 days', trailing: 'Daily activity'),
+            const SizedBox(height: 10),
+            Builder(builder: (context) {
+              final daily = <String, double>{
+                for (final row in dpCalendar)
+                  row['entry_date'] as String: (row['day_total'] as num).toDouble(),
+              };
+              final peak = daily.values.fold<double>(0, (best, value) => value > best ? value : best);
+              return Card(child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${daily.length} active DP days in the last 30 days', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 12),
+                  GridView.count(
+                    crossAxisCount: 7,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 5,
+                    crossAxisSpacing: 5,
+                    children: List.generate(30, (index) {
+                      final day = DateTime.now().subtract(Duration(days: 29 - index));
+                      final key = day.toIso8601String().substring(0, 10);
+                      final total = daily[key] ?? 0;
+                      final intensity = peak <= 0 ? 0.0 : (total / peak).clamp(0.0, 1.0).toDouble();
+                      final fill = total <= 0 ? const Color(0xFFF0F1F4) : Color.lerp(const Color(0xFFFFE6D9), emerald, intensity)!;
+                      return Tooltip(
+                        message: '${DateFormat('MMM d').format(day)} · ${amount(total)} coins',
+                        child: Container(
+                          decoration: BoxDecoration(color: fill, borderRadius: BorderRadius.circular(6)),
+                          alignment: Alignment.center,
+                          child: Text('${day.day}', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: total > 0 && intensity > .55 ? Colors.white : const Color(0xFF58616E))),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('Darker days indicate higher DP activity.', style: TextStyle(color: muted, fontSize: 11)),
+                ]),
+              ));
+            }),
             const SizedBox(height: 20),
             const SectionHeading('Activity timeline', trailing: 'Newest first'),
             const SizedBox(height: 10),
