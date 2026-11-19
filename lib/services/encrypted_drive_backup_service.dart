@@ -58,12 +58,6 @@ class EncryptedBackupCodec {
     return Uint8List.fromList(plain);
   }
 
-  static Future<void> _clearSqliteSidecars(String databasePath) async {
-    for (final suffix in ['-wal', '-shm']) {
-      final sidecar = File('$databasePath$suffix');
-      if (await sidecar.exists()) await sidecar.delete();
-    }
-  }
 }
 
 class GoogleDriveBackupService {
@@ -231,5 +225,12 @@ class UserHubDriveBackup {
         if (await file.exists()) await file.delete();
       }
     }
+  }
+}
+
+Future<void> _clearSqliteSidecars(String databasePath) async {
+  for (final suffix in ['-wal', '-shm']) {
+    final sidecar = File('$databasePath$suffix');
+    if (await sidecar.exists()) await sidecar.delete();
   }
 }
