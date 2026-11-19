@@ -125,7 +125,7 @@ class _SalesChartCardState extends State<SalesChartCard>
         values = [];
         for (final range in ranges) {
           final firstDay = range.$1;
-          final lastDay = math.min(range.$2, monthDays);
+          final lastDay = range.$2 < monthDays ? range.$2 : monthDays;
           labels.add('$firstDay-${range.$2}');
           dates.add('${firstDay} ${DateFormat('MMM').format(start)} – $lastDay ${DateFormat('MMM').format(start)}');
           if (firstDay > monthDays) {
@@ -287,7 +287,7 @@ class _SalesChartCardState extends State<SalesChartCard>
     final hasRecords = data.values.any((value) => value > 0);
 
     if (data.values.isNotEmpty) {
-      _selectedIndex = _selectedIndex.clamp(0, data.values.length - 1);
+      _selectedIndex = _selectedIndex.clamp(0, data.values.length - 1).toInt();
     }
 
     return Container(
@@ -552,7 +552,7 @@ class _SalesChartPainter extends CustomPainter {
     const gap = 3.0;
     var distance = 0.0;
     while (distance < length) {
-      final end = math.min(distance + dash, length);
+      final end = math.min(distance + dash, length).toDouble();
       canvas.drawLine(
         a + direction * distance,
         a + direction * end,
@@ -667,7 +667,7 @@ class _SalesChartPainter extends CustomPainter {
     final animatedPath = Path();
     for (final metric in metrics) {
       animatedPath.addPath(
-        metric.extractPath(0, metric.length * progress.clamp(0, 1)),
+        metric.extractPath(0, metric.length * progress.clamp(0, 1).toDouble()),
         Offset.zero,
       );
     }
@@ -719,12 +719,12 @@ class _SalesChartPainter extends CustomPainter {
       final boxWidth = math.max(
         66.0,
         math.max(valueText.width, dateText.width) + 16,
-      );
+      ).toDouble();
       const boxHeight = 39.0;
       final boxLeft = (point.dx - boxWidth / 2)
           .clamp(3.0, size.width - boxWidth - 3.0)
           .toDouble();
-      final boxTop = math.max(2.0, point.dy - 49);
+      final boxTop = math.max(2.0, point.dy - 49).toDouble();
       final rect = RRect.fromRectAndRadius(
         Rect.fromLTWH(boxLeft, boxTop, boxWidth, boxHeight),
         const Radius.circular(8),
@@ -742,7 +742,7 @@ class _SalesChartPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = .8,
       );
-      final pointerX = point.dx.clamp(boxLeft + 9, boxLeft + boxWidth - 9);
+      final pointerX = point.dx.clamp(boxLeft + 9, boxLeft + boxWidth - 9).toDouble();
       final pointer = Path()
         ..moveTo(pointerX - 4, boxTop + boxHeight - 1)
         ..lineTo(pointerX, boxTop + boxHeight + 5)
