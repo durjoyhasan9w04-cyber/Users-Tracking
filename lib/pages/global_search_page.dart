@@ -1,5 +1,4 @@
-// ignore_for_file: unnecessary_underscores
-// ignore: deprecated_member_use
+// ignore_for_file: unnecessary_underscores, deprecated_member_use
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../data/app_database.dart';
