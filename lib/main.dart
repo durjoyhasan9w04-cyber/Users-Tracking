@@ -3627,14 +3627,21 @@ class _ReportsPageState extends State<ReportsPage> {
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
   late Future<List<Object>> report;
   bool exporting = false;
+  DateTime? customStart;
+  DateTime? customEnd;
+  String rowSearch = '';
+  String typeFilter = 'All';
 
   DateTime get nextMonth => DateTime(month.year, month.month + 1);
+  DateTime get reportStart => customStart ?? month;
+  DateTime get reportEndExclusive => customEnd == null ? nextMonth : DateTime(customEnd!.year, customEnd!.month, customEnd!.day + 1);
+  String get reportLabel => customStart == null ? DateFormat('MMMM yyyy').format(month) : '${DateFormat('d MMM yyyy').format(reportStart)} – ${DateFormat('d MMM yyyy').format(customEnd!)}';
   @override
   void initState() { super.initState(); load(); }
   void load() {
     report = Future.wait<Object>([
-      AppDatabase.instance.getReportTotals(month, nextMonth),
-      AppDatabase.instance.getReportRows(month, nextMonth),
+      AppDatabase.instance.getReportTotals(reportStart, reportEndExclusive),
+      AppDatabase.instance.getReportRows(reportStart, reportEndExclusive),
     ]);
   }
 
@@ -3646,7 +3653,20 @@ class _ReportsPageState extends State<ReportsPage> {
       lastDate: DateTime(2100),
       helpText: 'Choose a date in the report month',
     );
-    if (picked != null && mounted) setState(() { month = DateTime(picked.year, picked.month); load(); });
+    if (picked != null && mounted) setState(() { month = DateTime(picked.year, picked.month); customStart = null; customEnd = null; load(); });
+  }
+
+  Future<void> chooseRange() async {
+    final picked = await showDateRangePicker(
+      context: context, firstDate: DateTime(2020), lastDate: DateTime(2100),
+      initialDateRange: DateTimeRange(start: reportStart, end: customEnd ?? nextMonth.subtract(const Duration(days: 1))),
+      helpText: 'Choose report date range',
+    );
+    if (picked != null && mounted) setState(() {
+      customStart = DateTime(picked.start.year, picked.start.month, picked.start.day);
+      customEnd = DateTime(picked.end.year, picked.end.month, picked.end.day);
+      load();
+    });
   }
 
   String csvCell(Object? value) {
@@ -3666,7 +3686,7 @@ class _ReportsPageState extends State<ReportsPage> {
         ].map(csvCell).join(','));
       }
       final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/user-hub-report-${month.year}-${month.month.toString().padLeft(2, '0')}.csv');
+      final file = File('${directory.path}/user-hub-report-${DateFormat('yyyyMMdd').format(reportStart)}-${DateFormat('yyyyMMdd').format(reportEndExclusive.subtract(const Duration(days: 1)))}.csv');
       await file.writeAsString(lines.join('\n'), flush: true);
       await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'User Hub monthly report'));
     } catch (_) {
@@ -3683,7 +3703,7 @@ class _ReportsPageState extends State<ReportsPage> {
     setState(() => exporting = true);
     try {
       final pdf = pw.Document();
-      final monthLabel = DateFormat('MMMM yyyy').format(month);
+      final monthLabel = reportLabel;
       final headers = [
         'Type', 'Date', 'User', 'Phone', 'Amount', 'DP count', 'Reason', 'Notes',
       ];
@@ -3747,7 +3767,7 @@ class _ReportsPageState extends State<ReportsPage> {
       ));
       final directory = await getTemporaryDirectory();
       final file = File(
-        '${directory.path}/user-hub-report-${month.year}-${month.month.toString().padLeft(2, '0')}.pdf',
+        '${directory.path}/user-hub-report-${DateFormat('yyyyMMdd').format(reportStart)}-${DateFormat('yyyyMMdd').format(reportEndExclusive.subtract(const Duration(days: 1)))}.pdf',
       );
       await file.writeAsBytes(await pdf.save(), flush: true);
       await SharePlus.instance.share(ShareParams(
@@ -3775,12 +3795,22 @@ class _ReportsPageState extends State<ReportsPage> {
         if (snap.hasError) return const EmptyState(title: 'Report unavailable', subtitle: 'Please try again.');
         final totals = snap.data![0] as Map<String, num>;
         final rows = snap.data![1] as List<Map<String, Object?>>;
+        final filteredRows = rows.where((row) {
+          if (typeFilter != 'All' && row['type']?.toString() != typeFilter) return false;
+          final term = rowSearch.trim().toLowerCase();
+          if (term.isEmpty) return true;
+          return '${row['user_name']} ${row['phone']} ${row['reason']} ${row['notes']} ${row['transaction_date']}'.toLowerCase().contains(term);
+        }).toList();
         final dp = totals['dp'] ?? 0;
         final bonus = totals['bonus'] ?? 0;
         return ListView(
           padding: const EdgeInsets.all(18),
           children: [
-            OutlinedButton.icon(onPressed: chooseMonth, icon: const Icon(Icons.calendar_month), label: Text('${month.year}-${month.month.toString().padLeft(2, '0')}')),
+            Row(children: [
+              Expanded(child: OutlinedButton.icon(onPressed: chooseMonth, icon: const Icon(Icons.calendar_month), label: Text(DateFormat('MMM yyyy').format(month)))),
+              const SizedBox(width: 8),
+              Expanded(child: OutlinedButton.icon(onPressed: chooseRange, icon: const Icon(Icons.date_range_rounded), label: Text(customStart == null ? 'Custom range' : reportLabel, maxLines: 1, overflow: TextOverflow.ellipsis))),
+            ]),
             const SizedBox(height: 14),
             Row(children: [
               Expanded(child: MetricCard(label: 'DP total', value: dp.toString(), icon: Icons.account_balance_wallet_outlined)),
@@ -3795,23 +3825,29 @@ class _ReportsPageState extends State<ReportsPage> {
             ]),
             const SizedBox(height: 18),
             FilledButton.icon(
-              onPressed: exporting ? null : () => exportCsv(rows),
+              onPressed: exporting ? null : () => exportCsv(filteredRows),
               icon: const Icon(Icons.file_download_outlined),
               label: Text(exporting ? 'Preparing export…' : 'Export transaction CSV'),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
-              onPressed: exporting ? null : () => exportPdf(rows, totals),
+              onPressed: exporting ? null : () => exportPdf(filteredRows, totals),
               icon: const Icon(Icons.picture_as_pdf_outlined),
               label: Text(exporting ? 'Preparing export…' : 'Export monthly PDF report'),
             ),
             const SizedBox(height: 18),
-            const SectionHeading('Transactions', trailing: 'Selected month'),
+            const SectionHeading('Transaction preview', trailing: 'Filter before export'),
             const SizedBox(height: 8),
-            if (rows.isEmpty)
+            TextField(onChanged: (value) => setState(() => rowSearch = value), decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Filter by user, phone, reason or notes')),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(value: typeFilter, decoration: const InputDecoration(labelText: 'Transaction type'), items: const [DropdownMenuItem(value: 'All', child: Text('All transactions')), DropdownMenuItem(value: 'DP', child: Text('DP only')), DropdownMenuItem(value: 'Bonus', child: Text('Bonus only'))], onChanged: (value) => setState(() => typeFilter = value ?? 'All')),
+            const SizedBox(height: 8),
+            Text('${filteredRows.length} matching of ${rows.length} transactions · Period totals above include all records.', style: const TextStyle(color: muted, fontSize: 12)),
+            const SizedBox(height: 8),
+            if (filteredRows.isEmpty)
               const EmptyState(title: 'No transactions this month', subtitle: 'DP and bonus records will appear here.')
             else
-              ...rows.take(100).map((row) => Card(
+              ...filteredRows.take(100).map((row) => Card(
                 margin: const EdgeInsets.only(bottom: 7),
                 child: ListTile(
                   title: Text('${row['user_name']} · ${row['type']}', style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -3819,7 +3855,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   trailing: Text('${row['amount']}', style: const TextStyle(color: emerald, fontWeight: FontWeight.w800)),
                 ),
               )),
-            if (rows.length > 100) Text('Showing 100 of ${rows.length} transactions. The CSV includes all records.', style: const TextStyle(color: muted)),
+            if (filteredRows.length > 100) Text('Showing 100 of ${filteredRows.length} matching transactions. Exports include all filtered records.', style: const TextStyle(color: muted)),
           ],
         );
       },
