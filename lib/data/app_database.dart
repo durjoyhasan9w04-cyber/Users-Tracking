@@ -931,6 +931,10 @@ class AppDatabase {
           d.total AS amount, 'dp' AS source
         FROM dp_entries d JOIN users u ON u.id = d.user_id
         UNION ALL
+        SELECT 'Contact', d.entry_date, d.created_at, d.user_id, d.id, u.name,
+          'Marked contacted', 'Contacted today from DP entry', NULL, 'dp_contact'
+        FROM dp_entries d JOIN users u ON u.id = d.user_id WHERE d.contacted = 1
+        UNION ALL
         SELECT 'Bonus', b.entry_date, b.created_at, b.user_id, b.id, u.name,
           'Bonus added', b.reason, b.amount, 'bonus'
         FROM bonus_entries b JOIN users u ON u.id = b.user_id

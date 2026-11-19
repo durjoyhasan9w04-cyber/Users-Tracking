@@ -48,11 +48,11 @@ class _ActivityCenterPageState extends State<ActivityCenterPage> {
     final kind = row['kind'] as String? ?? '';
     if (kind == 'DP') return 'DP';
     if (kind.contains('Bonus')) return 'Bonus';
+    if (kind.startsWith('Potential')) return 'Prospect';
     if (kind.contains('Contact')) return 'Contact';
     if (kind == 'Task') return 'Task';
     if (kind.startsWith('Quiz')) return 'Quiz';
     if (kind == 'Issue') return 'Issue';
-    if (kind.startsWith('Potential')) return 'Prospect';
     return 'System';
   }
 
