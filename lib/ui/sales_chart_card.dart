@@ -276,7 +276,7 @@ class _SalesChartCardState extends State<SalesChartCard>
     }
   }
 
-  String _money(num value) => '৳${NumberFormat('#,##0.##').format(value)}';
+  String _money(num value) => '${NumberFormat('#,##0.##').format(value)} coins';
 
   @override
   Widget build(BuildContext context) {

@@ -1,3 +1,4 @@
+import 'quiz_database.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -5,7 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import 'dart:convert';
 import '../models/user_level_config.dart';
 
-const int supportedUserHubDatabaseVersion = 16;
+const int supportedUserHubDatabaseVersion = 17;
 
 Set<String> requiredBackupTablesForVersion(int version) {
   if (version < 1 || version > supportedUserHubDatabaseVersion) {
@@ -26,6 +27,7 @@ Set<String> requiredBackupTablesForVersion(int version) {
     if (version >= 15) 'potential_contact_history',
     if (version >= 16) 'tasks',
     if (version >= 16) 'task_completions',
+    if (version >= 17) 'damarage_sheets',
   };
 }
 
@@ -83,6 +85,7 @@ class AppDatabase {
         await _createSportsTables(db);
         await _createUserLevelSettings(db);
         await _createTasks(db);
+        await _createDamarageSheets(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) await _createDpEntries(db);
@@ -103,12 +106,27 @@ class AppDatabase {
         if (oldVersion < 14) await _createContactReminders(db);
         if (oldVersion < 15) await _createPotentialContactHistory(db);
         if (oldVersion < 16) await _createTasks(db);
+        if (oldVersion < 17) await _createDamarageSheets(db);
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
     );
     return _db!;
+  }
+
+
+  Future<void> _createDamarageSheets(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS damarage_sheets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        month_key TEXT NOT NULL UNIQUE,
+        data_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_damarage_sheet_month ON damarage_sheets(month_key)');
   }
 
   Future<void> createDailyBackupIfNeeded() async {
@@ -760,7 +778,7 @@ class AppDatabase {
       'SELECT COALESCE(SUM(amount), 0) AS total FROM bonus_entries WHERE entry_date >= ? AND entry_date < ?',
       [start, end],
     );
-    return (rows.first['total'] as num).toDouble();
+    return (rows.first['total'] as num).toDouble() + await QuizDatabase.instance.quizBonusTotal(from: DateTime(now.year, now.month), until: DateTime(now.year, now.month + 1));
   }
 
   Future<List<Map<String, Object?>>> getBonusEntries() async {
@@ -770,6 +788,55 @@ class AppDatabase {
       FROM bonus_entries b JOIN users u ON u.id = b.user_id
       ORDER BY b.entry_date DESC, b.id DESC
     ''');
+  }
+
+
+  Future<List<Map<String, Object?>>> getMonthlyBonusBreakdown(
+    DateTime month, {String reason = 'Deposit'}
+  ) async {
+    final db = await database;
+    final start = DateTime(month.year, month.month).toIso8601String().substring(0, 10);
+    final end = DateTime(month.year, month.month + 1).toIso8601String().substring(0, 10);
+    return db.rawQuery('''
+      SELECT u.id AS user_id, u.name AS user_name, u.phone AS user_phone,
+        COALESCE(SUM(b.amount), 0) AS total_amount, COUNT(b.id) AS record_count
+      FROM bonus_entries b
+      JOIN users u ON u.id = b.user_id
+      WHERE b.entry_date >= ? AND b.entry_date < ? AND b.reason = ?
+      GROUP BY u.id, u.name, u.phone
+      ORDER BY u.name COLLATE NOCASE
+    ''', [start, end, reason]);
+  }
+
+  Future<Map<String, Object?>?> getDamarageSheet(String monthKey) async {
+    final db = await database;
+    final rows = await db.query('damarage_sheets', where: 'month_key = ?', whereArgs: [monthKey], limit: 1);
+    if (rows.isEmpty) return null;
+    final raw = rows.first['data_json'] as String? ?? '{}';
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return null;
+    return Map<String, Object?>.from(decoded);
+  }
+
+  Future<void> saveDamarageSheet({
+    required String monthKey,
+    required Map<String, Object?> data,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+    final existing = await db.query('damarage_sheets', columns: ['id', 'created_at'],
+      where: 'month_key = ?', whereArgs: [monthKey], limit: 1);
+    final payload = <String, Object?>{
+      'month_key': monthKey,
+      'data_json': jsonEncode(data),
+      'updated_at': now,
+    };
+    if (existing.isEmpty) {
+      payload['created_at'] = now;
+      await db.insert('damarage_sheets', payload);
+    } else {
+      await db.update('damarage_sheets', payload, where: 'month_key = ?', whereArgs: [monthKey]);
+    }
   }
 
   Future<int> addBonusEntry({
@@ -1015,8 +1082,11 @@ class AppDatabase {
     return {
       'dp': dp.first['total'] as num,
       'dp_count': dp.first['count'] as num,
-      'bonus': bonus.first['total'] as num,
-      'bonus_count': bonus.first['count'] as num,
+      'bonus': (bonus.first['total'] as num) + await QuizDatabase.instance.quizBonusTotal(from: start, until: end),
+      'bonus_count': (bonus.first['count'] as num) + (await QuizDatabase.instance.getQuizBonusEntries()).where((r) {
+        final d = r['entry_date'] as String? ?? '';
+        return d.compareTo(from) >= 0 && d.compareTo(until) < 0;
+      }).length,
     };
   }
 
@@ -1068,7 +1138,7 @@ class AppDatabase {
       'SELECT COALESCE(SUM(amount), 0) AS total FROM bonus_entries WHERE entry_date = ?',
       [today],
     );
-    return (rows.first['total'] as num).toDouble();
+    return (rows.first['total'] as num).toDouble() + await QuizDatabase.instance.quizBonusTotal(from: DateTime.parse(today), until: DateTime.parse(today).add(const Duration(days: 1)));
   }
 
   Future<int> todayDpTransactions() async {
@@ -1106,7 +1176,7 @@ class AppDatabase {
       'users', 'dp_entries', 'bonus_entries', 'potential_users',
       'contact_history', 'potential_contact_history', 'customer_issues', 'audit_log',
       'sports_interests', 'matches', 'user_level_settings', 'contact_reminders',
-      'tasks', 'task_completions',
+      'tasks', 'task_completions', 'damarage_sheets',
     ];
     final data = <String, Object?>{
       'app': 'User Hub',
@@ -1130,6 +1200,7 @@ class AppDatabase {
       if (data['contact_reminders'] is List) 'contact_reminders',
       if (data['tasks'] is List) 'tasks',
       if (data['task_completions'] is List) 'task_completions',
+      if (data['damarage_sheets'] is List) 'damarage_sheets',
     ];
     final tables = <String>[
       ...requiredTables,
@@ -1147,9 +1218,9 @@ class AppDatabase {
     await db.transaction((txn) async {
       for (final table in [
         'task_completions', 'tasks', 'contact_reminders', 'user_level_settings', 'matches', 'audit_log', 'customer_issues', 'contact_history',
-        'sports_interests', 'bonus_entries', 'dp_entries', 'potential_users', 'users',
+        'sports_interests', 'bonus_entries', 'dp_entries', 'potential_users', 'users', 'damarage_sheets',
       ]) {
-        if (table == 'user_level_settings' && !tables.contains(table)) continue;
+        if ((table == 'user_level_settings' || table == 'damarage_sheets') && !tables.contains(table)) continue;
         await txn.delete(table);
       }
       for (final table in tables) {

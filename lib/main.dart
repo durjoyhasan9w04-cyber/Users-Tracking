@@ -1,4 +1,5 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings
+import 'data/quiz_database.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
@@ -23,6 +24,7 @@ import 'services/fixture_discovery_service.dart';
 import 'services/groq_fixture_service.dart';
 import 'models/user_level_config.dart';
 import 'pages/quiz_participants_page.dart';
+import 'pages/damarage_sheet_page.dart';
 import 'ui/sales_chart_card.dart';
 
 
@@ -303,16 +305,16 @@ class _AddActionTile extends StatelessWidget{
 class DashboardPage extends StatelessWidget{
   const DashboardPage({super.key,required this.onChanged});final VoidCallback onChanged;
   @override Widget build(BuildContext context){
-    final now=DateTime.now(),monthStart=DateTime(now.year,now.month),nextMonth=DateTime(now.year,now.month+1);
+    final now=DateTime.now(),monthStart=DateTime(now.year,now.month),nextMonth=DateTime(now.year,now.month+1),previousStart=DateTime(now.year,now.month-1);
     return FutureBuilder<List<Object?>>(future:Future.wait<Object?>([
       AppDatabase.instance.getActivityStatusUsers(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.todayDpTotal(),AppDatabase.instance.countFollowUpsDue(),AppDatabase.instance.countOpenCustomerIssues(),
-      AppDatabase.instance.getDpEntries(),AppDatabase.instance.getBonusEntries(),
-      AppDatabase.instance.getReportTotals(monthStart,nextMonth),
+      AppDatabase.instance.getDpEntries(),AppDatabase.instance.getBonusEntries(),AppDatabase.instance.monthDpTotal(),
+      AppDatabase.instance.getReportTotals(monthStart,nextMonth),AppDatabase.instance.getReportTotals(previousStart,monthStart),
     ]),builder:(context,snap){
       final d=snap.data,activity=d?[0] as List<Map<String,Object?>>? ?? const [];
       final active=activity.where((r)=>r['activity_status']=='Active').length,attention=(d?[3] as num?)?.toInt()??0,issues=(d?[4] as num?)?.toInt()??0;
       final bonus=(d?[1] as num?)?.toDouble()??0,dpToday=(d?[2] as num?)?.toDouble()??0,dpRows=d?[5] as List<Map<String,Object?>>? ?? const [],bonusRows=d?[6] as List<Map<String,Object?>>? ?? const [];
-      final totals=d?[7] as Map<String,num>?;
+      final totals=d?[8] as Map<String,num>?;
       final recent=<Map<String,Object?>>[
         ...dpRows.take(10).map((r)=><String,Object?>{'kind':'DP recorded','name':r['user_name'],'date':r['created_at']??r['entry_date'],'amount':r['total']}),
         ...bonusRows.take(10).map((r)=><String,Object?>{'kind':'Bonus added','name':r['user_name'],'date':r['created_at']??r['entry_date'],'amount':r['amount']}),
@@ -374,6 +376,50 @@ class _DesignRecentTile extends StatelessWidget{
     ));
   }
 }
+class HeroKpiCard extends StatelessWidget {
+  const HeroKpiCard({super.key, required this.label, required this.value, required this.delta, required this.sparkline, required this.loading});
+  final String label; final num value; final double? delta; final List<double> sparkline; final bool loading;
+  @override
+  Widget build(BuildContext context) {
+    final deltaText = delta == null ? 'MONTH TO DATE' : '${delta! >= 0 ? '+' : ''}${delta!.toStringAsFixed(1)}%';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 16),
+      decoration: BoxDecoration(color: const Color(0xFF12271E), borderRadius: BorderRadius.circular(27), border: Border.all(color: const Color(0xFF1B4A35))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(label, style: const TextStyle(color: muted, fontSize: 14, letterSpacing: 0))),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7), decoration: BoxDecoration(color: const Color(0xFF1B4934), borderRadius: BorderRadius.circular(30)), child: Text(deltaText, style: const TextStyle(color: emerald, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0))),
+        ]),
+        const SizedBox(height: 10),
+        loading ? const SizedBox(height: 58, child: Align(alignment: Alignment.centerLeft, child: SizedBox(width: 110, child: LinearProgressIndicator()))) : AnimatedNumberText(value: value.toDouble(), style: GoogleFonts.spaceGrotesk(fontSize: 48, fontWeight: FontWeight.w700, color: const Color(0xFFE8F0EC), letterSpacing: 0, fontFeatures: const [FontFeature.tabularFigures()])),
+        const SizedBox(height: 12),
+        SizedBox(height: 62, width: double.infinity, child: CustomPaint(painter: SparklinePainter(values: sparkline))),
+      ]),
+    );
+  }
+}
+
+class SparklinePainter extends CustomPainter {
+  const SparklinePainter({required this.values});
+  final List<double> values;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final points = values.isEmpty ? List<double>.filled(7, 0) : values.length == 1 ? List<double>.filled(7, values.first) : values;
+    final minValue = points.reduce((a, b) => a < b ? a : b);
+    final maxValue = points.reduce((a, b) => a > b ? a : b);
+    final range = (maxValue - minValue).abs() < 0.001 ? 1.0 : maxValue - minValue;
+    final path = Path();
+    for (var i = 0; i < points.length; i++) {
+      final x = points.length == 1 ? size.width : size.width * i / (points.length - 1);
+      final y = size.height - 7 - ((points[i] - minValue) / range) * (size.height - 18);
+      if (i == 0) { path.moveTo(x, y); } else { path.lineTo(x, y); }
+    }
+    canvas.drawPath(path, Paint()..color = emerald..strokeWidth = 3..style = PaintingStyle.stroke..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round);
+  }
+  @override
+  bool shouldRepaint(covariant SparklinePainter oldDelegate) => oldDelegate.values != values;
+}
+
 class AnimatedNumberText extends StatelessWidget {
   const AnimatedNumberText({super.key, required this.value, required this.style});
   final double value; final TextStyle style;
@@ -1049,16 +1095,21 @@ class BonusEntryDialog extends StatefulWidget {
   @override
   State<BonusEntryDialog> createState() => _BonusEntryDialogState();
 }
+
 class _BonusEntryDialogState extends State<BonusEntryDialog> {
   final form = GlobalKey<FormState>();
   final amount = TextEditingController();
   final relatedDp = TextEditingController();
   final notes = TextEditingController();
+  final searchController = TextEditingController();
   int? userId;
-  String userSearch = '';
+  int? participantId;
+  String ownerType = 'User';
+  String search = '';
   String reason = 'Deposit';
   bool saving = false;
-  late Future<List<Map<String, Object?>>> users;
+  late Future<List<Object?>> recipients;
+
   @override
   void initState() {
     super.initState();
@@ -1071,36 +1122,61 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
       relatedDp.text = row['related_dp'] == null ? '' : (row['related_dp'] as num).toString();
       notes.text = row['notes'] as String? ?? '';
     }
-    users = AppDatabase.instance.getUsers(includeArchivedId: userId);
+    recipients = Future.wait<Object?>([
+      AppDatabase.instance.getUsers(includeArchivedId: userId),
+      QuizDatabase.instance.getParticipants(),
+    ]);
   }
+
   @override
   void dispose() {
     amount.dispose();
     relatedDp.dispose();
     notes.dispose();
+    searchController.dispose();
     super.dispose();
   }
+
   Future<void> save() async {
-    if (!form.currentState!.validate() || userId == null) return;
+    if (!form.currentState!.validate()) return;
+    if (ownerType == 'User' && userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a user first.')));
+      return;
+    }
+    if (ownerType == 'Quiz participant' && participantId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select a quiz participant first.')));
+      return;
+    }
     setState(() => saving = true);
     try {
       final existing = widget.existing;
-      if (existing == null) {
+      final value = double.parse(amount.text.trim());
+      final dp = relatedDp.text.trim().isEmpty ? null : double.parse(relatedDp.text.trim());
+      if (existing == null && ownerType == 'Quiz participant') {
+        await QuizDatabase.instance.addQuizBonus(
+          participantId: participantId!,
+          date: DateTime.now(),
+          amount: value,
+          reason: reason,
+          relatedDp: dp,
+          notes: notes.text,
+        );
+      } else if (existing == null) {
         await AppDatabase.instance.addBonusEntry(
           userId: userId!,
           date: DateTime.now(),
-          amount: double.parse(amount.text.trim()),
+          amount: value,
           reason: reason,
-          relatedDp: relatedDp.text.trim().isEmpty ? null : double.parse(relatedDp.text.trim()),
+          relatedDp: dp,
           notes: notes.text,
         );
       } else {
         await AppDatabase.instance.updateBonusEntry(
           id: existing['id'] as int,
           userId: userId!,
-          amount: double.parse(amount.text.trim()),
+          amount: value,
           reason: reason,
-          relatedDp: relatedDp.text.trim().isEmpty ? null : double.parse(relatedDp.text.trim()),
+          relatedDp: dp,
           notes: notes.text,
         );
       }
@@ -1111,64 +1187,132 @@ class _BonusEntryDialogState extends State<BonusEntryDialog> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not save this bonus record.')));
     }
   }
+
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: Text(widget.existing == null ? 'Add bonus record' : 'Edit bonus record'),
-    content: SizedBox(width: 420, child: FutureBuilder<List<Map<String, Object?>>>(
-      future: users,
+    content: SizedBox(width: 420, child: FutureBuilder<List<Object?>>(
+      future: recipients,
       builder: (context, snap) {
-        final rows = snap.data ?? [];
-        if (snap.connectionState == ConnectionState.waiting) return const SizedBox(height: 90, child: Center(child: CircularProgressIndicator()));
-        if (rows.isEmpty) return const Text('Add a registered user before recording a bonus.');
-        userId ??= rows.first['id'] as int;
-        final filteredUsers = rows.where((u) => '${u['name']} ${u['phone']}'.toLowerCase().contains(userSearch.toLowerCase())).toList();
-        if (!filteredUsers.any((u) => u['id'] == userId) && filteredUsers.isNotEmpty) userId = filteredUsers.first['id'] as int;
-        return Form(key: form, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(onChanged: (value) => setState(() => userSearch = value), decoration: const InputDecoration(labelText: 'Search user by name or number', prefixIcon: Icon(Icons.search))),
-          const SizedBox(height: 8),
-          AppDropdownField<int>(
-            initialValue: filteredUsers.any((u) => u['id'] == userId) ? userId : null,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'User'),
-            items: filteredUsers.map((u) => DropdownMenuItem<int>(value: u['id'] as int, child: Text('${u['name']} · ${u['phone']}', overflow: TextOverflow.ellipsis))).toList(),
-            onChanged: saving ? null : (v) => setState(() => userId = v),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: amount,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Bonus amount (coins)'),
-            validator: (v) {
-              final n = double.tryParse(v?.trim() ?? '');
-              return n == null || n <= 0 ? 'Enter an amount greater than zero' : null;
-            },
-          ),
-          const SizedBox(height: 12),
-          AppDropdownField<String>(
-            initialValue: reason,
-            decoration: const InputDecoration(labelText: 'Reason'),
-            items: const ['Deposit', 'Special', 'Promotional', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-            onChanged: saving ? null : (v) => setState(() => reason = v ?? 'Other'),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: relatedDp,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Related DP (optional)'),
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return null;
-              final n = double.tryParse(v.trim());
-              return n == null || n < 0 ? 'Enter a valid amount' : null;
-            },
-          ),
-          const SizedBox(height: 12),
-          TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
-        ])));
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 110, child: Center(child: CircularProgressIndicator()));
+        }
+        if (snap.hasError) {
+          return const Text('Could not load recipients. Close this form and try again.');
+        }
+        final users = snap.data?[0] as List<Map<String, Object?>>? ?? const [];
+        final participants = snap.data?[1] as List<Map<String, Object?>>? ?? const [];
+        final filteredUsers = users.where((u) =>
+          '${u['name']} ${u['phone']}'.toLowerCase().contains(search.toLowerCase())).toList();
+        final filteredParticipants = participants.where((p) =>
+          '${p['name']} ${p['phone']}'.toLowerCase().contains(search.toLowerCase())).toList();
+
+        if (userId == null && users.isNotEmpty) userId = users.first['id'] as int;
+        if (participantId == null && participants.isNotEmpty) participantId = participants.first['id'] as int;
+
+        final isEditing = widget.existing != null;
+        final selectedUserExists = filteredUsers.any((u) => u['id'] == userId);
+        final selectedParticipantExists = filteredParticipants.any((p) => p['id'] == participantId);
+
+        return Form(key: form, child: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!isEditing) ...[
+              const Text('Award bonus to', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: muted)),
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, children: [
+                ChoiceChip(
+                  label: const Text('Users'),
+                  selected: ownerType == 'User',
+                  onSelected: saving ? null : (_) => setState(() { ownerType = 'User'; search = ''; searchController.clear(); }),
+                ),
+                ChoiceChip(
+                  label: const Text('Quiz Participants'),
+                  selected: ownerType == 'Quiz participant',
+                  onSelected: saving ? null : (_) => setState(() { ownerType = 'Quiz participant'; search = ''; searchController.clear(); }),
+                ),
+              ]),
+              const SizedBox(height: 10),
+            ],
+            TextField(
+              controller: searchController,
+              onChanged: (value) => setState(() => search = value),
+              decoration: InputDecoration(
+                labelText: ownerType == 'User' ? 'Search user by name or number' : 'Search quiz participant by name or number',
+                prefixIcon: const Icon(Icons.search),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (ownerType == 'User') ...[
+              if (filteredUsers.isEmpty)
+                const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No matching users. Try another search or switch to Quiz Participants.'))
+              else
+                AppDropdownField<int>(
+                  initialValue: selectedUserExists ? userId : null,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'User'),
+                  items: filteredUsers.map((u) => DropdownMenuItem<int>(
+                    value: u['id'] as int,
+                    child: Text('${u['name']} · ${u['phone']}', overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: saving ? null : (v) => setState(() => userId = v),
+                ),
+            ] else ...[
+              if (filteredParticipants.isEmpty)
+                const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No matching quiz participants. Add one from Track Quiz first.'))
+              else
+                AppDropdownField<int>(
+                  initialValue: selectedParticipantExists ? participantId : null,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Quiz participant'),
+                  items: filteredParticipants.map((p) => DropdownMenuItem<int>(
+                    value: p['id'] as int,
+                    child: Text('${p['name']} · ${p['phone'] ?? 'No phone'}', overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: saving ? null : (v) => setState(() => participantId = v),
+                ),
+            ],
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: amount,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Bonus amount (coins)'),
+              validator: (v) {
+                final n = double.tryParse(v?.trim() ?? '');
+                return n == null || !n.isFinite || n <= 0 ? 'Enter an amount greater than zero' : null;
+              },
+            ),
+            const SizedBox(height: 12),
+            AppDropdownField<String>(
+              initialValue: reason,
+              decoration: const InputDecoration(labelText: 'Reason'),
+              items: const ['Deposit', 'Special', 'Promotional', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+              onChanged: saving ? null : (v) => setState(() => reason = v ?? 'Other'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: relatedDp,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Related DP (optional)'),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return null;
+                final n = double.tryParse(v.trim());
+                return n == null || !n.isFinite || n < 0 ? 'Enter a valid amount' : null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(controller: notes, maxLines: 2, decoration: const InputDecoration(labelText: 'Notes (optional)')),
+          ],
+        )));
       },
     )),
     actions: [
       TextButton(onPressed: saving ? null : () => Navigator.pop(context, false), child: const Text('Cancel')),
-      FilledButton(onPressed: saving ? null : save, child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : Text(widget.existing == null ? 'Save bonus' : 'Save changes')),
+      FilledButton(
+        onPressed: saving ? null : save,
+        child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : Text(widget.existing == null ? 'Save bonus' : 'Save changes'),
+      ),
     ],
   );
 }
@@ -2522,12 +2666,14 @@ class MoreHubPage extends StatelessWidget {
         icon: Icons.quiz_outlined,
         title: 'Quiz Participants',
         subtitle: 'Manage quiz lists, participation history and winner bonuses',
-        onTap: () => open(context, QuizParticipantsPage(onAddBonus: (userId) async {
-          await showDialog<bool>(
-            context: context,
-            builder: (_) => BonusEntryDialog(initialUserId: userId),
-          );
-        })),
+        onTap: () => open(context, const QuizParticipantsPage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.receipt_long_rounded,
+        title: 'Damarage Sheet Generator',
+        subtitle: 'Prepare monthly offline coins, quiz, expenses and SIM-lock statements',
+        onTap: () => open(context, const DamarageSheetPage()),
       ),
       const SizedBox(height: 10),
       _MoreTile(
@@ -4339,10 +4485,11 @@ class BonusPage extends StatefulWidget{
 class _BonusPageState extends State<BonusPage>{
   String filter='Newest';late Future<List<Object?>> data;
   @override void initState(){super.initState();load();}
-  void load(){final n=DateTime.now();data=Future.wait<Object?>([AppDatabase.instance.getBonusEntries(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.monthBonusTotal(),AppDatabase.instance.getReportTotals(DateTime(n.year,n.month),DateTime(n.year,n.month+1))]);}
+  void load(){final n=DateTime.now();data=Future.wait<Object?>([AppDatabase.instance.getBonusEntries(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.monthBonusTotal(),AppDatabase.instance.getReportTotals(DateTime(n.year,n.month),DateTime(n.year,n.month+1)),QuizDatabase.instance.getQuizBonusEntries()]);}
   @override Widget build(BuildContext context)=>FutureBuilder<List<Object?>>(future:data,builder:(context,snap){
-    final rows=snap.data?[0] as List<Map<String,Object?>>? ?? const [],today=(snap.data?[1] as num?)?.toDouble()??0,month=(snap.data?[2] as num?)?.toDouble()??0,totals=snap.data?[3] as Map<String,num>?;
+    final rows=<Map<String,Object?>>[...(snap.data?[0] as List<Map<String,Object?>>? ?? const []),...(snap.data?[4] as List<Map<String,Object?>>? ?? const [])],today=(snap.data?[1] as num?)?.toDouble()??0,month=(snap.data?[2] as num?)?.toDouble()??0,totals=snap.data?[3] as Map<String,num>?;
     final todayKey=DateTime.now().toIso8601String().substring(0,10),monthKey=todayKey.substring(0,7);
+    rows.sort((a,b)=>(b['entry_date'] as String? ?? '').compareTo(a['entry_date'] as String? ?? ''));
     final shown=rows.where((r){final d=r['entry_date'] as String? ?? '';if(filter=='Today')return d==todayKey;if(filter=='Month')return d.startsWith(monthKey);return true;}).toList();
     return ColoredBox(color:bg,child:ListView(padding:const EdgeInsets.fromLTRB(20,12,20,110),children:[
       Row(children:[const Expanded(child:Text('Bonuses',maxLines:1,overflow:TextOverflow.ellipsis,style:TextStyle(fontSize:24,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),FilledButton.icon(onPressed:()async{final ok=await showDialog<bool>(context:context,builder:(_)=>const BonusEntryDialog());if(ok==true&&mounted){load();widget.onChanged();}},icon:const Icon(Icons.add,size:18),label:const Text('Record'))]),
@@ -4362,7 +4509,7 @@ class _BonusPageState extends State<BonusPage>{
         return Card(margin:const EdgeInsets.only(bottom:9),child:ListTile(
           leading:const CircleAvatar(backgroundColor:Color(0xFFE8F7EF),child:Icon(Icons.card_giftcard,color:Color(0xFF238653))),
           title:Text(r['user_name'] as String? ?? 'User',style:const TextStyle(fontWeight:FontWeight.w800,color:Color(0xFF18202B))),
-          subtitle:Text(r['reason'] as String? ?? 'Bonus',style:const TextStyle(color:muted)),
+          subtitle:Text('${r['reason'] as String? ?? 'Bonus'} · ${r['bonus_owner_type'] == 'Quiz participant' ? 'Quiz participant' : 'User'}',style:const TextStyle(color:muted)),
           trailing:Column(mainAxisAlignment:MainAxisAlignment.center,crossAxisAlignment:CrossAxisAlignment.end,children:[Text('${amount.toStringAsFixed(amount%1==0?0:2)} coins',style:const TextStyle(color:Color(0xFF238653),fontWeight:FontWeight.w800,fontSize:15)),Text(ago,style:const TextStyle(color:muted,fontSize:10))]),
         ));
       }),
