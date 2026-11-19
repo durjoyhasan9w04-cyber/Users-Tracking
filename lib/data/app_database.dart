@@ -112,6 +112,13 @@ class AppDatabase {
         await db.execute('PRAGMA foreign_keys = ON');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_users_name_nocase ON users(name COLLATE NOCASE)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_dp_created_at ON dp_entries(created_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_bonus_created_at ON bonus_entries(created_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_contact_created_at ON contact_history(created_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_potential_contact_created_at ON potential_contact_history(created_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_reminder_created_at ON contact_reminders(created_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_issue_updated_at ON customer_issues(updated_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_task_completion_created_at ON task_completions(completed_at)');
       },
     );
     return _db!;
@@ -783,13 +790,22 @@ class AppDatabase {
     return (rows.first['total'] as num).toDouble() + await QuizDatabase.instance.quizBonusTotal(from: DateTime(now.year, now.month), until: DateTime(now.year, now.month + 1));
   }
 
-  Future<List<Map<String, Object?>>> getBonusEntries() async {
+  Future<List<Map<String, Object?>>> getBonusEntries({DateTime? from, DateTime? until, int? limit}) async {
     final db = await database;
+    final clauses = <String>[];
+    final args = <Object?>[];
+    if (from != null) { clauses.add('b.entry_date >= ?'); args.add(from.toIso8601String().substring(0, 10)); }
+    if (until != null) { clauses.add('b.entry_date < ?'); args.add(until.toIso8601String().substring(0, 10)); }
+    final where = clauses.isEmpty ? '' : 'WHERE ${clauses.join(' AND ')}';
+    final limitSql = limit == null ? '' : 'LIMIT ?';
+    if (limit != null) args.add(limit);
     return db.rawQuery('''
-      SELECT b.*, u.name AS user_name
+      SELECT b.*, u.name AS user_name, u.phone AS user_phone
       FROM bonus_entries b JOIN users u ON u.id = b.user_id
+      $where
       ORDER BY b.entry_date DESC, b.id DESC
-    ''');
+      $limitSql
+    ''', args);
   }
 
 
@@ -1183,13 +1199,22 @@ class AppDatabase {
     };
   }
 
-  Future<List<Map<String, Object?>>> getDpEntries() async {
+  Future<List<Map<String, Object?>>> getDpEntries({DateTime? from, DateTime? until, int? limit}) async {
     final db = await database;
+    final clauses = <String>[];
+    final args = <Object?>[];
+    if (from != null) { clauses.add('d.entry_date >= ?'); args.add(from.toIso8601String().substring(0, 10)); }
+    if (until != null) { clauses.add('d.entry_date < ?'); args.add(until.toIso8601String().substring(0, 10)); }
+    final where = clauses.isEmpty ? '' : 'WHERE ${clauses.join(' AND ')}';
+    final limitSql = limit == null ? '' : 'LIMIT ?';
+    if (limit != null) args.add(limit);
     return db.rawQuery('''
       SELECT d.*, u.name AS user_name, u.phone AS user_phone
       FROM dp_entries d JOIN users u ON u.id = d.user_id
+      $where
       ORDER BY d.entry_date DESC, d.id DESC
-    ''');
+      $limitSql
+    ''', args);
   }
 
   Future<int> addDpEntry({

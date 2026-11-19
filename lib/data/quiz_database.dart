@@ -93,15 +93,24 @@ class QuizDatabase {
     });
   }
 
-  Future<List<Map<String, Object?>>> getQuizBonusEntries() async {
+  Future<List<Map<String, Object?>>> getQuizBonusEntries({DateTime? from, DateTime? until, int? limit}) async {
     final db = await database;
+    final clauses = <String>[];
+    final args = <Object?>[];
+    if (from != null) { clauses.add('b.entry_date >= ?'); args.add(from.toIso8601String().substring(0, 10)); }
+    if (until != null) { clauses.add('b.entry_date < ?'); args.add(until.toIso8601String().substring(0, 10)); }
+    final where = clauses.isEmpty ? '' : 'WHERE ${clauses.join(' AND ')}';
+    final limitSql = limit == null ? '' : 'LIMIT ?';
+    if (limit != null) args.add(limit);
     return db.rawQuery('''
       SELECT b.*, p.name AS user_name, p.phone AS user_phone,
         'Quiz participant' AS bonus_owner_type, p.id AS quiz_participant_id
       FROM quiz_bonus_entries b
       JOIN quiz_participants p ON p.id = b.participant_id
+      $where
       ORDER BY b.entry_date DESC, b.id DESC
-    ''');
+      $limitSql
+    ''', args);
   }
 
   Future<double> quizBonusTotal({DateTime? from, DateTime? until}) async {
