@@ -303,17 +303,16 @@ class _AddActionTile extends StatelessWidget{
 class DashboardPage extends StatelessWidget{
   const DashboardPage({super.key,required this.onChanged});final VoidCallback onChanged;
   @override Widget build(BuildContext context){
-    final now=DateTime.now(),monthStart=DateTime(now.year,now.month),nextMonth=DateTime(now.year,now.month+1),previousStart=DateTime(now.year,now.month-1);
+    final now=DateTime.now(),monthStart=DateTime(now.year,now.month),nextMonth=DateTime(now.year,now.month+1);
     return FutureBuilder<List<Object?>>(future:Future.wait<Object?>([
       AppDatabase.instance.getActivityStatusUsers(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.todayDpTotal(),AppDatabase.instance.countFollowUpsDue(),AppDatabase.instance.countOpenCustomerIssues(),
-      AppDatabase.instance.getDpEntries(),AppDatabase.instance.getBonusEntries(),AppDatabase.instance.monthDpTotal(),
-      AppDatabase.instance.getReportTotals(monthStart,nextMonth),AppDatabase.instance.getReportTotals(previousStart,monthStart),
+      AppDatabase.instance.getDpEntries(),AppDatabase.instance.getBonusEntries(),
+      AppDatabase.instance.getReportTotals(monthStart,nextMonth),
     ]),builder:(context,snap){
       final d=snap.data,activity=d?[0] as List<Map<String,Object?>>? ?? const [];
       final active=activity.where((r)=>r['activity_status']=='Active').length,attention=(d?[3] as num?)?.toInt()??0,issues=(d?[4] as num?)?.toInt()??0;
       final bonus=(d?[1] as num?)?.toDouble()??0,dpToday=(d?[2] as num?)?.toDouble()??0,dpRows=d?[5] as List<Map<String,Object?>>? ?? const [],bonusRows=d?[6] as List<Map<String,Object?>>? ?? const [];
-      final dpMonth=(d?[7] as num?)?.toDouble()??0,totals=d?[8] as Map<String,num>?,previous=d?[9] as Map<String,num>?;
-      final prevDp=previous?['dp']?.toDouble()??0,delta=prevDp>0?((dpMonth-prevDp)/prevDp)*100:null;
+      final totals=d?[7] as Map<String,num>?;
       final recent=<Map<String,Object?>>[
         ...dpRows.take(10).map((r)=><String,Object?>{'kind':'DP recorded','name':r['user_name'],'date':r['created_at']??r['entry_date'],'amount':r['total']}),
         ...bonusRows.take(10).map((r)=><String,Object?>{'kind':'Bonus added','name':r['user_name'],'date':r['created_at']??r['entry_date'],'amount':r['amount']}),
