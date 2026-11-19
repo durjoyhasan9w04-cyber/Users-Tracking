@@ -1,3 +1,4 @@
+// ignore_for_file: unnecessary_underscores
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import '../data/app_database.dart';

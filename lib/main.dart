@@ -1,4 +1,4 @@
-// ignore_for_file: prefer_interpolation_to_compose_strings
+// ignore_for_file: prefer_interpolation_to_compose_strings, unnecessary_underscores
 import 'data/quiz_database.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:async';
@@ -2906,7 +2906,7 @@ class MoreHubPage extends StatelessWidget {
       ),
       const SizedBox(height: 10),
       _MoreTile(
-        icon: Icons.cloud_lock_outlined,
+        icon: Icons.cloud_upload_outlined,
         title: 'Encrypted Google Drive backup',
         subtitle: 'Upload both local databases encrypted with your own passphrase',
         onTap: () => open(context, const GoogleDriveBackupPage()),

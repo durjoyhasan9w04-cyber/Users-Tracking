@@ -32,8 +32,7 @@ class _DashboardLayoutPageState extends State<DashboardLayoutPage>{
       Expanded(child:ReorderableListView.builder(
         padding:const EdgeInsets.fromLTRB(14,8,14,20),
         itemCount:order.length,
-        onReorder:(oldIndex,newIndex){setState((){
-          if(newIndex>oldIndex)newIndex--;
+        onReorderItem:(oldIndex,newIndex){setState((){
           final item=order.removeAt(oldIndex);order.insert(newIndex,item);
         });},
         itemBuilder:(context,index){
