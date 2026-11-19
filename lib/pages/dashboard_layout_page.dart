@@ -7,9 +7,9 @@ class DashboardLayoutPage extends StatefulWidget {
   @override State<DashboardLayoutPage> createState()=>_DashboardLayoutPageState();
 }
 class _DashboardLayoutPageState extends State<DashboardLayoutPage>{
-  static const labels=<String,String>{'metrics':'Overview cards','sales':'Sales chart','activity':'Recent activity','quick':'Quick entry buttons'};
-  static const descriptions=<String,String>{'metrics':'Today totals, follow-ups, active users and issues','sales':'Weekly, monthly and yearly DP trends','activity':'Latest user and quiz events','quick':'Record DP and add bonus shortcuts'};
-  List<String> order=['metrics','sales','activity','quick'];Set<String> hidden={};Set<String> pinned={};bool loading=true,saving=false;
+  static const labels=<String,String>{'metrics':'Overview cards','sales':'Sales chart','activity':'Recent activity','analytics':'Advanced analytics','quick':'Quick entry buttons'};
+  static const descriptions=<String,String>{'metrics':'Today totals, follow-ups, active users and issues','sales':'Weekly, monthly and yearly DP trends','activity':'Latest user and quiz events','analytics':'Compare date ranges, rank DP contributions, score consistency and track bonus mix and user growth','quick':'Record DP and add bonus shortcuts'};
+  List<String> order=['metrics','sales','activity','analytics','quick'];Set<String> hidden={};Set<String> pinned={};bool loading=true,saving=false;
   @override void initState(){super.initState();load();}
   Future<void> load()async{final p=await SharedPreferences.getInstance();if(!mounted)return;setState((){
     order=p.getStringList('user_hub_dashboard_order')??order;

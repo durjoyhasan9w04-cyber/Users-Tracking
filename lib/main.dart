@@ -398,6 +398,15 @@ class DashboardPage extends StatelessWidget {
           'sales': Column(children: [
             SalesChartCard(entries: dpRows, loading: snap.connectionState == ConnectionState.waiting),
           ]),
+          'analytics': Card(
+            child: ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.insights_rounded)),
+              title: const Text('Advanced Analytics', style: TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: const Text('Date comparisons, user rankings, DP consistency, bonus mix and growth'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InsightsPage())),
+            ),
+          ),
           'activity': Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             SectionHeading('Recent Activity', trailing: 'View All', onTrailingTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityCenterPage(onOpenUser: (id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: id, onChanged: onChanged))))))),
             const SizedBox(height: 10),
@@ -425,7 +434,7 @@ class DashboardPage extends StatelessWidget {
           future: SharedPreferences.getInstance(),
           builder: (context, preferenceSnap) {
             final prefs = preferenceSnap.data;
-            const defaults = ['metrics', 'sales', 'activity', 'quick'];
+            const defaults = ['metrics', 'sales', 'activity', 'analytics', 'quick'];
             final savedOrder = prefs?.getStringList('user_hub_dashboard_order') ?? defaults;
             final hidden = prefs?.getStringList('user_hub_dashboard_hidden')?.toSet() ?? <String>{};
             final pinned = prefs?.getStringList('user_hub_dashboard_pinned')?.toSet() ?? <String>{};
