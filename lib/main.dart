@@ -25,6 +25,7 @@ import 'services/groq_fixture_service.dart';
 import 'models/user_level_config.dart';
 import 'pages/quiz_participants_page.dart';
 import 'pages/damarage_sheet_page.dart';
+import 'ui/sales_chart_card.dart';
 
 
 class AppDropdownField<T> extends StatelessWidget {
@@ -335,11 +336,10 @@ class DashboardPage extends StatelessWidget{
         const SizedBox(height:12),
         _DesignMetricCard(label:'DP Today',value:'${dpToday.toStringAsFixed(dpToday%1==0?0:2)} coins',foot:'Total DP recorded today · Tap to view records',icon:Icons.account_balance_wallet_outlined,tint:const Color(0xFFEAF0FF),iconColor:const Color(0xFF3569D4),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ActivityPage()))),
         const SizedBox(height:18),
-        Card(child:Padding(padding:const EdgeInsets.fromLTRB(17,17,17,12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Row(children:[const Expanded(child:Text('DP Activity',style:TextStyle(fontSize:16,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),if(delta!=null)Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE8F7EF),borderRadius:BorderRadius.circular(20)),child:Text('${delta>=0?'↗ +':'↘ '}${delta.abs().toStringAsFixed(1)}%',style:const TextStyle(color:Color(0xFF238653),fontWeight:FontWeight.w800,fontSize:11)))]),
-          const SizedBox(height:12),SizedBox(height:150,width:double.infinity,child:CustomPaint(painter:SparklinePainter(values:trend.isEmpty?[0,0,0,0,0]:trend))),
-          Align(alignment:Alignment.centerRight,child:Text('${dpMonth.toStringAsFixed(dpMonth%1==0?0:2)} coins this month',style:const TextStyle(color:muted,fontSize:11,fontWeight:FontWeight.w600))),
-        ]))),
+        SalesChartCard(
+          entries: dpRows,
+          loading: snap.connectionState == ConnectionState.waiting,
+        ),
         const SizedBox(height:22),
         SectionHeading('Recent Activity',trailing:'View All',onTrailingTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ActivityPage()))),
         const SizedBox(height:10),
