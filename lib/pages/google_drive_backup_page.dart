@@ -11,7 +11,7 @@ class _GoogleDriveBackupPageState extends State<GoogleDriveBackupPage>{
   final clientId=TextEditingController();final passphrase=TextEditingController();
   bool busy=false,connected=false;String account='',status='Connect a Google account to use its private app-data backup area.';List<Map<String,Object?>> backups=[];
   @override void initState(){super.initState();loadClientId();}
-  Future<void> loadClientId()async{final p=await SharedPreferences.getInstance();clientId.text=p.getString('user_hub_drive_oauth_client_id')??'';}
+  Future<void> loadClientId()async{final p=await SharedPreferences.getInstance();if(!mounted)return;clientId.text=p.getString('user_hub_drive_oauth_client_id')??'';}
   @override void dispose(){clientId.dispose();passphrase.dispose();super.dispose();}
   Future<void> connect()async{
     setState(()=>busy=true);

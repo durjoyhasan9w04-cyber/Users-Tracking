@@ -1,5 +1,6 @@
 // ignore_for_file: unnecessary_underscores
 // ignore: deprecated_member_use
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../data/app_database.dart';
 import '../data/quiz_database.dart';
@@ -12,12 +13,12 @@ class GlobalSearchPage extends StatefulWidget {
   @override State<GlobalSearchPage> createState()=>_GlobalSearchPageState();
 }
 class _GlobalSearchPageState extends State<GlobalSearchPage>{
- final controller=TextEditingController();String query='';Future<List<_SearchHit>>? future;
- @override void dispose(){controller.dispose();super.dispose();}
+ final controller=TextEditingController();String query='';Future<List<_SearchHit>>? future;Timer? _debounce;
+ @override void dispose(){_debounce?.cancel();controller.dispose();super.dispose();}
  Future<List<_SearchHit>> search(String raw) async {
   final term=raw.trim().toLowerCase();if(term.length<2)return [];
   final data=await Future.wait<Object>([
-   AppDatabase.instance.getUsers(search:raw),
+   AppDatabase.instance.searchUsersForGlobalSearch(raw),
    AppDatabase.instance.getUnifiedActivityEvents(limit:500, search:raw),
    QuizDatabase.instance.getParticipants(search:raw),
    QuizDatabase.instance.getQuizzes(),
@@ -55,11 +56,12 @@ class _GlobalSearchPageState extends State<GlobalSearchPage>{
               controller: controller,
               autofocus: true,
               onChanged: (value) {
-                setState(() => query = value);
+                _debounce?.cancel();
+                setState(() { query = value; future = null; });
                 if (value.trim().length >= 2) {
-                  setState(() => future = search(value));
-                } else {
-                  setState(() => future = null);
+                  _debounce = Timer(const Duration(milliseconds: 250), () {
+                    if (mounted) setState(() => future = search(value));
+                  });
                 }
               },
               decoration: InputDecoration(
@@ -81,7 +83,9 @@ class _GlobalSearchPageState extends State<GlobalSearchPage>{
           Expanded(
             child: query.trim().length < 2
                 ? const Center(child: Text('Enter at least 2 characters to search.'))
-                : FutureBuilder<List<_SearchHit>>(
+                 : future == null
+                    ? const Center(child: Text('Searching…'))
+                    : FutureBuilder<List<_SearchHit>>(
                     future: future,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
