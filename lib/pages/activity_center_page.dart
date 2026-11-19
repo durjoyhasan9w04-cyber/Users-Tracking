@@ -1,3 +1,4 @@
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -112,7 +113,9 @@ class _ActivityCenterPageState extends State<ActivityCenterPage> {
     body: FutureBuilder<List<Map<String, Object?>>>(
       future: future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
         if (snapshot.hasError) return const Center(child: Padding(
           padding: EdgeInsets.all(24), child: Text('Could not load the activity history. Please try again.'),
         ));

@@ -1,3 +1,4 @@
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -151,7 +152,7 @@ class _QuickEntrySheetState extends State<QuickEntrySheet> {
         TextField(controller: search, decoration: const InputDecoration(labelText: 'Find user', prefixIcon: Icon(Icons.search_rounded))),
         const SizedBox(height: 8),
         DropdownButtonFormField<int>(
-          value: filtered.any((u) => u['id'] == selectedUserId) ? selectedUserId : null,
+          initialValue: filtered.any((u) => u['id'] == selectedUserId) ? selectedUserId : null,
           isExpanded: true,
           decoration: const InputDecoration(labelText: 'User'),
           items: filtered.map((u) => DropdownMenuItem<int>(
@@ -168,7 +169,7 @@ class _QuickEntrySheetState extends State<QuickEntrySheet> {
         if (mode == 'Bonus') ...[
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: reason,
+            initialValue: reason,
             decoration: const InputDecoration(labelText: 'Bonus reason'),
             items: const ['Deposit', 'Special', 'Promotional', 'Other'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
             onChanged: saving ? null : (v) => setState(() => reason = v ?? 'Other'),
