@@ -1021,6 +1021,15 @@ class AppDatabase {
           'Task completed', t.title, NULL, 'task'
         FROM task_completions c JOIN tasks t ON t.id = c.task_id
         UNION ALL
+        SELECT 'Task', substr(t.created_at, 1, 10), t.created_at, NULL, t.id, '', '',
+          t.title,
+          t.task_type || ' · ' ||
+            CASE WHEN t.is_completed = 1 THEN 'Completed' ELSE 'Open' END ||
+            CASE WHEN COALESCE(t.notes, '') = '' THEN '' ELSE ' · ' || t.notes END ||
+            CASE WHEN t.scheduled_at IS NULL THEN '' ELSE ' · Due ' || t.scheduled_at END,
+          NULL, 'task_definition'
+        FROM tasks t
+        UNION ALL
         SELECT 'Contact reminder', substr(r.remind_at, 1, 10), r.created_at, r.user_id, r.id,
           u.name, u.phone, 'Contact reminder set', r.reason, NULL, 'reminder'
         FROM contact_reminders r JOIN users u ON u.id = r.user_id

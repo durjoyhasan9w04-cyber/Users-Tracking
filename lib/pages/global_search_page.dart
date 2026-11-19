@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../data/app_database.dart';
 import '../data/quiz_database.dart';
+import '../services/global_search_catalog.dart';
 import 'activity_center_page.dart';
 
 class GlobalSearchPage extends StatefulWidget {
@@ -39,7 +40,9 @@ class _GlobalSearchPageState extends State<GlobalSearchPage>{
    final hay='${e['kind']} ${e['title']} ${e['name']} ${e['phone']} ${e['detail']} ${e['event_date']}';
    if(hay.toLowerCase().contains(term))hits.add(_SearchHit(type:e['kind']?.toString()??'Activity',title:e['title']?.toString()??'Activity',subtitle:'${e['name']??''} · ${e['event_date']??''}',userId:(e['user_id'] as num?)?.toInt(),event:e));
   }
-  if('report'.contains(term)||term.contains('report'))hits.add(const _SearchHit(type:'Reports',title:'Reports & export',subtitle:'Open date-range report preview and export'));
+  for (final report in findSearchableReports(term)) {
+   hits.add(_SearchHit(type:'Report',title:report.title,subtitle:report.description));
+  }
   hits.sort((a,b)=>a.title.toLowerCase().compareTo(b.title.toLowerCase()));
   return hits.take(250).toList();
  }
@@ -107,16 +110,18 @@ class _GlobalSearchPageState extends State<GlobalSearchPage>{
                               ? Icons.person_outline
                               : (row.type == 'Quiz' || row.type == 'Quiz participant')
                                   ? Icons.quiz_outlined
-                                  : row.type == 'Reports'
+                                  : row.type == 'Report'
                                       ? Icons.summarize_outlined
-                                      : Icons.receipt_long_outlined;
+                                      : row.type == 'Task'
+                                          ? Icons.checklist_rounded
+                                          : Icons.receipt_long_outlined;
                           return ListTile(
                             leading: CircleAvatar(child: Icon(icon)),
                             title: Text(row.title, maxLines: 1, overflow: TextOverflow.ellipsis),
                             subtitle: Text('${row.type} · ${row.subtitle}', maxLines: 2, overflow: TextOverflow.ellipsis),
                             trailing: const Icon(Icons.chevron_right_rounded),
                             onTap: () {
-                              if (row.type == 'Reports') {
+                              if (row.type == 'Report') {
                                 widget.onOpenReports();
                               } else if (row.type == 'User' && row.userId != null) {
                                 widget.onOpenUser(row.userId!);
