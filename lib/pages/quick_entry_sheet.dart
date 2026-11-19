@@ -87,22 +87,28 @@ class _QuickEntrySheetState extends State<QuickEntrySheet> {
       return;
     }
     setState(() => saving = true);
-    final createdAt = DateTime.now().toIso8601String();
+    final now = DateTime.now();
+    final createdAt = now.toIso8601String();
     try {
       final int id;
       if (mode == 'DP') {
         id = await AppDatabase.instance.addDpEntry(
-          userId: selectedUserId!, date: DateTime.now(), amounts: [value],
+          userId: selectedUserId!, date: now, amounts: [value],
           contacted: contacted, notes: notes.text, createdAt: createdAt,
         );
       } else {
         id = await AppDatabase.instance.addBonusEntry(
-          userId: selectedUserId!, date: DateTime.now(), amount: value,
+          userId: selectedUserId!, date: now, amount: value,
           reason: reason, notes: notes.text, createdAt: createdAt,
         );
       }
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_lastUserKey, selectedUserId!);
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt(_lastUserKey, selectedUserId!);
+      } catch (_) {
+        // The transaction is already safely stored; a preference failure must
+        // not make a successful save look like a failed transaction.
+      }
       if (!mounted) return;
       Navigator.pop(context, QuickEntrySaved(
         kind: mode, id: id, createdAt: createdAt, amount: value,
@@ -152,6 +158,7 @@ class _QuickEntrySheetState extends State<QuickEntrySheet> {
         TextField(controller: search, decoration: const InputDecoration(labelText: 'Find user', prefixIcon: Icon(Icons.search_rounded))),
         const SizedBox(height: 8),
         DropdownButtonFormField<int>(
+          key: ValueKey('quick-user-$selectedUserId-$query'),
           initialValue: filtered.any((u) => u['id'] == selectedUserId) ? selectedUserId : null,
           isExpanded: true,
           decoration: const InputDecoration(labelText: 'User'),

@@ -19,7 +19,7 @@ class _ActivityCenterPageState extends State<ActivityCenterPage> {
   late Future<List<Map<String, Object?>>> future;
   late String typeFilter;
   late String rangeFilter;
-  static const types = ['All', 'DP', 'Bonus', 'Contact', 'Task', 'Quiz', 'Issue', 'Prospect', 'System'];
+  static const types = ['All', 'DP', 'Bonus', 'Contact', 'Reminder', 'Task', 'Quiz', 'Issue', 'Prospect', 'System'];
   static const ranges = ['Today', '7 days', '30 days', 'All'];
 
   @override
@@ -50,6 +50,7 @@ class _ActivityCenterPageState extends State<ActivityCenterPage> {
     if (kind == 'DP') return 'DP';
     if (kind.contains('Bonus')) return 'Bonus';
     if (kind.startsWith('Potential')) return 'Prospect';
+    if (kind == 'Contact reminder') return 'Reminder';
     if (kind.contains('Contact')) return 'Contact';
     if (kind == 'Task') return 'Task';
     if (kind.startsWith('Quiz')) return 'Quiz';
