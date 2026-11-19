@@ -941,54 +941,57 @@ class AppDatabase {
 
   Future<List<Map<String, Object?>>> getUnifiedActivityEvents({int limit = 500, String search = ''}) async {
     final db = await database;
+    final term = search.trim();
+    final pattern = '%$term%';
     return db.rawQuery('''
       SELECT * FROM (
         SELECT 'DP' AS kind, d.entry_date AS event_date, d.created_at AS created_at,
-          d.user_id AS user_id, d.id AS record_id, u.name AS name,
+          d.user_id AS user_id, d.id AS record_id, u.name AS name, u.phone AS phone,
           'DP recorded' AS title, CAST(d.dp_count AS TEXT) || ' DP item(s)' AS detail,
           d.total AS amount, 'dp' AS source
         FROM dp_entries d JOIN users u ON u.id = d.user_id
         UNION ALL
-        SELECT 'Contact', d.entry_date, d.created_at, d.user_id, d.id, u.name,
+        SELECT 'Contact', d.entry_date, d.created_at, d.user_id, d.id, u.name, u.phone,
           'Marked contacted', 'Contacted today from DP entry', NULL, 'dp_contact'
         FROM dp_entries d JOIN users u ON u.id = d.user_id WHERE d.contacted = 1
         UNION ALL
-        SELECT 'Bonus', b.entry_date, b.created_at, b.user_id, b.id, u.name,
+        SELECT 'Bonus', b.entry_date, b.created_at, b.user_id, b.id, u.name, u.phone,
           'Bonus added', b.reason, b.amount, 'bonus'
         FROM bonus_entries b JOIN users u ON u.id = b.user_id
         UNION ALL
-        SELECT 'Contact', substr(c.contact_date, 1, 10), c.created_at, c.user_id, c.id, u.name,
+        SELECT 'Contact', substr(c.contact_date, 1, 10), c.created_at, c.user_id, c.id, u.name, u.phone,
           'Contact logged', c.channel || ' · ' || c.outcome, NULL, 'contact'
         FROM contact_history c JOIN users u ON u.id = c.user_id
         UNION ALL
         SELECT 'Potential contact', substr(pc.contact_at, 1, 10), pc.created_at, NULL,
-          pc.id, p.name, 'Prospect contact', pc.channel || ' · ' || pc.outcome, NULL, 'potential_contact'
+          pc.id, p.name, p.phone, 'Prospect contact', pc.channel || ' · ' || pc.outcome, NULL, 'potential_contact'
         FROM potential_contact_history pc JOIN potential_users p ON p.id = pc.potential_user_id
         UNION ALL
         SELECT 'Potential user', substr(p.created_at, 1, 10), p.created_at, NULL,
-          p.id, p.name, 'Potential user added', p.status, NULL, 'potential_user'
+          p.id, p.name, p.phone, 'Potential user added', p.status, NULL, 'potential_user'
         FROM potential_users p
         UNION ALL
         SELECT 'Issue', substr(i.updated_at, 1, 10), i.updated_at, i.user_id, i.id,
-          COALESCE(u.name, ''), 'Issue updated', i.title || ' · ' || i.status, NULL, 'issue'
+          COALESCE(u.name, ''), COALESCE(u.phone, ''), 'Issue updated', i.title || ' · ' || i.status, NULL, 'issue'
         FROM customer_issues i LEFT JOIN users u ON u.id = i.user_id
         UNION ALL
-        SELECT 'Task', c.completed_on, c.completed_at, NULL, c.task_id, '',
+        SELECT 'Task', c.completed_on, c.completed_at, NULL, c.task_id, '', '',
           'Task completed', t.title, NULL, 'task'
         FROM task_completions c JOIN tasks t ON t.id = c.task_id
         UNION ALL
         SELECT 'Contact reminder', substr(r.remind_at, 1, 10), r.created_at, r.user_id, r.id,
-          u.name, 'Contact reminder set', r.reason, NULL, 'reminder'
+          u.name, u.phone, 'Contact reminder set', r.reason, NULL, 'reminder'
         FROM contact_reminders r JOIN users u ON u.id = r.user_id
         UNION ALL
-        SELECT 'System', substr(a.created_at, 1, 10), a.created_at, NULL, a.entity_id, '',
+        SELECT 'System', substr(a.created_at, 1, 10), a.created_at, NULL, a.entity_id, '', '',
           a.action || ' ' || a.entity_type, a.details, NULL, 'audit'
         FROM audit_log a
       )
-      WHERE (? = '' OR name LIKE ? OR title LIKE ? OR detail LIKE ? OR CAST(amount AS TEXT) LIKE ? OR event_date LIKE ?)
+      WHERE (? = '' OR name LIKE ? OR phone LIKE ? OR title LIKE ? OR detail LIKE ?
+        OR CAST(amount AS TEXT) LIKE ? OR event_date LIKE ?)
       ORDER BY created_at DESC, record_id DESC
       LIMIT ?
-    ''', [search.trim(), '%${search.trim()}%', '%${search.trim()}%', '%${search.trim()}%', '%${search.trim()}%', '%${search.trim()}%', limit]);
+    ''', [term, pattern, pattern, pattern, pattern, pattern, pattern, limit]);
   }
 
   Future<List<Map<String, Object?>>> getUserDpCalendar(int userId, {int days = 30}) async {

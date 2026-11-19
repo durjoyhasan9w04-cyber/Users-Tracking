@@ -36,7 +36,7 @@ class _GlobalSearchPageState extends State<GlobalSearchPage>{
   }
   final events=<Map<String,Object?>>[...(data[1] as List<Map<String,Object?>>),...(data[4] as List<Map<String,Object?>>)];
   for(final e in events){
-   final hay='${e['kind']} ${e['title']} ${e['name']} ${e['detail']} ${e['event_date']}';
+   final hay='${e['kind']} ${e['title']} ${e['name']} ${e['phone']} ${e['detail']} ${e['event_date']}';
    if(hay.toLowerCase().contains(term))hits.add(_SearchHit(type:e['kind']?.toString()??'Activity',title:e['title']?.toString()??'Activity',subtitle:'${e['name']??''} · ${e['event_date']??''}',userId:(e['user_id'] as num?)?.toInt(),event:e));
   }
   if('report'.contains(term)||term.contains('report'))hits.add(const _SearchHit(type:'Reports',title:'Reports & export',subtitle:'Open date-range report preview and export'));
