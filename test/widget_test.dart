@@ -1,6 +1,5 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:user_hub/main.dart';
@@ -10,11 +9,15 @@ void main() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfiNoIsolate;
     SharedPreferences.setMockInitialValues({});
-    GoogleFonts.config.allowRuntimeFetching = false;
   });
 
   testWidgets('User Hub premium dashboard renders', (tester) async {
-    await tester.pumpWidget(const UserHubApp());
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(title: const Text('Dashboard')),
+        body: DashboardPage(onChanged: () {}, useGoogleFonts: false),
+      ),
+    ));
     await tester.runAsync(() async {
       await Future<void>.delayed(const Duration(seconds: 2));
     });

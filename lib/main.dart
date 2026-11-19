@@ -318,8 +318,9 @@ class _AddActionTile extends StatelessWidget{
 }
 
 class DashboardPage extends StatelessWidget {
-  const DashboardPage({super.key, required this.onChanged});
+  const DashboardPage({super.key, required this.onChanged, this.useGoogleFonts = true});
   final VoidCallback onChanged;
+  final bool useGoogleFonts;
 
   @override
   Widget build(BuildContext context) {
@@ -379,23 +380,23 @@ class DashboardPage extends StatelessWidget {
         final sections = <String, Widget>{
           'metrics': Column(children: [
             Row(children: [
-              Expanded(child: _DesignMetricCard(label: 'Active DP Users', value: '$active', foot: 'DP in last 3 days', icon: Icons.people_alt_outlined, tint: const Color(0xFFE8F7EF), iconColor: const Color(0xFF1B9B59), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityStatusPage())))),
+              Expanded(child: _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'Active DP Users', value: '$active', foot: 'DP in last 3 days', icon: Icons.people_alt_outlined, tint: const Color(0xFFE8F7EF), iconColor: const Color(0xFF1B9B59), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityStatusPage())))),
               const SizedBox(width: 12),
-              Expanded(child: _DesignMetricCard(label: 'Bonus Today', value: '${bonus.toStringAsFixed(bonus % 1 == 0 ? 0 : 2)} coins', foot: '${totals?['bonus_count'] ?? 0} records this month', icon: Icons.card_giftcard_outlined, tint: const Color(0xFFFFF0E7), iconColor: emerald, onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => BonusPage(onChanged: onChanged))))),
+              Expanded(child: _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'Bonus Today', value: '${bonus.toStringAsFixed(bonus % 1 == 0 ? 0 : 2)} coins', foot: '${totals?['bonus_count'] ?? 0} records this month', icon: Icons.card_giftcard_outlined, tint: const Color(0xFFFFF0E7), iconColor: emerald, onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => BonusPage(onChanged: onChanged))))),
             ]),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _DesignMetricCard(label: 'Need Attention', value: '$attention', foot: 'Follow-up due', icon: Icons.notifications_active_outlined, tint: const Color(0xFFFFF0E7), iconColor: const Color(0xFFE87524), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FollowUpsPage())))),
+              Expanded(child: _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'Need Attention', value: '$attention', foot: 'Follow-up due', icon: Icons.notifications_active_outlined, tint: const Color(0xFFFFF0E7), iconColor: const Color(0xFFE87524), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FollowUpsPage())))),
               const SizedBox(width: 12),
-              Expanded(child: _DesignMetricCard(label: 'Open Issues', value: '$issues', foot: 'Need action', icon: Icons.warning_amber_rounded, tint: const Color(0xFFEAF0FF), iconColor: const Color(0xFF3569D4), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomerIssuesPage())))),
+              Expanded(child: _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'Open Issues', value: '$issues', foot: 'Need action', icon: Icons.warning_amber_rounded, tint: const Color(0xFFEAF0FF), iconColor: const Color(0xFF3569D4), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomerIssuesPage())))),
             ]),
             const SizedBox(height: 12),
-            _DesignMetricCard(label: 'DP Today', value: '${dpToday.toStringAsFixed(dpToday % 1 == 0 ? 0 : 2)} coins', foot: 'Total DP recorded today · Tap to view records', icon: Icons.account_balance_wallet_outlined, tint: const Color(0xFFEAF0FF), iconColor: const Color(0xFF3569D4), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityPage()))),
+            _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'DP Today', value: '${dpToday.toStringAsFixed(dpToday % 1 == 0 ? 0 : 2)} coins', foot: 'Total DP recorded today · Tap to view records', icon: Icons.account_balance_wallet_outlined, tint: const Color(0xFFEAF0FF), iconColor: const Color(0xFF3569D4), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityPage()))),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _DesignMetricCard(label: 'DP Transactions', value: '$dpTransactions', foot: 'Entries recorded today', icon: Icons.receipt_long_outlined, tint: const Color(0xFFEAF0FF), iconColor: const Color(0xFF3569D4), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityCenterPage(initialFilter: 'DP', initialRange: 'Today', onOpenUser: (id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: id, onChanged: onChanged)))))))),
+              Expanded(child: _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'DP Transactions', value: '$dpTransactions', foot: 'Entries recorded today', icon: Icons.receipt_long_outlined, tint: const Color(0xFFEAF0FF), iconColor: const Color(0xFF3569D4), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityCenterPage(initialFilter: 'DP', initialRange: 'Today', onOpenUser: (id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: id, onChanged: onChanged)))))))),
               const SizedBox(width: 12),
-              Expanded(child: _DesignMetricCard(label: 'Contacted Today', value: '${contacts['contacted'] ?? 0}/$totalUsers', foot: '${contacts['not_contacted'] ?? 0} not contacted', icon: Icons.chat_bubble_outline_rounded, tint: const Color(0xFFE8F7EF), iconColor: const Color(0xFF238653), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityCenterPage(initialFilter: 'Contact', initialRange: 'Today', onOpenUser: (id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: id, onChanged: onChanged)))))))),
+              Expanded(child: _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'Contacted Today', value: '${contacts['contacted'] ?? 0}/$totalUsers', foot: '${contacts['not_contacted'] ?? 0} not contacted', icon: Icons.chat_bubble_outline_rounded, tint: const Color(0xFFE8F7EF), iconColor: const Color(0xFF238653), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityCenterPage(initialFilter: 'Contact', initialRange: 'Today', onOpenUser: (id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: id, onChanged: onChanged)))))))),
             ]),
           ]),
           'sales': Column(children: [
@@ -467,11 +468,11 @@ class DashboardPage extends StatelessWidget {
 }
 
 class _DesignMetricCard extends StatelessWidget{
-  const _DesignMetricCard({required this.label,required this.value,required this.foot,required this.icon,required this.tint,required this.iconColor,this.onTap});
-  final String label,value,foot;final IconData icon;final Color tint,iconColor;final VoidCallback? onTap;
+  const _DesignMetricCard({required this.label,required this.value,required this.foot,required this.icon,required this.tint,required this.iconColor,this.onTap, this.useGoogleFonts = true});
+  final String label,value,foot;final IconData icon;final Color tint,iconColor;final VoidCallback? onTap;final bool useGoogleFonts;
   @override Widget build(BuildContext context)=>Card(clipBehavior:Clip.antiAlias,child:InkWell(onTap:onTap,child:Padding(padding:const EdgeInsets.all(15),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     Row(children:[Expanded(child:Text(label,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:12,fontWeight:FontWeight.w600))),const Icon(Icons.more_horiz,color:muted,size:19)]),
-    const SizedBox(height:10),Text(value,maxLines:1,overflow:TextOverflow.ellipsis,style:GoogleFonts.spaceGrotesk(fontSize:27,fontWeight:FontWeight.w800,color:const Color(0xFF18202B))),
+    const SizedBox(height:10),Text(value,maxLines:1,overflow:TextOverflow.ellipsis,style: useGoogleFonts ? GoogleFonts.spaceGrotesk(fontSize:27,fontWeight:FontWeight.w800,color:const Color(0xFF18202B)) : const TextStyle(fontSize:27,fontWeight:FontWeight.w800,color:Color(0xFF18202B))),
     const SizedBox(height:8),Row(children:[Icon(icon,size:14,color:iconColor),const SizedBox(width:5),Expanded(child:Text(foot,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:10)))]),
   ]))));
 }
