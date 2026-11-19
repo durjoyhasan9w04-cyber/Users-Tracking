@@ -374,50 +374,6 @@ class _DesignRecentTile extends StatelessWidget{
     ));
   }
 }
-class HeroKpiCard extends StatelessWidget {
-  const HeroKpiCard({super.key, required this.label, required this.value, required this.delta, required this.sparkline, required this.loading});
-  final String label; final num value; final double? delta; final List<double> sparkline; final bool loading;
-  @override
-  Widget build(BuildContext context) {
-    final deltaText = delta == null ? 'MONTH TO DATE' : '${delta! >= 0 ? '+' : ''}${delta!.toStringAsFixed(1)}%';
-    return Container(
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 16),
-      decoration: BoxDecoration(color: const Color(0xFF12271E), borderRadius: BorderRadius.circular(27), border: Border.all(color: const Color(0xFF1B4A35))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: Text(label, style: const TextStyle(color: muted, fontSize: 14, letterSpacing: 0))),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7), decoration: BoxDecoration(color: const Color(0xFF1B4934), borderRadius: BorderRadius.circular(30)), child: Text(deltaText, style: const TextStyle(color: emerald, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0))),
-        ]),
-        const SizedBox(height: 10),
-        loading ? const SizedBox(height: 58, child: Align(alignment: Alignment.centerLeft, child: SizedBox(width: 110, child: LinearProgressIndicator()))) : AnimatedNumberText(value: value.toDouble(), style: GoogleFonts.spaceGrotesk(fontSize: 48, fontWeight: FontWeight.w700, color: const Color(0xFFE8F0EC), letterSpacing: 0, fontFeatures: const [FontFeature.tabularFigures()])),
-        const SizedBox(height: 12),
-        SizedBox(height: 62, width: double.infinity, child: CustomPaint(painter: SparklinePainter(values: sparkline))),
-      ]),
-    );
-  }
-}
-
-class SparklinePainter extends CustomPainter {
-  const SparklinePainter({required this.values});
-  final List<double> values;
-  @override
-  void paint(Canvas canvas, Size size) {
-    final points = values.isEmpty ? List<double>.filled(7, 0) : values.length == 1 ? List<double>.filled(7, values.first) : values;
-    final minValue = points.reduce((a, b) => a < b ? a : b);
-    final maxValue = points.reduce((a, b) => a > b ? a : b);
-    final range = (maxValue - minValue).abs() < 0.001 ? 1.0 : maxValue - minValue;
-    final path = Path();
-    for (var i = 0; i < points.length; i++) {
-      final x = points.length == 1 ? size.width : size.width * i / (points.length - 1);
-      final y = size.height - 7 - ((points[i] - minValue) / range) * (size.height - 18);
-      if (i == 0) { path.moveTo(x, y); } else { path.lineTo(x, y); }
-    }
-    canvas.drawPath(path, Paint()..color = emerald..strokeWidth = 3..style = PaintingStyle.stroke..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round);
-  }
-  @override
-  bool shouldRepaint(covariant SparklinePainter oldDelegate) => oldDelegate.values != values;
-}
-
 class AnimatedNumberText extends StatelessWidget {
   const AnimatedNumberText({super.key, required this.value, required this.style});
   final double value; final TextStyle style;
