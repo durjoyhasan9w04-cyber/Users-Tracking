@@ -117,9 +117,11 @@ class _ActivityCenterPageState extends State<ActivityCenterPage> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) return const Center(child: Padding(
-          padding: EdgeInsets.all(24), child: Text('Could not load the activity history. Please try again.'),
-        ));
+        if (snapshot.hasError) {
+          return const Center(child: Padding(
+            padding: EdgeInsets.all(24), child: Text('Could not load the activity history. Please try again.'),
+          ));
+        }
         final rows = _filtered(snapshot.data ?? const []);
         return Column(children: [
           Padding(

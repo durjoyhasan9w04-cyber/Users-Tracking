@@ -326,7 +326,7 @@ class DashboardPage extends StatelessWidget{
     ]),builder:(context,snap){
       final d=snap.data,activity=d?[0] as List<Map<String,Object?>>? ?? const [];
       final active=activity.where((r)=>r['activity_status']=='Active').length,attention=(d?[3] as num?)?.toInt()??0,issues=(d?[4] as num?)?.toInt()??0;
-      final bonus=(d?[1] as num?)?.toDouble()??0,dpToday=(d?[2] as num?)?.toDouble()??0,dpRows=d?[5] as List<Map<String,Object?>>? ?? const [],bonusRows=d?[6] as List<Map<String,Object?>>? ?? const [];
+      final bonus=(d?[1] as num?)?.toDouble()??0,dpToday=(d?[2] as num?)?.toDouble()??0,dpRows=d?[5] as List<Map<String,Object?>>? ?? const [];
       final totals=d?[8] as Map<String,num>?;
       final contacts=d?[10] as Map<String,int>? ?? const {};
       final dpTransactions=(d?[11] as num?)?.toInt()??0,totalUsers=(d?[12] as num?)?.toInt()??0;
