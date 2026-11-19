@@ -57,6 +57,13 @@ class EncryptedBackupCodec {
     final plain = await _cipher.decrypt(SecretBox(cipherText, nonce: nonce, mac: mac), secretKey: key);
     return Uint8List.fromList(plain);
   }
+
+  static Future<void> _clearSqliteSidecars(String databasePath) async {
+    for (final suffix in ['-wal', '-shm']) {
+      final sidecar = File('$databasePath$suffix');
+      if (await sidecar.exists()) await sidecar.delete();
+    }
+  }
 }
 
 class GoogleDriveBackupService {
@@ -72,6 +79,9 @@ class GoogleDriveBackupService {
   Future<String> signIn(String serverClientId) async {
     final clientId = serverClientId.trim();
     if (clientId.isEmpty) throw ArgumentError('Enter your Google OAuth Web client ID first.');
+    if (!clientId.endsWith('.apps.googleusercontent.com')) {
+      throw ArgumentError('Enter the complete Google OAuth Web client ID ending in .apps.googleusercontent.com.');
+    }
     if (_configuredClientId != null && _configuredClientId != clientId) {
       throw StateError('Google Sign-In was initialized with another client ID. Restart the app to change it.');
     }
@@ -202,6 +212,7 @@ class UserHubDriveBackup {
     try {
       await AppDatabase.instance.restoreBackupFile(candidateMain.path);
       await QuizDatabase.instance.close();
+      await _clearSqliteSidecars(quizPath);
       await candidateQuiz.copy(quizPath);
       final restoredQuiz = await QuizDatabase.instance.database;
       final quizIntegrity = await restoredQuiz.rawQuery('PRAGMA integrity_check');
@@ -211,6 +222,7 @@ class UserHubDriveBackup {
     } catch (_) {
       if (await rollbackMain.exists()) await AppDatabase.instance.restoreBackupFile(rollbackMain.path);
       await QuizDatabase.instance.close();
+      await _clearSqliteSidecars(quizPath);
       if (await rollbackQuiz.exists()) await rollbackQuiz.copy(quizPath);
       await QuizDatabase.instance.database;
       rethrow;
