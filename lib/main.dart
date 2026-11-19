@@ -30,6 +30,7 @@ import 'pages/activity_center_page.dart';
 import 'pages/quick_entry_sheet.dart';
 import 'pages/insights_page.dart';
 import 'pages/global_search_page.dart';
+import 'pages/dashboard_layout_page.dart';
 
 
 class AppDropdownField<T> extends StatelessWidget {
@@ -260,7 +261,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell>{
   int index=0,revision=0;
   void refresh()=>setState(()=>revision++);
-  Future<void> openMore()async{await Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const MoreHubPage()));}
+  Future<void> openMore()async{await Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const MoreHubPage()));if(mounted)refresh();}
   Future<void> addAction()async{
     final action=await showModalBottomSheet<String>(context:context,backgroundColor:panel,shape:const RoundedRectangleBorder(borderRadius:BorderRadius.vertical(top:Radius.circular(26))),builder:(ctx)=>SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(20,18,20,24),child:Column(mainAxisSize:MainAxisSize.min,children:[
       Container(width:42,height:4,decoration:BoxDecoration(color:panelBorder,borderRadius:BorderRadius.circular(4))),const SizedBox(height:18),
@@ -315,82 +316,143 @@ class _AddActionTile extends StatelessWidget{
   @override Widget build(BuildContext context)=>ListTile(contentPadding:const EdgeInsets.symmetric(horizontal:8),leading:CircleAvatar(backgroundColor:const Color(0xFFFFE6D9),child:Icon(icon,color:emerald)),title:Text(label,style:const TextStyle(fontWeight:FontWeight.w700,color:Color(0xFF27313D))),trailing:const Icon(Icons.chevron_right_rounded,color:muted),onTap:onTap);
 }
 
-class DashboardPage extends StatelessWidget{
-  const DashboardPage({super.key,required this.onChanged});final VoidCallback onChanged;
-  @override Widget build(BuildContext context){
-    final now=DateTime.now(),monthStart=DateTime(now.year,now.month),nextMonth=DateTime(now.year,now.month+1),previousStart=DateTime(now.year,now.month-1);
-    return FutureBuilder<List<Object?>>(future:Future.wait<Object?>([
-      AppDatabase.instance.getActivityStatusUsers(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.todayDpTotal(),AppDatabase.instance.countFollowUpsDue(),AppDatabase.instance.countOpenCustomerIssues(),
-      AppDatabase.instance.getDpEntries(),AppDatabase.instance.getBonusEntries(),AppDatabase.instance.monthDpTotal(),
-      AppDatabase.instance.getReportTotals(monthStart,nextMonth),AppDatabase.instance.getReportTotals(previousStart,monthStart),
-      AppDatabase.instance.todayContactMetrics(),AppDatabase.instance.todayDpTransactions(),AppDatabase.instance.countUsers(),
-      AppDatabase.instance.getUnifiedActivityEvents(limit: 20),QuizDatabase.instance.getActivityEvents(limit: 20),
-    ]),builder:(context,snap){
-      final d=snap.data,activity=d?[0] as List<Map<String,Object?>>? ?? const [];
-      final active=activity.where((r)=>r['activity_status']=='Active').length,attention=(d?[3] as num?)?.toInt()??0,issues=(d?[4] as num?)?.toInt()??0;
-      final bonus=(d?[1] as num?)?.toDouble()??0,dpToday=(d?[2] as num?)?.toDouble()??0,dpRows=d?[5] as List<Map<String,Object?>>? ?? const [];
-      final totals=d?[8] as Map<String,num>?;
-      final contacts=d?[10] as Map<String,int>? ?? const {};
-      final dpTransactions=(d?[11] as num?)?.toInt()??0,totalUsers=(d?[12] as num?)?.toInt()??0;
-      final feed=<Map<String,Object?>>[
-        ...(d?[13] as List<Map<String,Object?>>? ?? const []),
-        ...(d?[14] as List<Map<String,Object?>>? ?? const []),
-      ]..sort((a,b)=>(b['created_at'] as String? ?? b['event_date'] as String? ?? '').compareTo(a['created_at'] as String? ?? a['event_date'] as String? ?? ''));
-      final recent=feed.take(5).map((event)=><String,Object?>{
-        'kind':event['title']??event['kind'],'name':event['name'],
-        'date':event['created_at']??event['event_date'],'amount':event['amount'],
-        'detail':event['detail'],'user_id':event['user_id'],
-      }).toList();
-      return ListView(padding:const EdgeInsets.fromLTRB(20,4,20,110),children:[
-        Row(children:[
-          Expanded(child:_DesignMetricCard(label:'Active DP Users',value:'$active',foot:'DP in last 3 days',icon:Icons.people_alt_outlined,tint:const Color(0xFFE8F7EF),iconColor:const Color(0xFF1B9B59),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ActivityStatusPage())))),
-          const SizedBox(width:12),
-          Expanded(child:_DesignMetricCard(label:'Bonus Today',value:'${bonus.toStringAsFixed(bonus%1==0?0:2)} coins',foot:'${totals?['bonus_count']??0} records this month',icon:Icons.card_giftcard_outlined,tint:const Color(0xFFFFF0E7),iconColor:emerald,onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>BonusPage(onChanged:onChanged))))),
-        ]),
-        const SizedBox(height:12),
-        Row(children:[
-          Expanded(child:_DesignMetricCard(label:'Need Attention',value:'$attention',foot:'Follow-up due',icon:Icons.notifications_active_outlined,tint:const Color(0xFFFFF0E7),iconColor:const Color(0xFFE87524),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const FollowUpsPage())))),
-          const SizedBox(width:12),
-          Expanded(child:_DesignMetricCard(label:'Open Issues',value:'$issues',foot:'Need action',icon:Icons.warning_amber_rounded,tint:const Color(0xFFEAF0FF),iconColor:const Color(0xFF3569D4),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const CustomerIssuesPage())))),
-        ]),
-        const SizedBox(height:12),
-        _DesignMetricCard(label:'DP Today',value:'${dpToday.toStringAsFixed(dpToday%1==0?0:2)} coins',foot:'Total DP recorded today · Tap to view records',icon:Icons.account_balance_wallet_outlined,tint:const Color(0xFFEAF0FF),iconColor:const Color(0xFF3569D4),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ActivityPage()))),
-        const SizedBox(height:12),
-        Row(children:[
-          Expanded(child:_DesignMetricCard(label:'DP Transactions',value:'$dpTransactions',foot:'Entries recorded today',icon:Icons.receipt_long_outlined,tint:const Color(0xFFEAF0FF),iconColor:const Color(0xFF3569D4),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>ActivityCenterPage(initialFilter:'DP',initialRange:'Today',onOpenUser:(id)=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>UserProfilePage(userId:id,onChanged:onChanged)))))))),
-          const SizedBox(width:12),
-          Expanded(child:_DesignMetricCard(label:'Contacted Today',value:'${contacts['contacted']??0}/$totalUsers',foot:'${contacts['not_contacted']??0} not contacted',icon:Icons.chat_bubble_outline_rounded,tint:const Color(0xFFE8F7EF),iconColor:const Color(0xFF238653),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>ActivityCenterPage(initialFilter:'Contact',initialRange:'Today',onOpenUser:(id)=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>UserProfilePage(userId:id,onChanged:onChanged)))))))),
-        ]),
-        const SizedBox(height:18),
-        SalesChartCard(
-          entries: dpRows,
-          loading: snap.connectionState == ConnectionState.waiting,
-        ),
-        const SizedBox(height:22),
-        SectionHeading('Recent Activity',trailing:'View All',onTrailingTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>ActivityCenterPage(onOpenUser:(id)=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>UserProfilePage(userId:id,onChanged:onChanged))))))),
-        const SizedBox(height:10),
-        if(snap.connectionState==ConnectionState.waiting)const Center(child:Padding(padding:EdgeInsets.all(24),child:CircularProgressIndicator()))
-        else if(recent.isEmpty)const EmptyState(title:'No recent activity',subtitle:'DP, bonuses, contacts, tasks and quiz activity will appear here.',compact:true)
-        else ...recent.map((e)=>_DesignRecentTile(event:e)),
-        const SizedBox(height:12),
-        Row(children:[
-          Expanded(child:OutlinedButton.icon(onPressed:()async{final ok=await showDialog<bool>(context:context,builder:(_)=>const DpEntryDialog());if(ok==true)onChanged();},icon:const Icon(Icons.add),label:const Text('Record DP'))),
-          const SizedBox(width:10),
-          Expanded(child:FilledButton.icon(onPressed:()async{final ok=await showDialog<bool>(context:context,builder:(_)=>const BonusEntryDialog());if(ok==true)onChanged();},icon:const Icon(Icons.card_giftcard),label:const Text('Add Bonus'))),
-        ]),
-      ]);
-    });
+class DashboardPage extends StatelessWidget {
+  const DashboardPage({super.key, required this.onChanged});
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month);
+    final nextMonth = DateTime(now.year, now.month + 1);
+    final previousStart = DateTime(now.year, now.month - 1);
+    return FutureBuilder<List<Object?>>(
+      future: Future.wait<Object?>([
+        AppDatabase.instance.getActivityStatusUsers(),
+        AppDatabase.instance.todayBonusTotal(),
+        AppDatabase.instance.todayDpTotal(),
+        AppDatabase.instance.countFollowUpsDue(),
+        AppDatabase.instance.countOpenCustomerIssues(),
+        AppDatabase.instance.getDpEntries(),
+        AppDatabase.instance.getBonusEntries(),
+        AppDatabase.instance.monthDpTotal(),
+        AppDatabase.instance.getReportTotals(monthStart, nextMonth),
+        AppDatabase.instance.getReportTotals(previousStart, monthStart),
+        AppDatabase.instance.todayContactMetrics(),
+        AppDatabase.instance.todayDpTransactions(),
+        AppDatabase.instance.countUsers(),
+        AppDatabase.instance.getUnifiedActivityEvents(limit: 20),
+        QuizDatabase.instance.getActivityEvents(limit: 20),
+      ]),
+      builder: (context, snap) {
+        if (snap.hasError) return const EmptyState(title: 'Dashboard unavailable', subtitle: 'Refresh the app and try again.');
+        final d = snap.data;
+        final activity = d?[0] as List<Map<String, Object?>>? ?? const [];
+        final active = activity.where((r) => r['activity_status'] == 'Active').length;
+        final attention = (d?[3] as num?)?.toInt() ?? 0;
+        final issues = (d?[4] as num?)?.toInt() ?? 0;
+        final bonus = (d?[1] as num?)?.toDouble() ?? 0;
+        final dpToday = (d?[2] as num?)?.toDouble() ?? 0;
+        final dpRows = d?[5] as List<Map<String, Object?>>? ?? const [];
+        final totals = d?[8] as Map<String, num>?;
+        final contacts = d?[10] as Map<String, int>? ?? const {};
+        final dpTransactions = (d?[11] as num?)?.toInt() ?? 0;
+        final totalUsers = (d?[12] as num?)?.toInt() ?? 0;
+        final feed = <Map<String, Object?>>[
+          ...(d?[13] as List<Map<String, Object?>>? ?? const []),
+          ...(d?[14] as List<Map<String, Object?>>? ?? const []),
+        ]..sort((a, b) => (b['created_at'] as String? ?? b['event_date'] as String? ?? '')
+            .compareTo(a['created_at'] as String? ?? a['event_date'] as String? ?? ''));
+        final recent = feed.take(5).map((event) => <String, Object?>{
+          'kind': event['title'] ?? event['kind'],
+          'name': event['name'],
+          'date': event['created_at'] ?? event['event_date'],
+          'amount': event['amount'],
+          'detail': event['detail'],
+          'user_id': event['user_id'],
+        }).toList();
+
+        final sections = <String, Widget>{
+          'metrics': Column(children: [
+            Row(children: [
+              Expanded(child: _DesignMetricCard(label: 'Active DP Users', value: '$active', foot: 'DP in last 3 days', icon: Icons.people_alt_outlined, tint: const Color(0xFFE8F7EF), iconColor: const Color(0xFF1B9B59), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityStatusPage())))),
+              const SizedBox(width: 12),
+              Expanded(child: _DesignMetricCard(label: 'Bonus Today', value: '${bonus.toStringAsFixed(bonus % 1 == 0 ? 0 : 2)} coins', foot: '${totals?['bonus_count'] ?? 0} records this month', icon: Icons.card_giftcard_outlined, tint: const Color(0xFFFFF0E7), iconColor: emerald, onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => BonusPage(onChanged: onChanged))))),
+            ]),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: _DesignMetricCard(label: 'Need Attention', value: '$attention', foot: 'Follow-up due', icon: Icons.notifications_active_outlined, tint: const Color(0xFFFFF0E7), iconColor: const Color(0xFFE87524), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FollowUpsPage())))),
+              const SizedBox(width: 12),
+              Expanded(child: _DesignMetricCard(label: 'Open Issues', value: '$issues', foot: 'Need action', icon: Icons.warning_amber_rounded, tint: const Color(0xFFEAF0FF), iconColor: const Color(0xFF3569D4), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomerIssuesPage())))),
+            ]),
+            const SizedBox(height: 12),
+            _DesignMetricCard(label: 'DP Today', value: '${dpToday.toStringAsFixed(dpToday % 1 == 0 ? 0 : 2)} coins', foot: 'Total DP recorded today · Tap to view records', icon: Icons.account_balance_wallet_outlined, tint: const Color(0xFFEAF0FF), iconColor: const Color(0xFF3569D4), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityPage()))),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: _DesignMetricCard(label: 'DP Transactions', value: '$dpTransactions', foot: 'Entries recorded today', icon: Icons.receipt_long_outlined, tint: const Color(0xFFEAF0FF), iconColor: const Color(0xFF3569D4), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityCenterPage(initialFilter: 'DP', initialRange: 'Today', onOpenUser: (id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: id, onChanged: onChanged)))))))),
+              const SizedBox(width: 12),
+              Expanded(child: _DesignMetricCard(label: 'Contacted Today', value: '${contacts['contacted'] ?? 0}/$totalUsers', foot: '${contacts['not_contacted'] ?? 0} not contacted', icon: Icons.chat_bubble_outline_rounded, tint: const Color(0xFFE8F7EF), iconColor: const Color(0xFF238653), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityCenterPage(initialFilter: 'Contact', initialRange: 'Today', onOpenUser: (id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: id, onChanged: onChanged)))))))),
+            ]),
+          ]),
+          'sales': Column(children: [
+            SalesChartCard(entries: dpRows, loading: snap.connectionState == ConnectionState.waiting),
+          ]),
+          'activity': Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SectionHeading('Recent Activity', trailing: 'View All', onTrailingTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityCenterPage(onOpenUser: (id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: id, onChanged: onChanged))))))),
+            const SizedBox(height: 10),
+            if (snap.connectionState == ConnectionState.waiting)
+              const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+            else if (recent.isEmpty)
+              const EmptyState(title: 'No recent activity', subtitle: 'DP, bonuses, contacts, tasks and quiz activity will appear here.', compact: true)
+            else
+              ...recent.map((event) => _DesignRecentTile(event: event)),
+          ]),
+          'quick': Row(children: [
+            Expanded(child: OutlinedButton.icon(onPressed: () async {
+              final ok = await showDialog<bool>(context: context, builder: (_) => const DpEntryDialog());
+              if (ok == true) onChanged();
+            }, icon: const Icon(Icons.add), label: const Text('Record DP'))),
+            const SizedBox(width: 10),
+            Expanded(child: FilledButton.icon(onPressed: () async {
+              final ok = await showDialog<bool>(context: context, builder: (_) => const BonusEntryDialog());
+              if (ok == true) onChanged();
+            }, icon: const Icon(Icons.card_giftcard), label: const Text('Add Bonus'))),
+          ]),
+        };
+
+        return FutureBuilder<SharedPreferences>(
+          future: SharedPreferences.getInstance(),
+          builder: (context, preferenceSnap) {
+            final prefs = preferenceSnap.data;
+            const defaults = ['metrics', 'sales', 'activity', 'quick'];
+            final savedOrder = prefs?.getStringList('user_hub_dashboard_order') ?? defaults;
+            final hidden = prefs?.getStringList('user_hub_dashboard_hidden')?.toSet() ?? <String>{};
+            final pinned = prefs?.getStringList('user_hub_dashboard_pinned')?.toSet() ?? <String>{};
+            final ordered = <String>[
+              ...pinned.where(sections.containsKey),
+              ...savedOrder.where((id) => sections.containsKey(id) && !pinned.contains(id)),
+              ...sections.keys.where((id) => !savedOrder.contains(id) && !pinned.contains(id)),
+            ];
+            final unique = ordered.toSet().toList();
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
+              children: [
+                if (preferenceSnap.connectionState == ConnectionState.waiting)
+                  const LinearProgressIndicator(minHeight: 2),
+                for (final id in unique)
+                  if (!hidden.contains(id)) ...[
+                    sections[id]!,
+                    const SizedBox(height: 16),
+                  ],
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }
-class _DesignMetricCard extends StatelessWidget{
-  const _DesignMetricCard({required this.label,required this.value,required this.foot,required this.icon,required this.tint,required this.iconColor,this.onTap});
-  final String label,value,foot;final IconData icon;final Color tint,iconColor;final VoidCallback? onTap;
-  @override Widget build(BuildContext context)=>Card(clipBehavior:Clip.antiAlias,child:InkWell(onTap:onTap,child:Padding(padding:const EdgeInsets.all(15),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    Row(children:[Expanded(child:Text(label,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:12,fontWeight:FontWeight.w600))),const Icon(Icons.more_horiz,color:muted,size:19)]),
-    const SizedBox(height:10),Text(value,maxLines:1,overflow:TextOverflow.ellipsis,style:GoogleFonts.spaceGrotesk(fontSize:27,fontWeight:FontWeight.w800,color:const Color(0xFF18202B))),
-    const SizedBox(height:8),Row(children:[Icon(icon,size:14,color:iconColor),const SizedBox(width:5),Expanded(child:Text(foot,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:10)))]),
-  ]))));
-}
+
 class _DesignRecentTile extends StatelessWidget{
   const _DesignRecentTile({required this.event});final Map<String,Object?> event;
   @override Widget build(BuildContext context){
@@ -2744,6 +2806,13 @@ class MoreHubPage extends StatelessWidget {
       const SizedBox(height: 6),
       const Text('Manage prospects and customer support records.', maxLines:2, style: TextStyle(color: muted, fontSize:14, height:1.35)),
       const SizedBox(height: 18),
+      _MoreTile(
+        icon: Icons.dashboard_customize_outlined,
+        title: 'Customize Dashboard',
+        subtitle: 'Reorder, hide and pin dashboard sections',
+        onTap: () => open(context, const DashboardLayoutPage()),
+      ),
+      const SizedBox(height: 10),
       _MoreTile(
         icon: Icons.search_rounded,
         title: 'Global Search',
