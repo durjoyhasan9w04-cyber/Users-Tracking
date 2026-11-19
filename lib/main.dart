@@ -346,7 +346,10 @@ class DashboardPage extends StatelessWidget {
         QuizDatabase.instance.getActivityEvents(limit: 20),
       ]),
       builder: (context, snap) {
-        if (snap.hasError) return const EmptyState(title: 'Dashboard unavailable', subtitle: 'Refresh the app and try again.');
+        if (snap.hasError) {
+          debugPrint('Dashboard data load failed: ${snap.error}');
+          return const EmptyState(title: 'Dashboard unavailable', subtitle: 'Refresh the app and try again.');
+        }
         final d = snap.data;
         final activity = d?[0] as List<Map<String, Object?>>? ?? const [];
         final active = activity.where((r) => r['activity_status'] == 'Active').length;
