@@ -219,6 +219,32 @@ class QuizDatabase {
     }
   }
 
+
+  Future<List<Map<String, Object?>>> getActivityEvents({int limit = 250}) async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT * FROM (
+        SELECT 'Quiz bonus' AS kind, b.entry_date AS event_date, b.created_at AS created_at,
+          p.linked_user_id AS user_id, b.id AS record_id, p.name AS name,
+          'Quiz bonus awarded' AS title, b.reason AS detail, b.amount AS amount,
+          'quiz_bonus' AS source
+        FROM quiz_bonus_entries b JOIN quiz_participants p ON p.id = b.participant_id
+        UNION ALL
+        SELECT 'Quiz participation', substr(qp.participated_at, 1, 10), qp.participated_at,
+          p.linked_user_id, qp.id, p.name, 'Quiz participation', q.title, NULL, 'quiz_participation'
+        FROM quiz_participations qp
+        JOIN quiz_participants p ON p.id = qp.participant_id
+        JOIN quizzes q ON q.id = qp.quiz_id
+        UNION ALL
+        SELECT 'Quiz', q.quiz_date, q.created_at, NULL, q.id, '',
+          q.title, 'Quiz created', NULL, 'quiz'
+        FROM quizzes q
+      )
+      ORDER BY created_at DESC, record_id DESC
+      LIMIT ?
+    ''', [limit]);
+  }
+
   Future<void> close() async {
     await _db?.close();
     _db = null;
