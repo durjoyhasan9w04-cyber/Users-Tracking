@@ -140,6 +140,8 @@ class _GlobalSearchPageState extends State<GlobalSearchPage>{
     );
   }
 
+}
+
 class _SearchHit{
  const _SearchHit({required this.type,required this.title,required this.subtitle,this.userId,this.event});
  final String type,title,subtitle;final int? userId;final Map<String,Object?>? event;
