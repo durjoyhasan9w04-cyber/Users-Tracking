@@ -125,17 +125,14 @@ class _SalesChartCardState extends State<SalesChartCard>
         values = [];
         for (final range in ranges) {
           final firstDay = range.$1;
+          if (firstDay > monthDays) continue;
           final lastDay = range.$2 < monthDays ? range.$2 : monthDays;
           labels.add('$firstDay-${range.$2}');
           dates.add('${firstDay} ${DateFormat('MMM').format(start)} – $lastDay ${DateFormat('MMM').format(start)}');
-          if (firstDay > monthDays) {
-            values.add(0);
-          } else {
-            values.add(_sum(
-              DateTime(today.year, today.month, firstDay),
-              DateTime(today.year, today.month, lastDay + 1),
-            ));
-          }
+          values.add(_sum(
+            DateTime(today.year, today.month, firstDay),
+            DateTime(today.year, today.month, lastDay + 1),
+          ));
         }
         currentTotal = _sum(start, nextMonth);
         final previousStart = DateTime(today.year, today.month - 1);
