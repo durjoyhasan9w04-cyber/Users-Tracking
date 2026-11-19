@@ -23,6 +23,7 @@ import 'services/fixture_discovery_service.dart';
 import 'services/groq_fixture_service.dart';
 import 'models/user_level_config.dart';
 import 'pages/quiz_participants_page.dart';
+import 'ui/sales_chart_card.dart';
 
 
 class AppDropdownField<T> extends StatelessWidget {
@@ -302,18 +303,16 @@ class _AddActionTile extends StatelessWidget{
 class DashboardPage extends StatelessWidget{
   const DashboardPage({super.key,required this.onChanged});final VoidCallback onChanged;
   @override Widget build(BuildContext context){
-    final now=DateTime.now(),monthStart=DateTime(now.year,now.month),nextMonth=DateTime(now.year,now.month+1),previousStart=DateTime(now.year,now.month-1);
+    final now=DateTime.now(),monthStart=DateTime(now.year,now.month),nextMonth=DateTime(now.year,now.month+1);
     return FutureBuilder<List<Object?>>(future:Future.wait<Object?>([
       AppDatabase.instance.getActivityStatusUsers(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.todayDpTotal(),AppDatabase.instance.countFollowUpsDue(),AppDatabase.instance.countOpenCustomerIssues(),
-      AppDatabase.instance.getDpEntries(),AppDatabase.instance.getBonusEntries(),AppDatabase.instance.monthDpTotal(),
-      AppDatabase.instance.getReportTotals(monthStart,nextMonth),AppDatabase.instance.getReportTotals(previousStart,monthStart),
+      AppDatabase.instance.getDpEntries(),AppDatabase.instance.getBonusEntries(),
+      AppDatabase.instance.getReportTotals(monthStart,nextMonth),
     ]),builder:(context,snap){
       final d=snap.data,activity=d?[0] as List<Map<String,Object?>>? ?? const [];
       final active=activity.where((r)=>r['activity_status']=='Active').length,attention=(d?[3] as num?)?.toInt()??0,issues=(d?[4] as num?)?.toInt()??0;
       final bonus=(d?[1] as num?)?.toDouble()??0,dpToday=(d?[2] as num?)?.toDouble()??0,dpRows=d?[5] as List<Map<String,Object?>>? ?? const [],bonusRows=d?[6] as List<Map<String,Object?>>? ?? const [];
-      final dpMonth=(d?[7] as num?)?.toDouble()??0,totals=d?[8] as Map<String,num>?,previous=d?[9] as Map<String,num>?;
-      final prevDp=previous?['dp']?.toDouble()??0,delta=prevDp>0?((dpMonth-prevDp)/prevDp)*100:null;
-      final trend=dpRows.take(7).toList().reversed.map((r)=>(r['total'] as num?)?.toDouble()??0).toList();
+      final totals=d?[7] as Map<String,num>?;
       final recent=<Map<String,Object?>>[
         ...dpRows.take(10).map((r)=><String,Object?>{'kind':'DP recorded','name':r['user_name'],'date':r['created_at']??r['entry_date'],'amount':r['total']}),
         ...bonusRows.take(10).map((r)=><String,Object?>{'kind':'Bonus added','name':r['user_name'],'date':r['created_at']??r['entry_date'],'amount':r['amount']}),
@@ -333,11 +332,10 @@ class DashboardPage extends StatelessWidget{
         const SizedBox(height:12),
         _DesignMetricCard(label:'DP Today',value:'${dpToday.toStringAsFixed(dpToday%1==0?0:2)} coins',foot:'Total DP recorded today · Tap to view records',icon:Icons.account_balance_wallet_outlined,tint:const Color(0xFFEAF0FF),iconColor:const Color(0xFF3569D4),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ActivityPage()))),
         const SizedBox(height:18),
-        Card(child:Padding(padding:const EdgeInsets.fromLTRB(17,17,17,12),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-          Row(children:[const Expanded(child:Text('DP Activity',style:TextStyle(fontSize:16,fontWeight:FontWeight.w800,color:Color(0xFF18202B)))),if(delta!=null)Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:6),decoration:BoxDecoration(color:const Color(0xFFE8F7EF),borderRadius:BorderRadius.circular(20)),child:Text('${delta>=0?'↗ +':'↘ '}${delta.abs().toStringAsFixed(1)}%',style:const TextStyle(color:Color(0xFF238653),fontWeight:FontWeight.w800,fontSize:11)))]),
-          const SizedBox(height:12),SizedBox(height:150,width:double.infinity,child:CustomPaint(painter:SparklinePainter(values:trend.isEmpty?[0,0,0,0,0]:trend))),
-          Align(alignment:Alignment.centerRight,child:Text('${dpMonth.toStringAsFixed(dpMonth%1==0?0:2)} coins this month',style:const TextStyle(color:muted,fontSize:11,fontWeight:FontWeight.w600))),
-        ]))),
+        SalesChartCard(
+          entries: dpRows,
+          loading: snap.connectionState == ConnectionState.waiting,
+        ),
         const SizedBox(height:22),
         SectionHeading('Recent Activity',trailing:'View All',onTrailingTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ActivityPage()))),
         const SizedBox(height:10),
@@ -376,50 +374,6 @@ class _DesignRecentTile extends StatelessWidget{
     ));
   }
 }
-class HeroKpiCard extends StatelessWidget {
-  const HeroKpiCard({super.key, required this.label, required this.value, required this.delta, required this.sparkline, required this.loading});
-  final String label; final num value; final double? delta; final List<double> sparkline; final bool loading;
-  @override
-  Widget build(BuildContext context) {
-    final deltaText = delta == null ? 'MONTH TO DATE' : '${delta! >= 0 ? '+' : ''}${delta!.toStringAsFixed(1)}%';
-    return Container(
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 16),
-      decoration: BoxDecoration(color: const Color(0xFF12271E), borderRadius: BorderRadius.circular(27), border: Border.all(color: const Color(0xFF1B4A35))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: Text(label, style: const TextStyle(color: muted, fontSize: 14, letterSpacing: 0))),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7), decoration: BoxDecoration(color: const Color(0xFF1B4934), borderRadius: BorderRadius.circular(30)), child: Text(deltaText, style: const TextStyle(color: emerald, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0))),
-        ]),
-        const SizedBox(height: 10),
-        loading ? const SizedBox(height: 58, child: Align(alignment: Alignment.centerLeft, child: SizedBox(width: 110, child: LinearProgressIndicator()))) : AnimatedNumberText(value: value.toDouble(), style: GoogleFonts.spaceGrotesk(fontSize: 48, fontWeight: FontWeight.w700, color: const Color(0xFFE8F0EC), letterSpacing: 0, fontFeatures: const [FontFeature.tabularFigures()])),
-        const SizedBox(height: 12),
-        SizedBox(height: 62, width: double.infinity, child: CustomPaint(painter: SparklinePainter(values: sparkline))),
-      ]),
-    );
-  }
-}
-
-class SparklinePainter extends CustomPainter {
-  const SparklinePainter({required this.values});
-  final List<double> values;
-  @override
-  void paint(Canvas canvas, Size size) {
-    final points = values.isEmpty ? List<double>.filled(7, 0) : values.length == 1 ? List<double>.filled(7, values.first) : values;
-    final minValue = points.reduce((a, b) => a < b ? a : b);
-    final maxValue = points.reduce((a, b) => a > b ? a : b);
-    final range = (maxValue - minValue).abs() < 0.001 ? 1.0 : maxValue - minValue;
-    final path = Path();
-    for (var i = 0; i < points.length; i++) {
-      final x = points.length == 1 ? size.width : size.width * i / (points.length - 1);
-      final y = size.height - 7 - ((points[i] - minValue) / range) * (size.height - 18);
-      if (i == 0) { path.moveTo(x, y); } else { path.lineTo(x, y); }
-    }
-    canvas.drawPath(path, Paint()..color = emerald..strokeWidth = 3..style = PaintingStyle.stroke..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round);
-  }
-  @override
-  bool shouldRepaint(covariant SparklinePainter oldDelegate) => oldDelegate.values != values;
-}
-
 class AnimatedNumberText extends StatelessWidget {
   const AnimatedNumberText({super.key, required this.value, required this.style});
   final double value; final TextStyle style;
