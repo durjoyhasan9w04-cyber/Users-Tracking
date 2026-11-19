@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
+// ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -28,7 +30,6 @@ class _SalesChartCardState extends State<SalesChartCard>
   static const Color _red = Color(0xFFEF4444);
   static const Color _ink = Color(0xFF111827);
   static const Color _muted = Color(0xFF6B7280);
-  static const Color _grid = Color(0xFFE3E6EC);
 
   late final AnimationController _animation;
   _SalesPeriod _period = _SalesPeriod.monthly;
@@ -575,7 +576,7 @@ class _SalesChartPainter extends CustomPainter {
           fontWeight: weight,
         ),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
       textAlign: align,
       maxLines: 1,
       ellipsis: '…',
