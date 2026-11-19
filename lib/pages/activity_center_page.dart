@@ -91,22 +91,6 @@ class _ActivityCenterPageState extends State<ActivityCenterPage> {
     return Icons.history_rounded;
   }
 
-  Future<void> _showDetails(Map<String, Object?> row) async {
-    final amount = row['amount'] as num?;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(row['title'] as String? ?? row['kind'] as String? ?? 'Activity'),
-        content: Text([
-          if ((row['name'] as String? ?? '').isNotEmpty) row['name'],
-          if ((row['detail'] as String? ?? '').isNotEmpty) row['detail'],
-          if (amount != null) '${amount.toStringAsFixed(amount % 1 == 0 ? 0 : 2)} coins',
-          row['event_date'] ?? '',
-        ].join('\n')),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -168,7 +152,6 @@ class _ActivityCenterPageState extends State<ActivityCenterPage> {
                   final rawDate = row['created_at'] as String? ?? row['event_date'] as String? ?? '';
                   final date = DateTime.tryParse(rawDate)?.toLocal();
                   final dateLabel = date == null ? (row['event_date']?.toString() ?? '') : DateFormat('d MMM · h:mm a').format(date);
-                  final userId = row['user_id'] as int?;
                   return Card(child: ListTile(
                     leading: CircleAvatar(child: Icon(_icon(kind))),
                     title: Text(row['title'] as String? ?? kind, style: const TextStyle(fontWeight: FontWeight.w700)),

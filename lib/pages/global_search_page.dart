@@ -41,24 +41,105 @@ class _GlobalSearchPageState extends State<GlobalSearchPage>{
   hits.sort((a,b)=>a.title.toLowerCase().compareTo(b.title.toLowerCase()));
   return hits.take(250).toList();
  }
- @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Global Search')),body:Column(children:[
-  Padding(padding:const EdgeInsets.all(16),child:TextField(controller:controller,autofocus:true,onChanged:(v){setState(()=>query=v);if(v.trim().length>=2){setState(()=>future=search(v));}else{setState(()=>future=null);}},decoration:InputDecoration(hintText:'Search name, phone, DP, bonus, quiz, task or issue',prefixIcon:const Icon(Icons.search_rounded),suffixIcon:IconButton(onPressed:(){controller.clear();setState(() { query=''; future=null; });},icon:const Icon(Icons.close_rounded))))),
-  Expanded(child:query.trim().length<2?const Center(child:Text('Enter at least 2 characters to search.')):FutureBuilder<List<_SearchHit>>(future:future,builder:(context,snap){
-   if(snap.connectionState==ConnectionState.waiting)return const Center(child:CircularProgressIndicator());
-   if(snap.hasError)return const Center(child:Text('Search failed. Please try again.'));
-   final rows=snap.data??[];if(rows.isEmpty)return const Center(child:Text('No matching records found.'));
-   return ListView.separated(itemCount:rows.length,separatorBuilder:(_,__)=>const Divider(height:1),itemBuilder:(context,i){
-    final r=rows[i];final event=r.event;
-    return ListTile(leading:CircleAvatar(child:Icon(r.type=='User'?Icons.person_outline:r.type=='Quiz'||r.type=='Quiz participant'?Icons.quiz_outlined:r.type=='Reports'?Icons.summarize_outlined:Icons.receipt_long_outlined)),title:Text(r.title,maxLines:1,overflow:TextOverflow.ellipsis),subtitle:Text('${r.type} · ${r.subtitle}',maxLines:2,overflow:TextOverflow.ellipsis),trailing:const Icon(Icons.chevron_right_rounded),onTap:(){
-     if(r.type=='Reports'){widget.onOpenReports();return;}
-     if(r.userId!=null&&r.type=='User'){widget.onOpenUser(r.userId!);return;}
-     if(event!=null){Navigator.of(context).push(MaterialPageRoute(builder:(_)=>ActivityRecordDetailPage(event:event,onOpenUser:(id){Navigator.of(context).pop();widget.onOpenUser(id);})));return;}
-     if(r.userId!=null)widget.onOpenUser(r.userId!);
-    });
-   });
-  })),
- ]));
-}
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Global Search')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: controller,
+              autofocus: true,
+              onChanged: (value) {
+                setState(() => query = value);
+                if (value.trim().length >= 2) {
+                  setState(() => future = search(value));
+                } else {
+                  setState(() => future = null);
+                }
+              },
+              decoration: InputDecoration(
+                hintText: 'Search name, phone, DP, bonus, quiz, task or issue',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    controller.clear();
+                    setState(() {
+                      query = '';
+                      future = null;
+                    });
+                  },
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: query.trim().length < 2
+                ? const Center(child: Text('Enter at least 2 characters to search.'))
+                : FutureBuilder<List<_SearchHit>>(
+                    future: future,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snapshot.hasError) {
+                        return const Center(child: Text('Search failed. Please try again.'));
+                      }
+                      final rows = snapshot.data ?? [];
+                      if (rows.isEmpty) {
+                        return const Center(child: Text('No matching records found.'));
+                      }
+                      return ListView.separated(
+                        itemCount: rows.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final row = rows[index];
+                          final event = row.event;
+                          final icon = row.type == 'User'
+                              ? Icons.person_outline
+                              : (row.type == 'Quiz' || row.type == 'Quiz participant')
+                                  ? Icons.quiz_outlined
+                                  : row.type == 'Reports'
+                                      ? Icons.summarize_outlined
+                                      : Icons.receipt_long_outlined;
+                          return ListTile(
+                            leading: CircleAvatar(child: Icon(icon)),
+                            title: Text(row.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            subtitle: Text('${row.type} · ${row.subtitle}', maxLines: 2, overflow: TextOverflow.ellipsis),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () {
+                              if (row.type == 'Reports') {
+                                widget.onOpenReports();
+                              } else if (row.type == 'User' && row.userId != null) {
+                                widget.onOpenUser(row.userId!);
+                              } else if (event != null) {
+                                Navigator.of(context).push(MaterialPageRoute(
+                                  builder: (_) => ActivityRecordDetailPage(
+                                    event: event,
+                                    onOpenUser: (id) {
+                                      Navigator.of(context).pop();
+                                      widget.onOpenUser(id);
+                                    },
+                                  ),
+                                ));
+                              } else if (row.userId != null) {
+                                widget.onOpenUser(row.userId!);
+                              }
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
 class _SearchHit{
  const _SearchHit({required this.type,required this.title,required this.subtitle,this.userId,this.event});
  final String type,title,subtitle;final int? userId;final Map<String,Object?>? event;

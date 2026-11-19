@@ -17,7 +17,7 @@ class AnalyticsCalculator {
   return PeriodComparison(currentDp:sum(dpRows,'total',start,end),previousDp:sum(dpRows,'total',previousStart,start),currentBonus:sum(bonusRows,'amount',start,end),previousBonus:sum(bonusRows,'amount',previousStart,start),currentDpCount:count(dpRows,start,end),previousDpCount:count(dpRows,previousStart,start));
  }
  static List<UserConsistency> consistency({required List<Map<String,Object?>> users,required List<Map<String,Object?>> dpRows,required DateTime start,required DateTime end}) {
-  final days=math.max(1,end.difference(start).inDays);final yesterday=DateTime(end.year,end.month,end.day).subtract(const Duration(days:2));
+  final days=math.max(1,end.difference(start).inDays);final yesterday=DateTime(end.year,end.month,end.day).subtract(const Duration(days:1));
   final grouped=<int,Set<String>>{};final totals=<int,double>{};
   for(final r in dpRows){final id=(r['user_id'] as num?)?.toInt();final raw=(r['entry_date']??'').toString();final d=DateTime.tryParse(raw);if(id==null||d==null||d.isBefore(start)||!d.isBefore(end))continue;grouped.putIfAbsent(id,()=>{}).add(raw.substring(0,10));totals[id]=(totals[id]??0)+((r['total'] as num?)?.toDouble()??0);}
   final out=<UserConsistency>[];
