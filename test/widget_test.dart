@@ -1,8 +1,17 @@
 import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart' show databaseFactory;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:user_hub/main.dart';
 
 void main() {
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfiNoIsolate;
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('User Hub premium dashboard renders', (tester) async {
     await tester.pumpWidget(const UserHubApp());
     await tester.pumpAndSettle(const Duration(milliseconds: 100));
