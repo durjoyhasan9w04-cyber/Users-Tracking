@@ -240,10 +240,10 @@ class QuizDatabase {
           q.title, 'Quiz created', NULL, 'quiz'
         FROM quizzes q
       )
-      WHERE (? = '' OR name LIKE ? OR title LIKE ? OR detail LIKE ?)
+      WHERE (? = '' OR name LIKE ? OR title LIKE ? OR detail LIKE ? OR CAST(amount AS TEXT) LIKE ? OR event_date LIKE ?)
       ORDER BY created_at DESC, record_id DESC
       LIMIT ?
-    ''', [search.trim(), '%${search.trim()}%', '%${search.trim()}%', '%${search.trim()}%', limit]);
+    ''', [search.trim(), '%${search.trim()}%', '%${search.trim()}%', '%${search.trim()}%', '%${search.trim()}%', '%${search.trim()}%', limit]);
   }
 
   Future<void> close() async {

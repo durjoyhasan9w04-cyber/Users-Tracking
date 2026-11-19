@@ -27,11 +27,11 @@ class _GlobalSearchPageState extends State<GlobalSearchPage>{
    hits.add(_SearchHit(type:'User',title:u['name']?.toString()??'User',subtitle:u['phone']?.toString()??'',userId:(u['id'] as num?)?.toInt()));
   }
   for(final p in data[2] as List<Map<String,Object?>>){
-   hits.add(_SearchHit(type:'Quiz participant',title:p['name']?.toString()??'Participant',subtitle:p['phone']?.toString()??''));
+   hits.add(_SearchHit(type:'Quiz participant',title:p['name']?.toString()??'Participant',subtitle:p['phone']?.toString()??'',event:{'kind':'Quiz participant','title':p['name']?.toString()??'Participant','name':p['name']?.toString()??'','detail':p['notes']?.toString()??'','event_date':p['created_at']?.toString()??'','created_at':p['created_at']?.toString()??'','record_id':p['id'],'source':'quiz_participant'}));
   }
   for(final q in data[3] as List<Map<String,Object?>>){
    final text='${q['title']} ${q['notes']}';
-   if(text.toLowerCase().contains(term))hits.add(_SearchHit(type:'Quiz',title:q['title']?.toString()??'Quiz',subtitle:q['quiz_date']?.toString()??''));
+   if(text.toLowerCase().contains(term))hits.add(_SearchHit(type:'Quiz',title:q['title']?.toString()??'Quiz',subtitle:q['quiz_date']?.toString()??'',event:{'kind':'Quiz','title':q['title']?.toString()??'Quiz','name':'','detail':q['notes']?.toString()??'','event_date':q['quiz_date']?.toString()??'','created_at':q['created_at']?.toString()??'','record_id':q['id'],'source':'quiz'}));
   }
   final events=<Map<String,Object?>>[...(data[1] as List<Map<String,Object?>>),...(data[4] as List<Map<String,Object?>>)];
   for(final e in events){

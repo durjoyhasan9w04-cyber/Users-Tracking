@@ -969,10 +969,10 @@ class AppDatabase {
           a.action || ' ' || a.entity_type, a.details, NULL, 'audit'
         FROM audit_log a
       )
-      WHERE (? = '' OR name LIKE ? OR title LIKE ? OR detail LIKE ?)
+      WHERE (? = '' OR name LIKE ? OR title LIKE ? OR detail LIKE ? OR CAST(amount AS TEXT) LIKE ? OR event_date LIKE ?)
       ORDER BY created_at DESC, record_id DESC
       LIMIT ?
-    ''', [search.trim(), '%${search.trim()}%', '%${search.trim()}%', '%${search.trim()}%', limit]);
+    ''', [search.trim(), '%${search.trim()}%', '%${search.trim()}%', '%${search.trim()}%', '%${search.trim()}%', '%${search.trim()}%', limit]);
   }
 
   Future<List<Map<String, Object?>>> getUserDpCalendar(int userId, {int days = 30}) async {
@@ -1124,7 +1124,7 @@ class AppDatabase {
     final database = await this.database;
     final from = start.toIso8601String().substring(0, 10);
     final until = end.toIso8601String().substring(0, 10);
-    return database.rawQuery("""
+    final rows = await database.rawQuery("""
       SELECT 'DP' AS type, d.entry_date AS transaction_date, u.name AS user_name,
         u.phone AS phone, d.total AS amount, d.dp_count AS item_count,
         d.notes AS notes, '' AS reason
@@ -1136,6 +1136,28 @@ class AppDatabase {
       WHERE b.entry_date >= ? AND b.entry_date < ?
       ORDER BY transaction_date DESC, type ASC, user_name COLLATE NOCASE
     """, [from, until, from, until]);
+    final quizBonuses = (await QuizDatabase.instance.getQuizBonusEntries())
+        .where((row) {
+          final date = row['entry_date'] as String? ?? '';
+          return date.compareTo(from) >= 0 && date.compareTo(until) < 0;
+        })
+        .map((row) => <String, Object?>{
+          'type': 'Quiz Bonus',
+          'transaction_date': row['entry_date'],
+          'user_name': row['user_name'],
+          'phone': row['user_phone'],
+          'amount': row['amount'],
+          'item_count': 1,
+          'notes': row['notes'],
+          'reason': row['reason'],
+        });
+    final combined = <Map<String, Object?>>[...rows, ...quizBonuses];
+    combined.sort((a, b) {
+      final byDate = (b['transaction_date']?.toString() ?? '').compareTo(a['transaction_date']?.toString() ?? '');
+      if (byDate != 0) return byDate;
+      return (a['user_name']?.toString() ?? '').compareTo(b['user_name']?.toString() ?? '');
+    });
+    return combined;
   }
 
   Future<Map<String, num>> getReportTotals(DateTime start, DateTime end) async {

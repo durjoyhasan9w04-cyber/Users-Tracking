@@ -1,14 +1,15 @@
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import '../data/app_database.dart';
+import '../data/quiz_database.dart';
 import '../services/analytics_calculator.dart';
 class InsightsPage extends StatefulWidget {const InsightsPage({super.key});@override State<InsightsPage> createState()=>_InsightsPageState();}
 class _InsightsPageState extends State<InsightsPage>{
  late Future<_InsightsData> future;int days=30;
  @override void initState(){super.initState();load();}
- void load(){future=Future.wait<Object>([AppDatabase.instance.getUsers(),AppDatabase.instance.getDpEntries(),AppDatabase.instance.getBonusEntries()]).then((v){
+ void load(){future=Future.wait<Object>([AppDatabase.instance.getUsers(),AppDatabase.instance.getDpEntries(),AppDatabase.instance.getBonusEntries(),QuizDatabase.instance.getQuizBonusEntries()]).then((v){
   final now=DateTime.now();final end=DateTime(now.year,now.month,now.day).add(const Duration(days:1));final start=end.subtract(Duration(days:days));
-  final users=v[0] as List<Map<String,Object?>>;final dp=v[1] as List<Map<String,Object?>>;final bonus=v[2] as List<Map<String,Object?>>;
+  final users=v[0] as List<Map<String,Object?>>;final dp=v[1] as List<Map<String,Object?>>;final bonus=<Map<String,Object?>>[...(v[2] as List<Map<String,Object?>>),...(v[3] as List<Map<String,Object?>>)];
   bool inRange(Map<String,Object?> r){final d=DateTime.tryParse((r['entry_date']??'').toString());return d!=null&&!d.isBefore(start)&&d.isBefore(end);}
   final scopedDp=dp.where(inRange).toList();final scopedBonus=bonus.where(inRange).toList();
   return _InsightsData(AnalyticsCalculator.compare(dpRows:dp,bonusRows:bonus,start:start,end:end),AnalyticsCalculator.consistency(users:users,dpRows:dp,start:start,end:end),AnalyticsCalculator.bonusByReason(scopedBonus),AnalyticsCalculator.userGrowthByMonth(users),scopedDp);

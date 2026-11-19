@@ -3928,7 +3928,7 @@ class _ReportsPageState extends State<ReportsPage> {
             const SizedBox(height: 8),
             TextField(onChanged: (value) => setState(() => rowSearch = value), decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Filter by user, phone, reason or notes')),
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(initialValue: typeFilter, decoration: const InputDecoration(labelText: 'Transaction type'), items: const [DropdownMenuItem(value: 'All', child: Text('All transactions')), DropdownMenuItem(value: 'DP', child: Text('DP only')), DropdownMenuItem(value: 'Bonus', child: Text('Bonus only'))], onChanged: (value) => setState(() => typeFilter = value ?? 'All')),
+            DropdownButtonFormField<String>(initialValue: typeFilter, decoration: const InputDecoration(labelText: 'Transaction type'), items: const [DropdownMenuItem(value: 'All', child: Text('All transactions')), DropdownMenuItem(value: 'DP', child: Text('DP only')), DropdownMenuItem(value: 'Bonus', child: Text('Bonus only')), DropdownMenuItem(value: 'Quiz Bonus', child: Text('Quiz bonus only'))], onChanged: (value) => setState(() => typeFilter = value ?? 'All')),
             const SizedBox(height: 8),
             Text('${filteredRows.length} matching of ${rows.length} transactions · Period totals above include all records.', style: const TextStyle(color: muted, fontSize: 12)),
             const SizedBox(height: 8),
