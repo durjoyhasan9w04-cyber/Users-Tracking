@@ -36,8 +36,28 @@ const searchableReportShortcuts = <SearchableReportShortcut>[
 List<SearchableReportShortcut> findSearchableReports(String rawQuery) {
   final query = rawQuery.trim().toLowerCase();
   if (query.isEmpty) return const [];
-  return searchableReportShortcuts.where((report) {
-    return report.terms.any((term) =>
-        term.contains(query) || query.contains(term));
-  }).toList(growable: false);
+
+  var bestScore = -1;
+  final matches = <SearchableReportShortcut>[];
+  for (final report in searchableReportShortcuts) {
+    for (final term in report.terms) {
+      final score = term == query
+          ? 1000 + term.length
+          : query.contains(term)
+              ? term.length
+              : term.contains(query)
+                  ? query.length
+                  : -1;
+      if (score < 0) continue;
+      if (score > bestScore) {
+        bestScore = score;
+        matches
+          ..clear()
+          ..add(report);
+      } else if (score == bestScore && !matches.contains(report)) {
+        matches.add(report);
+      }
+    }
+  }
+  return matches;
 }

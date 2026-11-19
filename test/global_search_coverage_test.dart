@@ -10,10 +10,12 @@ void main() {
           'DP transaction report');
     });
 
-    test('finds bonus and quiz bonus report destinations', () {
-      expect(findSearchableReports('bonus').map((r) => r.title),
-          containsAll(['Bonus distribution report', 'Quiz bonus report']));
+    test('prefers the most specific bonus report destination', () {
+      expect(findSearchableReports('bonus').single.title,
+          'Bonus distribution report');
       expect(findSearchableReports('participant bonus').single.title,
+          'Quiz bonus report');
+      expect(findSearchableReports('quiz bonus').single.title,
           'Quiz bonus report');
     });
 
