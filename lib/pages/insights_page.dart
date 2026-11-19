@@ -13,10 +13,10 @@ class _InsightsPageState extends State<InsightsPage>{
   final start=end.subtract(Duration(days:days));
   final fetchStart=end.subtract(const Duration(days:180));
   future=Future.wait<Object>([
-    AppDatabase.instance.getUsers(),
-    AppDatabase.instance.getDpEntries(from:fetchStart,until:end,limit:5000),
-    AppDatabase.instance.getBonusEntries(from:fetchStart,until:end,limit:5000),
-    QuizDatabase.instance.getQuizBonusEntries(from:fetchStart,until:end,limit:5000),
+    AppDatabase.instance.getAnalyticsUsers(),
+    AppDatabase.instance.getDpAnalyticsRows(from:fetchStart,until:end),
+    AppDatabase.instance.getBonusEntries(from:fetchStart,until:end),
+    QuizDatabase.instance.getQuizBonusEntries(from:fetchStart,until:end),
   ]).then((v){
     final users=v[0] as List<Map<String,Object?>>;
     final dp=v[1] as List<Map<String,Object?>>;

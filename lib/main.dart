@@ -32,6 +32,7 @@ import 'pages/insights_page.dart';
 import 'pages/global_search_page.dart';
 import 'pages/dashboard_layout_page.dart';
 import 'pages/google_drive_backup_page.dart';
+import 'services/report_row_filter.dart';
 
 
 class AppDropdownField<T> extends StatelessWidget {
@@ -334,10 +335,9 @@ class DashboardPage extends StatelessWidget {
         AppDatabase.instance.todayDpTotal(),
         AppDatabase.instance.countFollowUpsDue(),
         AppDatabase.instance.countOpenCustomerIssues(),
-        AppDatabase.instance.getDpEntries(
-          from: DateTime(now.year - 1, now.month, now.day),
+        AppDatabase.instance.getDpChartRows(
+          from: DateTime(now.year - 1, 1, 1),
           until: DateTime(now.year, now.month, now.day + 1),
-          limit: 3000,
         ),
         AppDatabase.instance.getReportTotals(monthStart, nextMonth),
         AppDatabase.instance.todayContactMetrics(),
@@ -3896,12 +3896,7 @@ class _ReportsPageState extends State<ReportsPage> {
         if (snap.hasError) return const EmptyState(title: 'Report unavailable', subtitle: 'Please try again.');
         final totals = snap.data![0] as Map<String, num>;
         final rows = snap.data![1] as List<Map<String, Object?>>;
-        final filteredRows = rows.where((row) {
-          if (typeFilter != 'All' && row['type']?.toString() != typeFilter) return false;
-          final term = rowSearch.trim().toLowerCase();
-          if (term.isEmpty) return true;
-          return '${row['user_name']} ${row['phone']} ${row['reason']} ${row['notes']} ${row['transaction_date']}'.toLowerCase().contains(term);
-        }).toList();
+        final filteredRows = ReportRowFilter.apply(rows, typeFilter: typeFilter, search: rowSearch);
         final dp = totals['dp'] ?? 0;
         final bonus = totals['bonus'] ?? 0;
         return ListView(

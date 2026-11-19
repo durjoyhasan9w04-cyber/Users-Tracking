@@ -111,6 +111,7 @@ class AppDatabase {
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_users_name_nocase ON users(name COLLATE NOCASE)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_users_phone_nocase ON users(phone COLLATE NOCASE)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_dp_created_at ON dp_entries(created_at)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_bonus_created_at ON bonus_entries(created_at)');
@@ -939,6 +940,47 @@ class AppDatabase {
   }
 
 
+  Future<List<Map<String, Object?>>> getAnalyticsUsers() async {
+    final db = await database;
+    return db.rawQuery('SELECT id, name, created_at FROM users ORDER BY created_at DESC, id DESC');
+  }
+
+  Future<List<Map<String, Object?>>> searchUsersForGlobalSearch(String query, {int limit = 200}) async {
+    final db = await database;
+    final pattern = '%${query.trim()}%';
+    return db.rawQuery('''
+      SELECT id, name, phone, archived
+      FROM users
+      WHERE name LIKE ? OR phone LIKE ?
+      ORDER BY name COLLATE NOCASE
+      LIMIT ?
+    ''', [pattern, pattern, limit]);
+  }
+
+  Future<List<Map<String, Object?>>> getDpChartRows({required DateTime from, required DateTime until}) async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT entry_date, SUM(total) AS total, COUNT(*) AS dp_count
+      FROM dp_entries
+      WHERE entry_date >= ? AND entry_date < ?
+      GROUP BY entry_date
+      ORDER BY entry_date DESC
+    ''', [from.toIso8601String().substring(0, 10), until.toIso8601String().substring(0, 10)]);
+  }
+
+  Future<List<Map<String, Object?>>> getDpAnalyticsRows({required DateTime from, required DateTime until}) async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT d.user_id, u.name AS user_name, d.entry_date,
+        SUM(d.total) AS total, COUNT(*) AS transaction_count
+      FROM dp_entries d
+      JOIN users u ON u.id = d.user_id
+      WHERE d.entry_date >= ? AND d.entry_date < ?
+      GROUP BY d.user_id, d.entry_date
+      ORDER BY d.entry_date DESC, d.user_id
+    ''', [from.toIso8601String().substring(0, 10), until.toIso8601String().substring(0, 10)]);
+  }
+
   Future<List<Map<String, Object?>>> getUnifiedActivityEvents({int limit = 500, String search = ''}) async {
     final db = await database;
     final term = search.trim();
@@ -1155,11 +1197,7 @@ class AppDatabase {
       WHERE b.entry_date >= ? AND b.entry_date < ?
       ORDER BY transaction_date DESC, type ASC, user_name COLLATE NOCASE
     """, [from, until, from, until]);
-    final quizBonuses = (await QuizDatabase.instance.getQuizBonusEntries())
-        .where((row) {
-          final date = row['entry_date'] as String? ?? '';
-          return date.compareTo(from) >= 0 && date.compareTo(until) < 0;
-        })
+    final quizBonuses = (await QuizDatabase.instance.getQuizBonusEntries(from: start, until: end))
         .map((row) => <String, Object?>{
           'type': 'Quiz Bonus',
           'transaction_date': row['entry_date'],
