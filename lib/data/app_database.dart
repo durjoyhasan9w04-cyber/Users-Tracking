@@ -1603,6 +1603,14 @@ class AppDatabase {
     return db.transaction((txn) async {
       final rows = await txn.query('dp_entries', where: 'id = ?', whereArgs: [id], limit: 1);
       if (rows.isEmpty || rows.first['created_at'] != createdAt) return false;
+      final edits = await txn.query(
+        'audit_log',
+        columns: ['id'],
+        where: "entity_type = ? AND entity_id = ? AND action = 'Edited' AND created_at >= ?",
+        whereArgs: ['DP', id, createdAt],
+        limit: 1,
+      );
+      if (edits.isNotEmpty) return false;
       final stamp = DateTime.tryParse(createdAt);
       if (stamp == null) return false;
       final age = DateTime.now().difference(stamp);
@@ -1623,6 +1631,14 @@ class AppDatabase {
     return db.transaction((txn) async {
       final rows = await txn.query('bonus_entries', where: 'id = ?', whereArgs: [id], limit: 1);
       if (rows.isEmpty || rows.first['created_at'] != createdAt) return false;
+      final edits = await txn.query(
+        'audit_log',
+        columns: ['id'],
+        where: "entity_type = ? AND entity_id = ? AND action = 'Edited' AND created_at >= ?",
+        whereArgs: ['Bonus', id, createdAt],
+        limit: 1,
+      );
+      if (edits.isNotEmpty) return false;
       final stamp = DateTime.tryParse(createdAt);
       if (stamp == null) return false;
       final age = DateTime.now().difference(stamp);
