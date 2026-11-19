@@ -129,7 +129,7 @@ class _SalesChartCardState extends State<SalesChartCard>
           if (firstDay > monthDays) continue;
           final lastDay = range.$2 < monthDays ? range.$2 : monthDays;
           labels.add('$firstDay-${range.$2}');
-          dates.add('${firstDay} ${DateFormat('MMM').format(start)} – $lastDay ${DateFormat('MMM').format(start)}');
+          dates.add('$firstDay ${DateFormat('MMM').format(start)} – $lastDay ${DateFormat('MMM').format(start)}');
           values.add(_sum(
             DateTime(today.year, today.month, firstDay),
             DateTime(today.year, today.month, lastDay + 1),
