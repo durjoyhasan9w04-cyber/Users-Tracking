@@ -21,7 +21,7 @@ class _GlobalSearchPageState extends State<GlobalSearchPage>{
    QuizDatabase.instance.getQuizzes(),
    QuizDatabase.instance.getActivityEvents(limit:250),
   ]);
-  final hits=< _SearchHit>[];
+  final hits=<_SearchHit>[];
   for(final u in data[0] as List<Map<String,Object?>>){
    hits.add(_SearchHit(type:'User',title:u['name']?.toString()??'User',subtitle:u['phone']?.toString()??'',userId:(u['id'] as num?)?.toInt()));
   }
@@ -42,7 +42,7 @@ class _GlobalSearchPageState extends State<GlobalSearchPage>{
   return hits.take(250).toList();
  }
  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('Global Search')),body:Column(children:[
-  Padding(padding:const EdgeInsets.all(16),child:TextField(controller:controller,autofocus:true,onChanged:(v){setState(()=>query=v);if(v.trim().length>=2){setState(()=>future=search(v));}else{setState(()=>future=null);}},decoration:InputDecoration(hintText:'Search name, phone, DP, bonus, quiz, task or issue',prefixIcon:const Icon(Icons.search_rounded),suffixIcon:IconButton(onPressed:(){controller.clear();setState(()=>{query='';future=null;});},icon:const Icon(Icons.close_rounded))))),
+  Padding(padding:const EdgeInsets.all(16),child:TextField(controller:controller,autofocus:true,onChanged:(v){setState(()=>query=v);if(v.trim().length>=2){setState(()=>future=search(v));}else{setState(()=>future=null);}},decoration:InputDecoration(hintText:'Search name, phone, DP, bonus, quiz, task or issue',prefixIcon:const Icon(Icons.search_rounded),suffixIcon:IconButton(onPressed:(){controller.clear();setState(() { query=''; future=null; });},icon:const Icon(Icons.close_rounded))))),
   Expanded(child:query.trim().length<2?const Center(child:Text('Enter at least 2 characters to search.')):FutureBuilder<List<_SearchHit>>(future:future,builder:(context,snap){
    if(snap.connectionState==ConnectionState.waiting)return const Center(child:CircularProgressIndicator());
    if(snap.hasError)return const Center(child:Text('Search failed. Please try again.'));
