@@ -13,9 +13,12 @@ void main() {
 
   testWidgets('User Hub premium dashboard renders', (tester) async {
     await tester.pumpWidget(const UserHubApp());
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(seconds: 2));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.pump();
     // The refreshed light dashboard uses the new Dashboard title and Sales chart card.
     expect(find.text('Dashboard'), findsWidgets);
     await tester.scrollUntilVisible(
