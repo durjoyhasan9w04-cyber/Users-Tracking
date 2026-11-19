@@ -1,0 +1,7 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:user_hub/services/analytics_calculator.dart';
+void main(){group('AnalyticsCalculator',(){
+ test('compares current and previous periods by transaction date',(){final dp=[{'entry_date':'2026-11-10','total':120.0},{'entry_date':'2026-10-10','total':80.0}];final bonus=[{'entry_date':'2026-11-11','amount':20.0},{'entry_date':'2026-10-11','amount':10.0}];final r=AnalyticsCalculator.compare(dpRows:dp,bonusRows:bonus,start:DateTime(2026,11,1),end:DateTime(2026,12,1));expect(r.currentDp,120);expect(r.previousDp,80);expect(r.currentBonus,20);expect(r.previousBonus,10);expect(r.dpChangePercent,50);});
+ test('consistency counts unique active days and current streak',(){final r=AnalyticsCalculator.consistency(users:[{'id':1,'name':'A'}],dpRows:[{'user_id':1,'entry_date':'2026-11-19','total':10.0},{'user_id':1,'entry_date':'2026-11-18','total':20.0},{'user_id':1,'entry_date':'2026-11-10','total':5.0}],start:DateTime(2026,11,1),end:DateTime(2026,11,21)).single;expect(r.activeDays,3);expect(r.score,15);expect(r.currentStreak,2);expect(r.totalDp,35);});
+ test('bonus reasons and user growth aggregate',(){expect(AnalyticsCalculator.bonusByReason([{'reason':'Deposit','amount':10.0},{'reason':'Deposit','amount':5.0},{'reason':'Special','amount':2.0}]),{'Deposit':15.0,'Special':2.0});expect(AnalyticsCalculator.userGrowthByMonth([{'created_at':'2026-11-02T12:00:00'},{'created_at':'2026-11-03T12:00:00'},{'created_at':'2026-10-30T12:00:00'}],months:2,now:DateTime(2026,11,20)),{'2026-10':1,'2026-11':2});});
+});}
