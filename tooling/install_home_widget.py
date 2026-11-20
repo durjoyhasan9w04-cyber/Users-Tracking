@@ -621,7 +621,7 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
  <TextView android:id="@+id/widget_undo" android:layout_width="match_parent" android:layout_height="38dp" android:layout_marginTop="5dp" android:gravity="center" android:text="Undo · 8s" android:textColor="#FFFFFFFF" android:textStyle="bold" android:background="@drawable/widget_bonus_button" android:visibility="gone"/>
  <TextView android:id="@+id/widget_add_dp" android:visibility="gone" android:layout_width="1dp" android:layout_height="1dp" android:text=""/>
  <TextView android:id="@+id/widget_add_bonus" android:visibility="gone" android:layout_width="1dp" android:layout_height="1dp" android:text=""/>
- <TextView android:id="@+id/widget_quick_add_user" android:visibility="gone" android:layout_width="1dp" android:layout_height="1dp" android:text=""/>
+
 </LinearLayout>
 '''
 
