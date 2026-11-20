@@ -1,4 +1,4 @@
-// ignore_for_file: prefer_interpolation_to_compose_strings
+// ignore_for_file: prefer_interpolation_to_compose_strings, unnecessary_underscores
 import 'data/quiz_database.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:async';
@@ -28,6 +28,11 @@ import 'pages/damarage_sheet_page.dart';
 import 'ui/sales_chart_card.dart';
 import 'pages/activity_center_page.dart';
 import 'pages/quick_entry_sheet.dart';
+import 'pages/insights_page.dart';
+import 'pages/global_search_page.dart';
+import 'pages/dashboard_layout_page.dart';
+import 'pages/google_drive_backup_page.dart';
+import 'services/report_row_filter.dart';
 
 
 class AppDropdownField<T> extends StatelessWidget {
@@ -258,7 +263,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell>{
   int index=0,revision=0;
   void refresh()=>setState(()=>revision++);
-  Future<void> openMore()async{await Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const MoreHubPage()));}
+  Future<void> openMore()async{await Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const MoreHubPage()));if(mounted)refresh();}
   Future<void> addAction()async{
     final action=await showModalBottomSheet<String>(context:context,backgroundColor:panel,shape:const RoundedRectangleBorder(borderRadius:BorderRadius.vertical(top:Radius.circular(26))),builder:(ctx)=>SafeArea(child:Padding(padding:const EdgeInsets.fromLTRB(20,18,20,24),child:Column(mainAxisSize:MainAxisSize.min,children:[
       Container(width:42,height:4,decoration:BoxDecoration(color:panelBorder,borderRadius:BorderRadius.circular(4))),const SizedBox(height:18),
@@ -313,79 +318,161 @@ class _AddActionTile extends StatelessWidget{
   @override Widget build(BuildContext context)=>ListTile(contentPadding:const EdgeInsets.symmetric(horizontal:8),leading:CircleAvatar(backgroundColor:const Color(0xFFFFE6D9),child:Icon(icon,color:emerald)),title:Text(label,style:const TextStyle(fontWeight:FontWeight.w700,color:Color(0xFF27313D))),trailing:const Icon(Icons.chevron_right_rounded,color:muted),onTap:onTap);
 }
 
-class DashboardPage extends StatelessWidget{
-  const DashboardPage({super.key,required this.onChanged});final VoidCallback onChanged;
-  @override Widget build(BuildContext context){
-    final now=DateTime.now(),monthStart=DateTime(now.year,now.month),nextMonth=DateTime(now.year,now.month+1),previousStart=DateTime(now.year,now.month-1);
-    return FutureBuilder<List<Object?>>(future:Future.wait<Object?>([
-      AppDatabase.instance.getActivityStatusUsers(),AppDatabase.instance.todayBonusTotal(),AppDatabase.instance.todayDpTotal(),AppDatabase.instance.countFollowUpsDue(),AppDatabase.instance.countOpenCustomerIssues(),
-      AppDatabase.instance.getDpEntries(),AppDatabase.instance.getBonusEntries(),AppDatabase.instance.monthDpTotal(),
-      AppDatabase.instance.getReportTotals(monthStart,nextMonth),AppDatabase.instance.getReportTotals(previousStart,monthStart),
-      AppDatabase.instance.todayContactMetrics(),AppDatabase.instance.todayDpTransactions(),AppDatabase.instance.countUsers(),
-      AppDatabase.instance.getUnifiedActivityEvents(limit: 20),QuizDatabase.instance.getActivityEvents(limit: 20),
-    ]),builder:(context,snap){
-      final d=snap.data,activity=d?[0] as List<Map<String,Object?>>? ?? const [];
-      final active=activity.where((r)=>r['activity_status']=='Active').length,attention=(d?[3] as num?)?.toInt()??0,issues=(d?[4] as num?)?.toInt()??0;
-      final bonus=(d?[1] as num?)?.toDouble()??0,dpToday=(d?[2] as num?)?.toDouble()??0,dpRows=d?[5] as List<Map<String,Object?>>? ?? const [];
-      final totals=d?[8] as Map<String,num>?;
-      final contacts=d?[10] as Map<String,int>? ?? const {};
-      final dpTransactions=(d?[11] as num?)?.toInt()??0,totalUsers=(d?[12] as num?)?.toInt()??0;
-      final feed=<Map<String,Object?>>[
-        ...(d?[13] as List<Map<String,Object?>>? ?? const []),
-        ...(d?[14] as List<Map<String,Object?>>? ?? const []),
-      ]..sort((a,b)=>(b['created_at'] as String? ?? b['event_date'] as String? ?? '').compareTo(a['created_at'] as String? ?? a['event_date'] as String? ?? ''));
-      final recent=feed.take(5).map((event)=><String,Object?>{
-        'kind':event['title']??event['kind'],'name':event['name'],
-        'date':event['created_at']??event['event_date'],'amount':event['amount'],
-        'detail':event['detail'],'user_id':event['user_id'],
-      }).toList();
-      return ListView(padding:const EdgeInsets.fromLTRB(20,4,20,110),children:[
-        Row(children:[
-          Expanded(child:_DesignMetricCard(label:'Active DP Users',value:'$active',foot:'DP in last 3 days',icon:Icons.people_alt_outlined,tint:const Color(0xFFE8F7EF),iconColor:const Color(0xFF1B9B59),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ActivityStatusPage())))),
-          const SizedBox(width:12),
-          Expanded(child:_DesignMetricCard(label:'Bonus Today',value:'${bonus.toStringAsFixed(bonus%1==0?0:2)} coins',foot:'${totals?['bonus_count']??0} records this month',icon:Icons.card_giftcard_outlined,tint:const Color(0xFFFFF0E7),iconColor:emerald,onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>BonusPage(onChanged:onChanged))))),
-        ]),
-        const SizedBox(height:12),
-        Row(children:[
-          Expanded(child:_DesignMetricCard(label:'Need Attention',value:'$attention',foot:'Follow-up due',icon:Icons.notifications_active_outlined,tint:const Color(0xFFFFF0E7),iconColor:const Color(0xFFE87524),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const FollowUpsPage())))),
-          const SizedBox(width:12),
-          Expanded(child:_DesignMetricCard(label:'Open Issues',value:'$issues',foot:'Need action',icon:Icons.warning_amber_rounded,tint:const Color(0xFFEAF0FF),iconColor:const Color(0xFF3569D4),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const CustomerIssuesPage())))),
-        ]),
-        const SizedBox(height:12),
-        _DesignMetricCard(label:'DP Today',value:'${dpToday.toStringAsFixed(dpToday%1==0?0:2)} coins',foot:'Total DP recorded today · Tap to view records',icon:Icons.account_balance_wallet_outlined,tint:const Color(0xFFEAF0FF),iconColor:const Color(0xFF3569D4),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const ActivityPage()))),
-        const SizedBox(height:12),
-        Row(children:[
-          Expanded(child:_DesignMetricCard(label:'DP Transactions',value:'$dpTransactions',foot:'Entries recorded today',icon:Icons.receipt_long_outlined,tint:const Color(0xFFEAF0FF),iconColor:const Color(0xFF3569D4),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>ActivityCenterPage(initialFilter:'DP',initialRange:'Today',onOpenUser:(id)=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>UserProfilePage(userId:id,onChanged:onChanged)))))))),
-          const SizedBox(width:12),
-          Expanded(child:_DesignMetricCard(label:'Contacted Today',value:'${contacts['contacted']??0}/$totalUsers',foot:'${contacts['not_contacted']??0} not contacted',icon:Icons.chat_bubble_outline_rounded,tint:const Color(0xFFE8F7EF),iconColor:const Color(0xFF238653),onTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>ActivityCenterPage(initialFilter:'Contact',initialRange:'Today',onOpenUser:(id)=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>UserProfilePage(userId:id,onChanged:onChanged)))))))),
-        ]),
-        const SizedBox(height:18),
-        SalesChartCard(
-          entries: dpRows,
-          loading: snap.connectionState == ConnectionState.waiting,
+class DashboardPage extends StatelessWidget {
+  const DashboardPage({super.key, required this.onChanged, this.useGoogleFonts = true});
+  final VoidCallback onChanged;
+  final bool useGoogleFonts;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month);
+    final nextMonth = DateTime(now.year, now.month + 1);
+    return FutureBuilder<List<Object?>>(
+      future: Future.wait<Object?>([
+        AppDatabase.instance.getActivityStatusUsers(),
+        AppDatabase.instance.todayBonusTotal(),
+        AppDatabase.instance.todayDpTotal(),
+        AppDatabase.instance.countFollowUpsDue(),
+        AppDatabase.instance.countOpenCustomerIssues(),
+        AppDatabase.instance.getDpChartRows(
+          from: DateTime(now.year - 1, 1, 1),
+          until: DateTime(now.year, now.month, now.day + 1),
         ),
-        const SizedBox(height:22),
-        SectionHeading('Recent Activity',trailing:'View All',onTrailingTap:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>ActivityCenterPage(onOpenUser:(id)=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>UserProfilePage(userId:id,onChanged:onChanged))))))),
-        const SizedBox(height:10),
-        if(snap.connectionState==ConnectionState.waiting)const Center(child:Padding(padding:EdgeInsets.all(24),child:CircularProgressIndicator()))
-        else if(recent.isEmpty)const EmptyState(title:'No recent activity',subtitle:'DP, bonuses, contacts, tasks and quiz activity will appear here.',compact:true)
-        else ...recent.map((e)=>_DesignRecentTile(event:e)),
-        const SizedBox(height:12),
-        Row(children:[
-          Expanded(child:OutlinedButton.icon(onPressed:()async{final ok=await showDialog<bool>(context:context,builder:(_)=>const DpEntryDialog());if(ok==true)onChanged();},icon:const Icon(Icons.add),label:const Text('Record DP'))),
-          const SizedBox(width:10),
-          Expanded(child:FilledButton.icon(onPressed:()async{final ok=await showDialog<bool>(context:context,builder:(_)=>const BonusEntryDialog());if(ok==true)onChanged();},icon:const Icon(Icons.card_giftcard),label:const Text('Add Bonus'))),
-        ]),
-      ]);
-    });
+        AppDatabase.instance.getReportTotals(monthStart, nextMonth),
+        AppDatabase.instance.todayContactMetrics(),
+        AppDatabase.instance.todayDpTransactions(),
+        AppDatabase.instance.countUsers(),
+        AppDatabase.instance.getUnifiedActivityEvents(limit: 20),
+        QuizDatabase.instance.getActivityEvents(limit: 20),
+      ]),
+      builder: (context, snap) {
+        if (snap.hasError) {
+          debugPrint('Dashboard data load failed: ${snap.error}');
+          return const EmptyState(title: 'Dashboard unavailable', subtitle: 'Refresh the app and try again.');
+        }
+        final d = snap.data;
+        final activity = d?[0] as List<Map<String, Object?>>? ?? const [];
+        final active = activity.where((r) => r['activity_status'] == 'Active').length;
+        final attention = (d?[3] as num?)?.toInt() ?? 0;
+        final issues = (d?[4] as num?)?.toInt() ?? 0;
+        final bonus = (d?[1] as num?)?.toDouble() ?? 0;
+        final dpToday = (d?[2] as num?)?.toDouble() ?? 0;
+        final dpRows = d?[5] as List<Map<String, Object?>>? ?? const [];
+        final totals = d?[6] as Map<String, num>?;
+        final contacts = d?[7] as Map<String, int>? ?? const {};
+        final dpTransactions = (d?[8] as num?)?.toInt() ?? 0;
+        final totalUsers = (d?[9] as num?)?.toInt() ?? 0;
+        final feed = <Map<String, Object?>>[
+          ...(d?[10] as List<Map<String, Object?>>? ?? const []),
+          ...(d?[11] as List<Map<String, Object?>>? ?? const []),
+        ]..sort((a, b) => (b['created_at'] as String? ?? b['event_date'] as String? ?? '')
+            .compareTo(a['created_at'] as String? ?? a['event_date'] as String? ?? ''));
+        final recent = feed.take(5).map((event) => <String, Object?>{
+          'kind': event['title'] ?? event['kind'],
+          'name': event['name'],
+          'date': event['created_at'] ?? event['event_date'],
+          'amount': event['amount'],
+          'detail': event['detail'],
+          'user_id': event['user_id'],
+        }).toList();
+
+        final sections = <String, Widget>{
+          'metrics': Column(children: [
+            Row(children: [
+              Expanded(child: _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'Active DP Users', value: '$active', foot: 'DP in last 3 days', icon: Icons.people_alt_outlined, tint: const Color(0xFFE8F7EF), iconColor: const Color(0xFF1B9B59), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityStatusPage())))),
+              const SizedBox(width: 12),
+              Expanded(child: _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'Bonus Today', value: '${bonus.toStringAsFixed(bonus % 1 == 0 ? 0 : 2)} coins', foot: '${totals?['bonus_count'] ?? 0} records this month', icon: Icons.card_giftcard_outlined, tint: const Color(0xFFFFF0E7), iconColor: emerald, onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => BonusPage(onChanged: onChanged))))),
+            ]),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'Need Attention', value: '$attention', foot: 'Follow-up due', icon: Icons.notifications_active_outlined, tint: const Color(0xFFFFF0E7), iconColor: const Color(0xFFE87524), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FollowUpsPage())))),
+              const SizedBox(width: 12),
+              Expanded(child: _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'Open Issues', value: '$issues', foot: 'Need action', icon: Icons.warning_amber_rounded, tint: const Color(0xFFEAF0FF), iconColor: const Color(0xFF3569D4), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CustomerIssuesPage())))),
+            ]),
+            const SizedBox(height: 12),
+            _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'DP Today', value: '${dpToday.toStringAsFixed(dpToday % 1 == 0 ? 0 : 2)} coins', foot: 'Total DP recorded today · Tap to view records', icon: Icons.account_balance_wallet_outlined, tint: const Color(0xFFEAF0FF), iconColor: const Color(0xFF3569D4), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityPage()))),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'DP Transactions', value: '$dpTransactions', foot: 'Entries recorded today', icon: Icons.receipt_long_outlined, tint: const Color(0xFFEAF0FF), iconColor: const Color(0xFF3569D4), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityCenterPage(initialFilter: 'DP', initialRange: 'Today', onOpenUser: (id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: id, onChanged: onChanged)))))))),
+              const SizedBox(width: 12),
+              Expanded(child: _DesignMetricCard(useGoogleFonts: useGoogleFonts, label: 'Contacted Today', value: '${contacts['contacted'] ?? 0}/$totalUsers', foot: '${contacts['not_contacted'] ?? 0} not contacted', icon: Icons.chat_bubble_outline_rounded, tint: const Color(0xFFE8F7EF), iconColor: const Color(0xFF238653), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityCenterPage(initialFilter: 'Contact', initialRange: 'Today', onOpenUser: (id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: id, onChanged: onChanged)))))))),
+            ]),
+          ]),
+          'sales': Column(children: [
+            SalesChartCard(entries: dpRows, loading: snap.connectionState == ConnectionState.waiting),
+          ]),
+          'analytics': Card(
+            child: ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.insights_rounded)),
+              title: const Text('Advanced Analytics', style: TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: const Text('Date comparisons, user rankings, DP consistency, bonus mix and growth'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InsightsPage())),
+            ),
+          ),
+          'activity': Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SectionHeading('Recent Activity', trailing: 'View All', onTrailingTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityCenterPage(onOpenUser: (id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => UserProfilePage(userId: id, onChanged: onChanged))))))),
+            const SizedBox(height: 10),
+            if (snap.connectionState == ConnectionState.waiting)
+              const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+            else if (recent.isEmpty)
+              const EmptyState(title: 'No recent activity', subtitle: 'DP, bonuses, contacts, tasks and quiz activity will appear here.', compact: true)
+            else
+              ...recent.map((event) => _DesignRecentTile(event: event)),
+          ]),
+          'quick': Row(children: [
+            Expanded(child: OutlinedButton.icon(onPressed: () async {
+              final ok = await showDialog<bool>(context: context, builder: (_) => const DpEntryDialog());
+              if (ok == true) onChanged();
+            }, icon: const Icon(Icons.add), label: const Text('Record DP'))),
+            const SizedBox(width: 10),
+            Expanded(child: FilledButton.icon(onPressed: () async {
+              final ok = await showDialog<bool>(context: context, builder: (_) => const BonusEntryDialog());
+              if (ok == true) onChanged();
+            }, icon: const Icon(Icons.card_giftcard), label: const Text('Add Bonus'))),
+          ]),
+        };
+
+        return FutureBuilder<SharedPreferences>(
+          future: SharedPreferences.getInstance(),
+          builder: (context, preferenceSnap) {
+            final prefs = preferenceSnap.data;
+            const defaults = ['metrics', 'sales', 'activity', 'analytics', 'quick'];
+            final savedOrder = prefs?.getStringList('user_hub_dashboard_order') ?? defaults;
+            final hidden = prefs?.getStringList('user_hub_dashboard_hidden')?.toSet() ?? <String>{};
+            final pinned = prefs?.getStringList('user_hub_dashboard_pinned')?.toSet() ?? <String>{};
+            final ordered = <String>[
+              ...pinned.where(sections.containsKey),
+              ...savedOrder.where((id) => sections.containsKey(id) && !pinned.contains(id)),
+              ...sections.keys.where((id) => !savedOrder.contains(id) && !pinned.contains(id)),
+            ];
+            final unique = ordered.toSet().toList();
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
+              children: [
+                if (preferenceSnap.connectionState == ConnectionState.waiting)
+                  const LinearProgressIndicator(minHeight: 2),
+                for (final id in unique)
+                  if (!hidden.contains(id)) ...[
+                    sections[id]!,
+                    const SizedBox(height: 16),
+                  ],
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }
+
 class _DesignMetricCard extends StatelessWidget{
-  const _DesignMetricCard({required this.label,required this.value,required this.foot,required this.icon,required this.tint,required this.iconColor,this.onTap});
-  final String label,value,foot;final IconData icon;final Color tint,iconColor;final VoidCallback? onTap;
+  const _DesignMetricCard({required this.label,required this.value,required this.foot,required this.icon,required this.tint,required this.iconColor,this.onTap, this.useGoogleFonts = true});
+  final String label,value,foot;final IconData icon;final Color tint,iconColor;final VoidCallback? onTap;final bool useGoogleFonts;
   @override Widget build(BuildContext context)=>Card(clipBehavior:Clip.antiAlias,child:InkWell(onTap:onTap,child:Padding(padding:const EdgeInsets.all(15),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     Row(children:[Expanded(child:Text(label,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:12,fontWeight:FontWeight.w600))),const Icon(Icons.more_horiz,color:muted,size:19)]),
-    const SizedBox(height:10),Text(value,maxLines:1,overflow:TextOverflow.ellipsis,style:GoogleFonts.spaceGrotesk(fontSize:27,fontWeight:FontWeight.w800,color:const Color(0xFF18202B))),
+    const SizedBox(height:10),Text(value,maxLines:1,overflow:TextOverflow.ellipsis,style: useGoogleFonts ? GoogleFonts.spaceGrotesk(fontSize:27,fontWeight:FontWeight.w800,color:const Color(0xFF18202B)) : const TextStyle(fontSize:27,fontWeight:FontWeight.w800,color:Color(0xFF18202B))),
     const SizedBox(height:8),Row(children:[Icon(icon,size:14,color:iconColor),const SizedBox(width:5),Expanded(child:Text(foot,maxLines:1,overflow:TextOverflow.ellipsis,style:const TextStyle(color:muted,fontSize:10)))]),
   ]))));
 }
@@ -2743,6 +2830,30 @@ class MoreHubPage extends StatelessWidget {
       const Text('Manage prospects and customer support records.', maxLines:2, style: TextStyle(color: muted, fontSize:14, height:1.35)),
       const SizedBox(height: 18),
       _MoreTile(
+        icon: Icons.dashboard_customize_outlined,
+        title: 'Customize Dashboard',
+        subtitle: 'Reorder, hide and pin dashboard sections',
+        onTap: () => open(context, const DashboardLayoutPage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.search_rounded,
+        title: 'Global Search',
+        subtitle: 'Find users, transactions, quizzes, tasks, issues and activity from one place',
+        onTap: () => open(context, GlobalSearchPage(
+          onOpenUser: (id) => open(context, UserProfilePage(userId: id, onChanged: () {})),
+          onOpenReports: () => open(context, const ReportsPage()),
+        )),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.insights_rounded,
+        title: 'Advanced Analytics',
+        subtitle: 'Compare periods, rank DP contributions, score consistency, review bonus mix and user growth',
+        onTap: () => open(context, const InsightsPage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
         icon: Icons.timeline_rounded,
         title: 'Activity Center',
         subtitle: 'One searchable timeline for DP, bonuses, contacts, tasks, quizzes and issues',
@@ -2805,6 +2916,13 @@ class MoreHubPage extends StatelessWidget {
         title: 'Audit history',
         subtitle: 'Review recorded DP and bonus deletions',
         onTap: () => open(context, const AuditHistoryPage()),
+      ),
+      const SizedBox(height: 10),
+      _MoreTile(
+        icon: Icons.cloud_upload_outlined,
+        title: 'Encrypted Google Drive backup',
+        subtitle: 'Upload both local databases encrypted with your own passphrase',
+        onTap: () => open(context, const GoogleDriveBackupPage()),
       ),
       const SizedBox(height: 10),
       _MoreTile(
@@ -3608,14 +3726,21 @@ class _ReportsPageState extends State<ReportsPage> {
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
   late Future<List<Object>> report;
   bool exporting = false;
+  DateTime? customStart;
+  DateTime? customEnd;
+  String rowSearch = '';
+  String typeFilter = 'All';
 
   DateTime get nextMonth => DateTime(month.year, month.month + 1);
+  DateTime get reportStart => customStart ?? month;
+  DateTime get reportEndExclusive => customEnd == null ? nextMonth : DateTime(customEnd!.year, customEnd!.month, customEnd!.day + 1);
+  String get reportLabel => customStart == null ? DateFormat('MMMM yyyy').format(month) : '${DateFormat('d MMM yyyy').format(reportStart)} – ${DateFormat('d MMM yyyy').format(customEnd!)}';
   @override
   void initState() { super.initState(); load(); }
   void load() {
     report = Future.wait<Object>([
-      AppDatabase.instance.getReportTotals(month, nextMonth),
-      AppDatabase.instance.getReportRows(month, nextMonth),
+      AppDatabase.instance.getReportTotals(reportStart, reportEndExclusive),
+      AppDatabase.instance.getReportRows(reportStart, reportEndExclusive),
     ]);
   }
 
@@ -3627,7 +3752,22 @@ class _ReportsPageState extends State<ReportsPage> {
       lastDate: DateTime(2100),
       helpText: 'Choose a date in the report month',
     );
-    if (picked != null && mounted) setState(() { month = DateTime(picked.year, picked.month); load(); });
+    if (picked != null && mounted) setState(() { month = DateTime(picked.year, picked.month); customStart = null; customEnd = null; load(); });
+  }
+
+  Future<void> chooseRange() async {
+    final picked = await showDateRangePicker(
+      context: context, firstDate: DateTime(2020), lastDate: DateTime(2100),
+      initialDateRange: DateTimeRange(start: reportStart, end: customEnd ?? nextMonth.subtract(const Duration(days: 1))),
+      helpText: 'Choose report date range',
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        customStart = DateTime(picked.start.year, picked.start.month, picked.start.day);
+        customEnd = DateTime(picked.end.year, picked.end.month, picked.end.day);
+        load();
+      });
+    }
   }
 
   String csvCell(Object? value) {
@@ -3647,7 +3787,7 @@ class _ReportsPageState extends State<ReportsPage> {
         ].map(csvCell).join(','));
       }
       final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/user-hub-report-${month.year}-${month.month.toString().padLeft(2, '0')}.csv');
+      final file = File('${directory.path}/user-hub-report-${DateFormat('yyyyMMdd').format(reportStart)}-${DateFormat('yyyyMMdd').format(reportEndExclusive.subtract(const Duration(days: 1)))}.csv');
       await file.writeAsString(lines.join('\n'), flush: true);
       await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'User Hub monthly report'));
     } catch (_) {
@@ -3664,7 +3804,7 @@ class _ReportsPageState extends State<ReportsPage> {
     setState(() => exporting = true);
     try {
       final pdf = pw.Document();
-      final monthLabel = DateFormat('MMMM yyyy').format(month);
+      final monthLabel = reportLabel;
       final headers = [
         'Type', 'Date', 'User', 'Phone', 'Amount', 'DP count', 'Reason', 'Notes',
       ];
@@ -3728,7 +3868,7 @@ class _ReportsPageState extends State<ReportsPage> {
       ));
       final directory = await getTemporaryDirectory();
       final file = File(
-        '${directory.path}/user-hub-report-${month.year}-${month.month.toString().padLeft(2, '0')}.pdf',
+        '${directory.path}/user-hub-report-${DateFormat('yyyyMMdd').format(reportStart)}-${DateFormat('yyyyMMdd').format(reportEndExclusive.subtract(const Duration(days: 1)))}.pdf',
       );
       await file.writeAsBytes(await pdf.save(), flush: true);
       await SharePlus.instance.share(ShareParams(
@@ -3756,12 +3896,17 @@ class _ReportsPageState extends State<ReportsPage> {
         if (snap.hasError) return const EmptyState(title: 'Report unavailable', subtitle: 'Please try again.');
         final totals = snap.data![0] as Map<String, num>;
         final rows = snap.data![1] as List<Map<String, Object?>>;
+        final filteredRows = ReportRowFilter.apply(rows, typeFilter: typeFilter, search: rowSearch);
         final dp = totals['dp'] ?? 0;
         final bonus = totals['bonus'] ?? 0;
         return ListView(
           padding: const EdgeInsets.all(18),
           children: [
-            OutlinedButton.icon(onPressed: chooseMonth, icon: const Icon(Icons.calendar_month), label: Text('${month.year}-${month.month.toString().padLeft(2, '0')}')),
+            Row(children: [
+              Expanded(child: OutlinedButton.icon(onPressed: chooseMonth, icon: const Icon(Icons.calendar_month), label: Text(DateFormat('MMM yyyy').format(month)))),
+              const SizedBox(width: 8),
+              Expanded(child: OutlinedButton.icon(onPressed: chooseRange, icon: const Icon(Icons.date_range_rounded), label: Text(customStart == null ? 'Custom range' : reportLabel, maxLines: 1, overflow: TextOverflow.ellipsis))),
+            ]),
             const SizedBox(height: 14),
             Row(children: [
               Expanded(child: MetricCard(label: 'DP total', value: dp.toString(), icon: Icons.account_balance_wallet_outlined)),
@@ -3776,23 +3921,29 @@ class _ReportsPageState extends State<ReportsPage> {
             ]),
             const SizedBox(height: 18),
             FilledButton.icon(
-              onPressed: exporting ? null : () => exportCsv(rows),
+              onPressed: exporting ? null : () => exportCsv(filteredRows),
               icon: const Icon(Icons.file_download_outlined),
               label: Text(exporting ? 'Preparing export…' : 'Export transaction CSV'),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
-              onPressed: exporting ? null : () => exportPdf(rows, totals),
+              onPressed: exporting ? null : () => exportPdf(filteredRows, totals),
               icon: const Icon(Icons.picture_as_pdf_outlined),
               label: Text(exporting ? 'Preparing export…' : 'Export monthly PDF report'),
             ),
             const SizedBox(height: 18),
-            const SectionHeading('Transactions', trailing: 'Selected month'),
+            const SectionHeading('Transaction preview', trailing: 'Filter before export'),
             const SizedBox(height: 8),
-            if (rows.isEmpty)
+            TextField(onChanged: (value) => setState(() => rowSearch = value), decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'Filter by user, phone, reason or notes')),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(initialValue: typeFilter, decoration: const InputDecoration(labelText: 'Transaction type'), items: const [DropdownMenuItem(value: 'All', child: Text('All transactions')), DropdownMenuItem(value: 'DP', child: Text('DP only')), DropdownMenuItem(value: 'Bonus', child: Text('Bonus only')), DropdownMenuItem(value: 'Quiz Bonus', child: Text('Quiz bonus only'))], onChanged: (value) => setState(() => typeFilter = value ?? 'All')),
+            const SizedBox(height: 8),
+            Text('${filteredRows.length} matching of ${rows.length} transactions · Period totals above include all records.', style: const TextStyle(color: muted, fontSize: 12)),
+            const SizedBox(height: 8),
+            if (filteredRows.isEmpty)
               const EmptyState(title: 'No transactions this month', subtitle: 'DP and bonus records will appear here.')
             else
-              ...rows.take(100).map((row) => Card(
+              ...filteredRows.take(100).map((row) => Card(
                 margin: const EdgeInsets.only(bottom: 7),
                 child: ListTile(
                   title: Text('${row['user_name']} · ${row['type']}', style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -3800,7 +3951,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   trailing: Text('${row['amount']}', style: const TextStyle(color: emerald, fontWeight: FontWeight.w800)),
                 ),
               )),
-            if (rows.length > 100) Text('Showing 100 of ${rows.length} transactions. The CSV includes all records.', style: const TextStyle(color: muted)),
+            if (filteredRows.length > 100) Text('Showing 100 of ${filteredRows.length} matching transactions. Exports include all filtered records.', style: const TextStyle(color: muted)),
           ],
         );
       },

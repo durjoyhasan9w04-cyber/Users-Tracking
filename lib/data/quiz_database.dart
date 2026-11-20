@@ -93,15 +93,24 @@ class QuizDatabase {
     });
   }
 
-  Future<List<Map<String, Object?>>> getQuizBonusEntries() async {
+  Future<List<Map<String, Object?>>> getQuizBonusEntries({DateTime? from, DateTime? until, int? limit}) async {
     final db = await database;
+    final clauses = <String>[];
+    final args = <Object?>[];
+    if (from != null) { clauses.add('b.entry_date >= ?'); args.add(from.toIso8601String().substring(0, 10)); }
+    if (until != null) { clauses.add('b.entry_date < ?'); args.add(until.toIso8601String().substring(0, 10)); }
+    final where = clauses.isEmpty ? '' : 'WHERE ${clauses.join(' AND ')}';
+    final limitSql = limit == null ? '' : 'LIMIT ?';
+    if (limit != null) args.add(limit);
     return db.rawQuery('''
       SELECT b.*, p.name AS user_name, p.phone AS user_phone,
         'Quiz participant' AS bonus_owner_type, p.id AS quiz_participant_id
       FROM quiz_bonus_entries b
       JOIN quiz_participants p ON p.id = b.participant_id
+      $where
       ORDER BY b.entry_date DESC, b.id DESC
-    ''');
+      $limitSql
+    ''', args);
   }
 
   Future<double> quizBonusTotal({DateTime? from, DateTime? until}) async {
@@ -220,29 +229,33 @@ class QuizDatabase {
   }
 
 
-  Future<List<Map<String, Object?>>> getActivityEvents({int limit = 250}) async {
+  Future<List<Map<String, Object?>>> getActivityEvents({int limit = 250, String search = ''}) async {
     final db = await database;
+    final term = search.trim();
+    final pattern = '%$term%';
     return db.rawQuery('''
       SELECT * FROM (
         SELECT 'Quiz bonus' AS kind, b.entry_date AS event_date, b.created_at AS created_at,
-          p.linked_user_id AS user_id, b.id AS record_id, p.name AS name,
+          p.linked_user_id AS user_id, b.id AS record_id, p.name AS name, p.phone AS phone,
           'Quiz bonus awarded' AS title, b.reason AS detail, b.amount AS amount,
           'quiz_bonus' AS source
         FROM quiz_bonus_entries b JOIN quiz_participants p ON p.id = b.participant_id
         UNION ALL
         SELECT 'Quiz participation', substr(qp.participated_at, 1, 10), qp.participated_at,
-          p.linked_user_id, qp.id, p.name, 'Quiz participation', q.title, NULL, 'quiz_participation'
+          p.linked_user_id, qp.id, p.name, p.phone, 'Quiz participation', q.title, NULL, 'quiz_participation'
         FROM quiz_participations qp
         JOIN quiz_participants p ON p.id = qp.participant_id
         JOIN quizzes q ON q.id = qp.quiz_id
         UNION ALL
-        SELECT 'Quiz', q.quiz_date, q.created_at, NULL, q.id, '',
+        SELECT 'Quiz', q.quiz_date, q.created_at, NULL, q.id, '', '',
           q.title, 'Quiz created', NULL, 'quiz'
         FROM quizzes q
       )
+      WHERE (? = '' OR name LIKE ? OR phone LIKE ? OR title LIKE ? OR detail LIKE ?
+        OR CAST(amount AS TEXT) LIKE ? OR event_date LIKE ?)
       ORDER BY created_at DESC, record_id DESC
       LIMIT ?
-    ''', [limit]);
+    ''', [term, pattern, pattern, pattern, pattern, pattern, pattern, limit]);
   }
 
   Future<void> close() async {

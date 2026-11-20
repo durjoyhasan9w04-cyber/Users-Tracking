@@ -1,3 +1,4 @@
+// ignore_for_file: unnecessary_underscores
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -91,22 +92,6 @@ class _ActivityCenterPageState extends State<ActivityCenterPage> {
     return Icons.history_rounded;
   }
 
-  Future<void> _showDetails(Map<String, Object?> row) async {
-    final amount = row['amount'] as num?;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(row['title'] as String? ?? row['kind'] as String? ?? 'Activity'),
-        content: Text([
-          if ((row['name'] as String? ?? '').isNotEmpty) row['name'],
-          if ((row['detail'] as String? ?? '').isNotEmpty) row['detail'],
-          if (amount != null) '${amount.toStringAsFixed(amount % 1 == 0 ? 0 : 2)} coins',
-          row['event_date'] ?? '',
-        ].join('\n')),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -168,7 +153,6 @@ class _ActivityCenterPageState extends State<ActivityCenterPage> {
                   final rawDate = row['created_at'] as String? ?? row['event_date'] as String? ?? '';
                   final date = DateTime.tryParse(rawDate)?.toLocal();
                   final dateLabel = date == null ? (row['event_date']?.toString() ?? '') : DateFormat('d MMM · h:mm a').format(date);
-                  final userId = row['user_id'] as int?;
                   return Card(child: ListTile(
                     leading: CircleAvatar(child: Icon(_icon(kind))),
                     title: Text(row['title'] as String? ?? kind, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -181,7 +165,10 @@ class _ActivityCenterPageState extends State<ActivityCenterPage> {
                       '${amount.toStringAsFixed(amount % 1 == 0 ? 0 : 2)} coins',
                       style: TextStyle(fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.primary),
                     ),
-                    onTap: userId != null ? () => widget.onOpenUser(userId) : () => _showDetails(row),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ActivityRecordDetailPage(
+                      event: row,
+                      onOpenUser: (id) { Navigator.of(context).pop(); widget.onOpenUser(id); },
+                    ))),
                   ));
                 },
               )),
@@ -189,4 +176,35 @@ class _ActivityCenterPageState extends State<ActivityCenterPage> {
       },
     ),
   );
+}
+class ActivityRecordDetailPage extends StatelessWidget {
+  const ActivityRecordDetailPage({super.key, required this.event, required this.onOpenUser});
+  final Map<String, Object?> event;
+  final ValueChanged<int> onOpenUser;
+  @override Widget build(BuildContext context) {
+    final amount=event['amount'] as num?;
+    final date=event['event_date']?.toString()??'';
+    final created=DateTime.tryParse(event['created_at']?.toString()??'')?.toLocal();
+    final userId=event['user_id'] as int?;
+    return Scaffold(appBar:AppBar(title:const Text('Activity details')),body:ListView(padding:const EdgeInsets.all(20),children:[
+      Text(event['title']?.toString()??event['kind']?.toString()??'Activity',style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.w800)),
+      const SizedBox(height:14),
+      _ActivityDetailRow(label:'Type',value:event['kind']?.toString()??'Activity'),
+      _ActivityDetailRow(label:'User / participant',value:event['name']?.toString().isNotEmpty==true?event['name'].toString():'Not linked'),
+      _ActivityDetailRow(label:'Activity date',value:date.isEmpty?'—':date),
+      _ActivityDetailRow(label:'Recorded at',value:created==null?'—':DateFormat('d MMM yyyy, h:mm a').format(created)),
+      _ActivityDetailRow(label:'Details',value:event['detail']?.toString().isNotEmpty==true?event['detail'].toString():'—'),
+      _ActivityDetailRow(label:'Amount',value:amount==null?'—':'${amount.toStringAsFixed(amount%1==0?0:2)} coins'),
+      _ActivityDetailRow(label:'Record reference',value:'${event['source']??'activity'} · #${event['record_id']??''}'),
+      if(userId!=null)...[const SizedBox(height:18),FilledButton.icon(onPressed:()=>onOpenUser(userId),icon:const Icon(Icons.person_outline),label:const Text('Open linked user profile'))],
+    ]));
+  }
+}
+class _ActivityDetailRow extends StatelessWidget {
+  const _ActivityDetailRow({required this.label,required this.value});
+  final String label,value;
+  @override Widget build(BuildContext context)=>Padding(padding:const EdgeInsets.symmetric(vertical:9),child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    SizedBox(width:124,child:Text(label,style:TextStyle(color:Theme.of(context).colorScheme.onSurfaceVariant))),
+    Expanded(child:Text(value,style:const TextStyle(fontWeight:FontWeight.w600))),
+  ]));
 }

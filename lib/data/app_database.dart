@@ -110,6 +110,16 @@ class AppDatabase {
       },
       onOpen: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_users_name_nocase ON users(name COLLATE NOCASE)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_users_phone_nocase ON users(phone COLLATE NOCASE)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_dp_created_at ON dp_entries(created_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_bonus_created_at ON bonus_entries(created_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_contact_created_at ON contact_history(created_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_potential_contact_created_at ON potential_contact_history(created_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_reminder_created_at ON contact_reminders(created_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_issue_updated_at ON customer_issues(updated_at)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_task_completion_created_at ON task_completions(completed_at)');
       },
     );
     return _db!;
@@ -781,13 +791,22 @@ class AppDatabase {
     return (rows.first['total'] as num).toDouble() + await QuizDatabase.instance.quizBonusTotal(from: DateTime(now.year, now.month), until: DateTime(now.year, now.month + 1));
   }
 
-  Future<List<Map<String, Object?>>> getBonusEntries() async {
+  Future<List<Map<String, Object?>>> getBonusEntries({DateTime? from, DateTime? until, int? limit}) async {
     final db = await database;
+    final clauses = <String>[];
+    final args = <Object?>[];
+    if (from != null) { clauses.add('b.entry_date >= ?'); args.add(from.toIso8601String().substring(0, 10)); }
+    if (until != null) { clauses.add('b.entry_date < ?'); args.add(until.toIso8601String().substring(0, 10)); }
+    final where = clauses.isEmpty ? '' : 'WHERE ${clauses.join(' AND ')}';
+    final limitSql = limit == null ? '' : 'LIMIT ?';
+    if (limit != null) args.add(limit);
     return db.rawQuery('''
-      SELECT b.*, u.name AS user_name
+      SELECT b.*, u.name AS user_name, u.phone AS user_phone
       FROM bonus_entries b JOIN users u ON u.id = b.user_id
+      $where
       ORDER BY b.entry_date DESC, b.id DESC
-    ''');
+      $limitSql
+    ''', args);
   }
 
 
@@ -921,55 +940,109 @@ class AppDatabase {
   }
 
 
-  Future<List<Map<String, Object?>>> getUnifiedActivityEvents({int limit = 500}) async {
+  Future<List<Map<String, Object?>>> getAnalyticsUsers() async {
     final db = await database;
+    return db.rawQuery('SELECT id, name, created_at FROM users ORDER BY created_at DESC, id DESC');
+  }
+
+  Future<List<Map<String, Object?>>> searchUsersForGlobalSearch(String query, {int limit = 200}) async {
+    final db = await database;
+    final pattern = '%${query.trim()}%';
+    return db.rawQuery('''
+      SELECT id, name, phone, archived
+      FROM users
+      WHERE name LIKE ? OR phone LIKE ?
+      ORDER BY name COLLATE NOCASE
+      LIMIT ?
+    ''', [pattern, pattern, limit]);
+  }
+
+  Future<List<Map<String, Object?>>> getDpChartRows({required DateTime from, required DateTime until}) async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT entry_date, SUM(total) AS total, COUNT(*) AS dp_count
+      FROM dp_entries
+      WHERE entry_date >= ? AND entry_date < ?
+      GROUP BY entry_date
+      ORDER BY entry_date DESC
+    ''', [from.toIso8601String().substring(0, 10), until.toIso8601String().substring(0, 10)]);
+  }
+
+  Future<List<Map<String, Object?>>> getDpAnalyticsRows({required DateTime from, required DateTime until}) async {
+    final db = await database;
+    return db.rawQuery('''
+      SELECT d.user_id, u.name AS user_name, d.entry_date,
+        SUM(d.total) AS total, COUNT(*) AS transaction_count
+      FROM dp_entries d
+      JOIN users u ON u.id = d.user_id
+      WHERE d.entry_date >= ? AND d.entry_date < ?
+      GROUP BY d.user_id, d.entry_date
+      ORDER BY d.entry_date DESC, d.user_id
+    ''', [from.toIso8601String().substring(0, 10), until.toIso8601String().substring(0, 10)]);
+  }
+
+  Future<List<Map<String, Object?>>> getUnifiedActivityEvents({int limit = 500, String search = ''}) async {
+    final db = await database;
+    final term = search.trim();
+    final pattern = '%$term%';
     return db.rawQuery('''
       SELECT * FROM (
         SELECT 'DP' AS kind, d.entry_date AS event_date, d.created_at AS created_at,
-          d.user_id AS user_id, d.id AS record_id, u.name AS name,
+          d.user_id AS user_id, d.id AS record_id, u.name AS name, u.phone AS phone,
           'DP recorded' AS title, CAST(d.dp_count AS TEXT) || ' DP item(s)' AS detail,
           d.total AS amount, 'dp' AS source
         FROM dp_entries d JOIN users u ON u.id = d.user_id
         UNION ALL
-        SELECT 'Contact', d.entry_date, d.created_at, d.user_id, d.id, u.name,
+        SELECT 'Contact', d.entry_date, d.created_at, d.user_id, d.id, u.name, u.phone,
           'Marked contacted', 'Contacted today from DP entry', NULL, 'dp_contact'
         FROM dp_entries d JOIN users u ON u.id = d.user_id WHERE d.contacted = 1
         UNION ALL
-        SELECT 'Bonus', b.entry_date, b.created_at, b.user_id, b.id, u.name,
+        SELECT 'Bonus', b.entry_date, b.created_at, b.user_id, b.id, u.name, u.phone,
           'Bonus added', b.reason, b.amount, 'bonus'
         FROM bonus_entries b JOIN users u ON u.id = b.user_id
         UNION ALL
-        SELECT 'Contact', substr(c.contact_date, 1, 10), c.created_at, c.user_id, c.id, u.name,
+        SELECT 'Contact', substr(c.contact_date, 1, 10), c.created_at, c.user_id, c.id, u.name, u.phone,
           'Contact logged', c.channel || ' · ' || c.outcome, NULL, 'contact'
         FROM contact_history c JOIN users u ON u.id = c.user_id
         UNION ALL
         SELECT 'Potential contact', substr(pc.contact_at, 1, 10), pc.created_at, NULL,
-          pc.id, p.name, 'Prospect contact', pc.channel || ' · ' || pc.outcome, NULL, 'potential_contact'
+          pc.id, p.name, p.phone, 'Prospect contact', pc.channel || ' · ' || pc.outcome, NULL, 'potential_contact'
         FROM potential_contact_history pc JOIN potential_users p ON p.id = pc.potential_user_id
         UNION ALL
         SELECT 'Potential user', substr(p.created_at, 1, 10), p.created_at, NULL,
-          p.id, p.name, 'Potential user added', p.status, NULL, 'potential_user'
+          p.id, p.name, p.phone, 'Potential user added', p.status, NULL, 'potential_user'
         FROM potential_users p
         UNION ALL
         SELECT 'Issue', substr(i.updated_at, 1, 10), i.updated_at, i.user_id, i.id,
-          COALESCE(u.name, ''), 'Issue updated', i.title || ' · ' || i.status, NULL, 'issue'
+          COALESCE(u.name, ''), COALESCE(u.phone, ''), 'Issue updated', i.title || ' · ' || i.status, NULL, 'issue'
         FROM customer_issues i LEFT JOIN users u ON u.id = i.user_id
         UNION ALL
-        SELECT 'Task', c.completed_on, c.completed_at, NULL, c.task_id, '',
+        SELECT 'Task', c.completed_on, c.completed_at, NULL, c.task_id, '', '',
           'Task completed', t.title, NULL, 'task'
         FROM task_completions c JOIN tasks t ON t.id = c.task_id
         UNION ALL
+        SELECT 'Task', substr(t.created_at, 1, 10), t.created_at, NULL, t.id, '', '',
+          t.title,
+          t.task_type || ' · ' ||
+            CASE WHEN t.is_completed = 1 THEN 'Completed' ELSE 'Open' END ||
+            CASE WHEN COALESCE(t.notes, '') = '' THEN '' ELSE ' · ' || t.notes END ||
+            CASE WHEN t.scheduled_at IS NULL THEN '' ELSE ' · Due ' || t.scheduled_at END,
+          NULL, 'task_definition'
+        FROM tasks t
+        UNION ALL
         SELECT 'Contact reminder', substr(r.remind_at, 1, 10), r.created_at, r.user_id, r.id,
-          u.name, 'Contact reminder set', r.reason, NULL, 'reminder'
+          u.name, u.phone, 'Contact reminder set', r.reason, NULL, 'reminder'
         FROM contact_reminders r JOIN users u ON u.id = r.user_id
         UNION ALL
-        SELECT 'System', substr(a.created_at, 1, 10), a.created_at, NULL, a.entity_id, '',
+        SELECT 'System', substr(a.created_at, 1, 10), a.created_at, NULL, a.entity_id, '', '',
           a.action || ' ' || a.entity_type, a.details, NULL, 'audit'
         FROM audit_log a
       )
+      WHERE (? = '' OR kind LIKE ? OR name LIKE ? OR phone LIKE ? OR title LIKE ? OR detail LIKE ?
+        OR CAST(amount AS TEXT) LIKE ? OR event_date LIKE ?)
       ORDER BY created_at DESC, record_id DESC
       LIMIT ?
-    ''', [limit]);
+    ''', [term, pattern, pattern, pattern, pattern, pattern, pattern, pattern, limit]);
   }
 
   Future<List<Map<String, Object?>>> getUserDpCalendar(int userId, {int days = 30}) async {
@@ -1121,7 +1194,7 @@ class AppDatabase {
     final database = await this.database;
     final from = start.toIso8601String().substring(0, 10);
     final until = end.toIso8601String().substring(0, 10);
-    return database.rawQuery("""
+    final rows = await database.rawQuery("""
       SELECT 'DP' AS type, d.entry_date AS transaction_date, u.name AS user_name,
         u.phone AS phone, d.total AS amount, d.dp_count AS item_count,
         d.notes AS notes, '' AS reason
@@ -1133,6 +1206,24 @@ class AppDatabase {
       WHERE b.entry_date >= ? AND b.entry_date < ?
       ORDER BY transaction_date DESC, type ASC, user_name COLLATE NOCASE
     """, [from, until, from, until]);
+    final quizBonuses = (await QuizDatabase.instance.getQuizBonusEntries(from: start, until: end))
+        .map((row) => <String, Object?>{
+          'type': 'Quiz Bonus',
+          'transaction_date': row['entry_date'],
+          'user_name': row['user_name'],
+          'phone': row['user_phone'],
+          'amount': row['amount'],
+          'item_count': 1,
+          'notes': row['notes'],
+          'reason': row['reason'],
+        });
+    final combined = <Map<String, Object?>>[...rows, ...quizBonuses];
+    combined.sort((a, b) {
+      final byDate = (b['transaction_date']?.toString() ?? '').compareTo(a['transaction_date']?.toString() ?? '');
+      if (byDate != 0) return byDate;
+      return (a['user_name']?.toString() ?? '').compareTo(b['user_name']?.toString() ?? '');
+    });
+    return combined;
   }
 
   Future<Map<String, num>> getReportTotals(DateTime start, DateTime end) async {
@@ -1158,13 +1249,22 @@ class AppDatabase {
     };
   }
 
-  Future<List<Map<String, Object?>>> getDpEntries() async {
+  Future<List<Map<String, Object?>>> getDpEntries({DateTime? from, DateTime? until, int? limit}) async {
     final db = await database;
+    final clauses = <String>[];
+    final args = <Object?>[];
+    if (from != null) { clauses.add('d.entry_date >= ?'); args.add(from.toIso8601String().substring(0, 10)); }
+    if (until != null) { clauses.add('d.entry_date < ?'); args.add(until.toIso8601String().substring(0, 10)); }
+    final where = clauses.isEmpty ? '' : 'WHERE ${clauses.join(' AND ')}';
+    final limitSql = limit == null ? '' : 'LIMIT ?';
+    if (limit != null) args.add(limit);
     return db.rawQuery('''
       SELECT d.*, u.name AS user_name, u.phone AS user_phone
       FROM dp_entries d JOIN users u ON u.id = d.user_id
+      $where
       ORDER BY d.entry_date DESC, d.id DESC
-    ''');
+      $limitSql
+    ''', args);
   }
 
   Future<int> addDpEntry({

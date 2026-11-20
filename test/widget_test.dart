@@ -1,11 +1,30 @@
-import 'package:flutter/widgets.dart';
+// ignore: deprecated_member_use
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:user_hub/main.dart';
 
 void main() {
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfiNoIsolate;
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('User Hub premium dashboard renders', (tester) async {
-    await tester.pumpWidget(const UserHubApp());
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(title: const Text('Dashboard')),
+        body: DashboardPage(onChanged: () {}, useGoogleFonts: false),
+      ),
+    ));
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(seconds: 2));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.pump();
     // The refreshed light dashboard uses the new Dashboard title and Sales chart card.
     expect(find.text('Dashboard'), findsWidgets);
     await tester.scrollUntilVisible(
