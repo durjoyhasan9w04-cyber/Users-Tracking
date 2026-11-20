@@ -178,6 +178,10 @@ class UserHubWidgetProvider : AppWidgetProvider() {
         views.setViewVisibility(R.id.widget_undo, if (canUndo) android.view.View.VISIBLE else android.view.View.GONE)
         if (canUndo) views.setTextViewText(R.id.widget_undo, "Undo · " + (((undoUntil-System.currentTimeMillis()).coerceAtLeast(0)+999)/1000) + "s")
 
+        fun activityIntent(action: String, request: Int): PendingIntent {
+            val i = Intent(context, WidgetQuickEntryActivity::class.java).setAction(action)
+            return PendingIntent.getActivity(context, request, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        }
         fun broadcastIntent(action: String, request: Int, value: Float? = null): PendingIntent {
             val i = Intent(context, UserHubWidgetProvider::class.java).setAction(action)
             if (value != null) i.putExtra("amount", value)
@@ -195,10 +199,6 @@ class UserHubWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_goal_edit, activityIntent(WidgetStore.ACTION_EDIT_GOAL, 50))
         views.setOnClickPendingIntent(R.id.widget_add, activityIntent(if (mode == "BONUS") WidgetStore.ACTION_ADD_BONUS else WidgetStore.ACTION_ADD_DP, 51))
         views.setOnClickPendingIntent(R.id.widget_undo, broadcastIntent(WidgetStore.ACTION_UNDO, 52))
-        fun activityIntent(action: String, request: Int): PendingIntent {
-            val i = Intent(context, WidgetQuickEntryActivity::class.java).setAction(action)
-            return PendingIntent.getActivity(context, request, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        }
         views.setOnClickPendingIntent(R.id.widget_add_dp, activityIntent(WidgetStore.ACTION_ADD_DP, 11))
         views.setOnClickPendingIntent(R.id.widget_add_bonus, activityIntent(WidgetStore.ACTION_ADD_BONUS, 12))
         views.setOnClickPendingIntent(R.id.widget_user_name, activityIntent(WidgetStore.ACTION_SELECT, 13))
@@ -621,7 +621,7 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
  <TextView android:id="@+id/widget_undo" android:layout_width="match_parent" android:layout_height="38dp" android:layout_marginTop="5dp" android:gravity="center" android:text="Undo · 8s" android:textColor="#FFFFFFFF" android:textStyle="bold" android:background="@drawable/widget_bonus_button" android:visibility="gone"/>
  <TextView android:id="@+id/widget_add_dp" android:visibility="gone" android:layout_width="1dp" android:layout_height="1dp" android:text=""/>
  <TextView android:id="@+id/widget_add_bonus" android:visibility="gone" android:layout_width="1dp" android:layout_height="1dp" android:text=""/>
-
+ <TextView android:id="@+id/widget_quick_add_user" android:visibility="gone" android:layout_width="1dp" android:layout_height="1dp" android:text=""/>
 </LinearLayout>
 '''
 
