@@ -751,18 +751,18 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
    <TextView android:id="@+id/widget_recent_badge_1" android:layout_width="16dp" android:layout_height="16dp" android:layout_gravity="top|right" android:gravity="center" android:text="2" android:textColor="#FF111B30" android:textSize="9sp" android:textStyle="bold" android:background="@drawable/widget_badge"/>
    <TextView android:id="@+id/widget_recent_name_1" android:layout_width="match_parent" android:layout_height="16dp" android:layout_gravity="bottom" android:gravity="center" android:text="User" android:textColor="@color/widget_text_primary" android:textSize="9sp" android:singleLine="true" android:ellipsize="end"/>
   </FrameLayout>
-  <FrameLayout android:layout_width="0dp" android:layout_height="50dp" android:layout_weight="1">
-   <TextView android:id="@+id/widget_recent_avatar_2" android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="M" android:textColor="@color/widget_text_primary" android:textSize="15sp" android:background="@drawable/widget_avatar"/>
+  <FrameLayout android:layout_width="0dp" android:layout_height="68dp" android:layout_weight="1">
+   <TextView android:id="@+id/widget_recent_avatar_2" android:layout_width="48dp" android:layout_height="48dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="M" android:textColor="@color/widget_text_primary" android:textSize="15sp" android:background="@drawable/widget_avatar"/>
    <TextView android:id="@+id/widget_recent_badge_2" android:layout_width="16dp" android:layout_height="16dp" android:layout_gravity="top|right" android:gravity="center" android:text="1" android:textColor="#FF111B30" android:textSize="9sp" android:textStyle="bold" android:background="@drawable/widget_badge"/>
    <TextView android:id="@+id/widget_recent_name_2" android:layout_width="match_parent" android:layout_height="12dp" android:layout_gravity="bottom" android:gravity="center" android:text="User" android:textColor="@color/widget_text_secondary" android:textSize="9sp" android:singleLine="true" android:ellipsize="end"/>
   </FrameLayout>
-  <FrameLayout android:layout_width="0dp" android:layout_height="50dp" android:layout_weight="1">
-   <TextView android:id="@+id/widget_recent_avatar_3" android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="A" android:textColor="@color/widget_text_primary" android:textSize="15sp" android:background="@drawable/widget_avatar"/>
+  <FrameLayout android:layout_width="0dp" android:layout_height="68dp" android:layout_weight="1">
+   <TextView android:id="@+id/widget_recent_avatar_3" android:layout_width="48dp" android:layout_height="48dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="A" android:textColor="@color/widget_text_primary" android:textSize="15sp" android:background="@drawable/widget_avatar"/>
    <TextView android:id="@+id/widget_recent_badge_3" android:layout_width="16dp" android:layout_height="16dp" android:layout_gravity="top|right" android:gravity="center" android:text="1" android:textColor="#FF111B30" android:textSize="9sp" android:textStyle="bold" android:background="@drawable/widget_badge"/>
    <TextView android:id="@+id/widget_recent_name_3" android:layout_width="match_parent" android:layout_height="12dp" android:layout_gravity="bottom" android:gravity="center" android:text="User" android:textColor="@color/widget_text_secondary" android:textSize="9sp" android:singleLine="true" android:ellipsize="end"/>
   </FrameLayout>
-  <FrameLayout android:layout_width="0dp" android:layout_height="50dp" android:layout_weight="1">
-   <TextView android:id="@+id/widget_quick_add_user" android:layout_width="38dp" android:layout_height="38dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="+" android:textColor="@color/widget_text_secondary" android:textSize="20sp" android:background="@drawable/widget_add_user_outline"/>
+  <FrameLayout android:layout_width="0dp" android:layout_height="68dp" android:layout_weight="1">
+   <TextView android:id="@+id/widget_quick_add_user" android:layout_width="48dp" android:layout_height="48dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="+" android:textColor="@color/widget_text_secondary" android:textSize="20sp" android:background="@drawable/widget_add_user_outline"/>
    <TextView android:layout_width="match_parent" android:layout_height="12dp" android:layout_gravity="bottom" android:gravity="center" android:text="User" android:textColor="@color/widget_text_secondary" android:textSize="9sp"/>
   </FrameLayout>
  </LinearLayout>
@@ -775,7 +775,7 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
    <TextView android:id="@+id/widget_amount" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center" android:text="5" android:textColor="@color/widget_text_primary" android:textSize="34sp" android:textStyle="bold"/>
    <TextView android:id="@+id/widget_amount_unit" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center_vertical" android:paddingStart="4dp" android:text="coins" android:textColor="@color/widget_text_secondary" android:textSize="11sp"/>
   </LinearLayout>
-  <TextView android:id="@+id/widget_plus" android:layout_width="36dp" android:layout_height="38dp" android:gravity="center" android:text="+" android:textColor="@color/widget_text_primary" android:textSize="20sp" android:background="@drawable/widget_metric_background"/>
+  <TextView android:id="@+id/widget_plus" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="+" android:textColor="@color/widget_text_primary" android:textSize="20sp" android:background="@drawable/widget_metric_background"/>
  </LinearLayout>
  <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
  <LinearLayout android:layout_width="match_parent" android:layout_height="50dp" android:orientation="horizontal">
