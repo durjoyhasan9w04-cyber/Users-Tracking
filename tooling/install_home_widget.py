@@ -715,70 +715,72 @@ class WidgetQuickEntryActivity : Activity() {
 '''.replace("__PACKAGE__", package);
 
 layout = r'''<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="16dp" android:background="@drawable/widget_user_hub_background">
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="8dp" android:background="@drawable/widget_user_hub_background">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="24dp" android:gravity="center_vertical">
   <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="horizontal">
-   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="User" android:textColor="@color/widget_text_primary" android:textStyle="bold" android:textSize="20sp"/>
-   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Hub" android:textColor="#FFFF8745" android:textStyle="bold" android:textSize="20sp"/>
+   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="User" android:textColor="@color/widget_text_primary" android:textStyle="bold" android:textSize="16sp"/>
+   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Hub" android:textColor="#FFFF8745" android:textStyle="bold" android:textSize="16sp"/>
   </LinearLayout>
-  <TextView android:id="@+id/widget_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Today" android:textColor="@color/widget_text_secondary" android:textSize="12sp"/>
-  <TextView android:id="@+id/widget_refresh" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="↻" android:textSize="20sp" android:textColor="@color/widget_text_secondary"/>
+  <TextView android:id="@+id/widget_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Today" android:textColor="@color/widget_text_secondary" android:textSize="10sp"/>
+  <TextView android:id="@+id/widget_refresh" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="↻" android:textSize="16sp" android:textColor="@color/widget_text_secondary"/>
  </LinearLayout>
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="8dp">
-  <FrameLayout android:layout_width="62dp" android:layout_height="62dp">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="46dp" android:orientation="horizontal" android:gravity="center_vertical">
+  <FrameLayout android:layout_width="40dp" android:layout_height="40dp">
    <ProgressBar android:id="@+id/widget_goal_ring" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:indeterminate="false" android:max="100" android:progress="0" android:progressDrawable="@drawable/widget_ring_progress" android:rotation="-90"/>
-   <TextView android:id="@+id/widget_goal_ring_text" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="0" android:textColor="@color/widget_text_primary" android:textStyle="bold" android:textSize="16sp"/>
+   <TextView android:id="@+id/widget_goal_ring_text" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="0" android:textColor="@color/widget_text_primary" android:textStyle="bold" android:textSize="12sp"/>
   </FrameLayout>
-  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="10dp">
-   <TextView android:id="@+id/widget_goal_text" android:layout_width="wrap_content" android:layout_height="48dp" android:gravity="center_vertical" android:text="DP today · goal 20" android:textColor="@color/widget_text_secondary" android:textSize="12sp"/>
-   <TextView android:id="@+id/widget_dp_total" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 coins" android:textColor="@color/widget_text_primary" android:textSize="22sp" android:textStyle="bold"/>
-
-  </LinearLayout>
   <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="6dp">
-   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Bonus today" android:textColor="@color/widget_text_secondary" android:textSize="12sp"/>
-   <TextView android:id="@+id/widget_bonus_total" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 coins" android:textColor="#FF60A5FA" android:textSize="22sp" android:textStyle="bold"/>
+   <TextView android:id="@+id/widget_goal_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DP today · goal 20" android:textColor="@color/widget_text_secondary" android:textSize="10sp"/>
+   <TextView android:id="@+id/widget_dp_total" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 coins" android:textColor="@color/widget_text_primary" android:textSize="16sp" android:textStyle="bold"/>
+  </LinearLayout>
+  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="4dp">
+   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Bonus today" android:textColor="@color/widget_text_secondary" android:textSize="10sp"/>
+   <TextView android:id="@+id/widget_bonus_total" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 coins" android:textColor="#FF60A5FA" android:textSize="16sp" android:textStyle="bold"/>
   </LinearLayout>
  </LinearLayout>
- <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:background="@drawable/widget_metric_background" android:padding="3dp" android:layout_marginTop="10dp">
-  <TextView android:id="@+id/widget_mode_dp" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="DP" android:textColor="#FFFFFFFF" android:textStyle="bold" android:background="@drawable/widget_dp_button"/>
-  <TextView android:id="@+id/widget_mode_bonus" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="Bonus" android:textColor="@color/widget_text_secondary" android:textStyle="bold"/>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="32dp" android:orientation="horizontal" android:background="@drawable/widget_metric_background" android:padding="2dp">
+  <TextView android:id="@+id/widget_mode_dp" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="DP" android:textSize="12sp" android:textColor="#FFFFFFFF" android:textStyle="bold" android:background="@drawable/widget_dp_button"/>
+  <TextView android:id="@+id/widget_mode_bonus" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="Bonus" android:textSize="12sp" android:textColor="@color/widget_text_secondary" android:textStyle="bold"/>
  </LinearLayout>
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingTop="12dp">
-  <FrameLayout android:layout_width="0dp" android:layout_height="82dp" android:layout_weight="1">
-   <TextView android:id="@+id/widget_recent_avatar_1" android:layout_width="48dp" android:layout_height="48dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="A" android:textColor="@color/widget_text_primary" android:textSize="20sp" android:background="@drawable/widget_avatar_selected"/>
-   <TextView android:id="@+id/widget_recent_badge_1" android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="top|right" android:gravity="center" android:text="2" android:textColor="#FF111B30" android:textSize="10sp" android:textStyle="bold" android:background="@drawable/widget_badge"/>
-   <TextView android:id="@+id/widget_recent_name_1" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="bottom" android:gravity="center" android:text="User" android:textColor="@color/widget_text_primary" android:textSize="10sp"/>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="52dp" android:gravity="center_vertical" android:orientation="horizontal">
+  <FrameLayout android:layout_width="0dp" android:layout_height="52dp" android:layout_weight="1">
+   <TextView android:id="@+id/widget_recent_avatar_1" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="A" android:textColor="@color/widget_text_primary" android:textSize="15sp" android:background="@drawable/widget_avatar_selected"/>
+   <TextView android:id="@+id/widget_recent_badge_1" android:layout_width="16dp" android:layout_height="16dp" android:layout_gravity="top|right" android:gravity="center" android:text="2" android:textColor="#FF111B30" android:textSize="9sp" android:textStyle="bold" android:background="@drawable/widget_badge"/>
+   <TextView android:id="@+id/widget_recent_name_1" android:layout_width="match_parent" android:layout_height="14dp" android:layout_gravity="bottom" android:gravity="center" android:text="User" android:textColor="@color/widget_text_primary" android:textSize="9sp" android:singleLine="true" android:ellipsize="end"/>
   </FrameLayout>
-  <FrameLayout android:layout_width="0dp" android:layout_height="82dp" android:layout_weight="1">
-   <TextView android:id="@+id/widget_recent_avatar_2" android:layout_width="54dp" android:layout_height="54dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="M" android:textColor="@color/widget_text_primary" android:textSize="20sp" android:background="@drawable/widget_avatar"/>
-   <TextView android:id="@+id/widget_recent_badge_2" android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="top|right" android:gravity="center" android:text="1" android:textColor="#FF111B30" android:textSize="10sp" android:textStyle="bold" android:background="@drawable/widget_badge"/>
-   <TextView android:id="@+id/widget_recent_name_2" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="bottom" android:gravity="center" android:text="User" android:textColor="@color/widget_text_primary" android:textSize="10sp"/>
+  <FrameLayout android:layout_width="0dp" android:layout_height="52dp" android:layout_weight="1">
+   <TextView android:id="@+id/widget_recent_avatar_2" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="M" android:textColor="@color/widget_text_primary" android:textSize="15sp" android:background="@drawable/widget_avatar"/>
+   <TextView android:id="@+id/widget_recent_badge_2" android:layout_width="16dp" android:layout_height="16dp" android:layout_gravity="top|right" android:gravity="center" android:text="1" android:textColor="#FF111B30" android:textSize="9sp" android:textStyle="bold" android:background="@drawable/widget_badge"/>
+   <TextView android:id="@+id/widget_recent_name_2" android:layout_width="match_parent" android:layout_height="14dp" android:layout_gravity="bottom" android:gravity="center" android:text="User" android:textColor="@color/widget_text_secondary" android:textSize="9sp" android:singleLine="true" android:ellipsize="end"/>
   </FrameLayout>
-  <FrameLayout android:layout_width="0dp" android:layout_height="82dp" android:layout_weight="1">
-   <TextView android:id="@+id/widget_recent_avatar_3" android:layout_width="54dp" android:layout_height="54dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="A" android:textColor="@color/widget_text_primary" android:textSize="20sp" android:background="@drawable/widget_avatar"/>
-   <TextView android:id="@+id/widget_recent_badge_3" android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="top|right" android:gravity="center" android:text="1" android:textColor="#FF111B30" android:textSize="10sp" android:textStyle="bold" android:background="@drawable/widget_badge"/>
-   <TextView android:id="@+id/widget_recent_name_3" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="bottom" android:gravity="center" android:text="User" android:textColor="@color/widget_text_primary" android:textSize="10sp"/>
+  <FrameLayout android:layout_width="0dp" android:layout_height="52dp" android:layout_weight="1">
+   <TextView android:id="@+id/widget_recent_avatar_3" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="A" android:textColor="@color/widget_text_primary" android:textSize="15sp" android:background="@drawable/widget_avatar"/>
+   <TextView android:id="@+id/widget_recent_badge_3" android:layout_width="16dp" android:layout_height="16dp" android:layout_gravity="top|right" android:gravity="center" android:text="1" android:textColor="#FF111B30" android:textSize="9sp" android:textStyle="bold" android:background="@drawable/widget_badge"/>
+   <TextView android:id="@+id/widget_recent_name_3" android:layout_width="match_parent" android:layout_height="14dp" android:layout_gravity="bottom" android:gravity="center" android:text="User" android:textColor="@color/widget_text_secondary" android:textSize="9sp" android:singleLine="true" android:ellipsize="end"/>
   </FrameLayout>
-  <TextView android:id="@+id/widget_quick_add_user" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:gravity="center" android:text="+\nUser" android:textColor="@color/widget_text_secondary" android:textSize="12sp" android:background="@drawable/widget_add_user_outline"/>
+  <FrameLayout android:layout_width="0dp" android:layout_height="52dp" android:layout_weight="1">
+   <TextView android:id="@+id/widget_quick_add_user" android:layout_width="36dp" android:layout_height="36dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="+" android:textColor="@color/widget_text_secondary" android:textSize="20sp" android:background="@drawable/widget_add_user_outline"/>
+   <TextView android:layout_width="match_parent" android:layout_height="14dp" android:layout_gravity="bottom" android:gravity="center" android:text="User" android:textColor="@color/widget_text_secondary" android:textSize="9sp"/>
+  </FrameLayout>
  </LinearLayout>
- <TextView android:id="@+id/widget_selected_detail" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="For selected user · last DP 5 coins · 2h ago" android:textColor="@color/widget_text_secondary" android:textSize="11sp" android:paddingTop="2dp" android:paddingBottom="6dp"/>
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-  <TextView android:id="@+id/widget_minus" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="−" android:textColor="@color/widget_text_primary" android:textSize="24sp" android:background="@drawable/widget_metric_background"/>
-  <LinearLayout android:id="@+id/widget_amount_group" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:gravity="center" android:orientation="horizontal">
-   <TextView android:id="@+id/widget_amount" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center" android:text="5" android:textColor="@color/widget_text_primary" android:textSize="36sp" android:textStyle="bold"/>
-   <TextView android:id="@+id/widget_amount_unit" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center_vertical" android:paddingStart="6dp" android:text="coins" android:textColor="@color/widget_text_secondary" android:textSize="14sp"/>
+ <TextView android:id="@+id/widget_selected_detail" android:layout_width="match_parent" android:layout_height="18dp" android:gravity="center" android:text="For selected user · last DP 5 coins · 2h ago" android:textColor="@color/widget_text_secondary" android:textSize="9sp" android:singleLine="true" android:ellipsize="end"/>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="38dp" android:gravity="center_vertical" android:orientation="horizontal">
+  <TextView android:id="@+id/widget_minus" android:layout_width="36dp" android:layout_height="36dp" android:gravity="center" android:text="−" android:textColor="@color/widget_text_primary" android:textSize="20sp" android:background="@drawable/widget_metric_background"/>
+  <LinearLayout android:id="@+id/widget_amount_group" android:layout_width="0dp" android:layout_height="36dp" android:layout_weight="1" android:gravity="center" android:orientation="horizontal">
+   <TextView android:id="@+id/widget_amount" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center" android:text="5" android:textColor="@color/widget_text_primary" android:textSize="26sp" android:textStyle="bold"/>
+   <TextView android:id="@+id/widget_amount_unit" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center_vertical" android:paddingStart="4dp" android:text="coins" android:textColor="@color/widget_text_secondary" android:textSize="11sp"/>
   </LinearLayout>
-  <TextView android:id="@+id/widget_plus" android:layout_width="54dp" android:layout_height="44dp" android:gravity="center" android:text="+" android:textColor="@color/widget_text_primary" android:textSize="24sp" android:background="@drawable/widget_metric_background"/>
+  <TextView android:id="@+id/widget_plus" android:layout_width="36dp" android:layout_height="36dp" android:gravity="center" android:text="+" android:textColor="@color/widget_text_primary" android:textSize="20sp" android:background="@drawable/widget_metric_background"/>
  </LinearLayout>
- <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:layout_marginTop="8dp">
-  <TextView android:id="@+id/widget_preset_1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="1" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
-  <TextView android:id="@+id/widget_preset_5" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="6dp" android:gravity="center" android:text="5" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
-  <TextView android:id="@+id/widget_preset_10" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="6dp" android:gravity="center" android:text="10" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
-  <TextView android:id="@+id/widget_preset_25" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="6dp" android:gravity="center" android:text="25" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="28dp" android:orientation="horizontal">
+  <TextView android:id="@+id/widget_preset_1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="1" android:textSize="11sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
+  <TextView android:id="@+id/widget_preset_5" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="4dp" android:gravity="center" android:text="5" android:textSize="11sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
+  <TextView android:id="@+id/widget_preset_10" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="4dp" android:gravity="center" android:text="10" android:textSize="11sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
+  <TextView android:id="@+id/widget_preset_25" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="4dp" android:gravity="center" android:text="25" android:textSize="11sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
  </LinearLayout>
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="10dp">
-  <TextView android:id="@+id/widget_add" android:layout_width="0dp" android:layout_weight="1" android:layout_height="54dp" android:gravity="center" android:text="+ Add DP · 5 coins" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="16sp" android:background="@drawable/widget_dp_button"/>
-  <TextView android:id="@+id/widget_undo" android:layout_width="110dp" android:layout_height="54dp" android:layout_marginStart="6dp" android:gravity="center" android:text="Undo · 8s" android:textColor="#FFFFFFFF" android:textStyle="bold" android:background="@drawable/widget_bonus_button" android:visibility="gone"/>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="40dp" android:orientation="horizontal">
+  <TextView android:id="@+id/widget_add" android:layout_width="0dp" android:layout_weight="1" android:layout_height="40dp" android:gravity="center" android:text="+ Add DP · 5 coins" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="13sp" android:background="@drawable/widget_dp_button"/>
+  <TextView android:id="@+id/widget_undo" android:layout_width="82dp" android:layout_height="40dp" android:layout_marginStart="4dp" android:gravity="center" android:text="Undo · 8s" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="11sp" android:background="@drawable/widget_bonus_button" android:visibility="gone"/>
  </LinearLayout>
 </LinearLayout>
 '''
@@ -787,9 +789,9 @@ installer_resources = {
     "layout/widget_user_hub.xml": layout,
     "xml/user_hub_widget_info.xml": r'''<?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="250dp" android:minHeight="560dp"
-    android:minResizeWidth="250dp" android:minResizeHeight="560dp"
-    android:targetCellWidth="4" android:targetCellHeight="8"
+    android:minWidth="250dp" android:minHeight="280dp"
+    android:minResizeWidth="250dp" android:minResizeHeight="280dp"
+    android:targetCellWidth="4" android:targetCellHeight="4"
     android:updatePeriodMillis="0" android:initialLayout="@layout/widget_user_hub"
     android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"
     android:description="@string/user_hub_widget_description" />

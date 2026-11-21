@@ -46,15 +46,32 @@ missing_required = sorted(required - id_set)
 if missing_required:
     raise SystemExit("Required Design B controls missing: " + ", ".join(missing_required))
 
+# The three recent-user avatars and both amount steppers must be visually uniform.
+root_node = ET.parse(layout_path).getroot()
+by_id = {node.get("{http://schemas.android.com/apk/res/android}id", "").split("/")[-1]: node for node in root_node.iter()}
+def dims(view_id):
+    node = by_id.get(view_id)
+    if node is None:
+        raise SystemExit("Missing size-checked widget view: " + view_id)
+    return (node.get("{http://schemas.android.com/apk/res/android}layout_width"),
+            node.get("{http://schemas.android.com/apk/res/android}layout_height"))
+avatar_sizes = {dims("widget_recent_avatar_" + str(i)) for i in range(1, 4)}
+if len(avatar_sizes) != 1:
+    raise SystemExit("Recent-user avatar sizes are inconsistent")
+if dims("widget_minus") != dims("widget_plus"):
+    raise SystemExit("Amount minus/plus controls must have identical dimensions")
+if dims("widget_quick_add_user") != dims("widget_recent_avatar_1"):
+    raise SystemExit("Add-user icon must match recent-user avatar dimensions")
+
 for path in (root / "res").rglob("*.xml"):
     ET.parse(path)
 
 provider_info = root / "res/xml/user_hub_widget_info.xml"
 info = ET.parse(provider_info).getroot()
 android = "{http://schemas.android.com/apk/res/android}"
-if info.get(android + "minHeight") != "560dp":
-    raise SystemExit("Widget minimum height is not the full Design B height")
-if info.get(android + "minResizeHeight") != "560dp":
+if info.get(android + "minHeight") != "280dp":
+    raise SystemExit("Widget minimum height is not the 4x4 Design B height")
+if info.get(android + "minResizeHeight") != "280dp":
     raise SystemExit("Widget minimum resize height must prevent the compact 4x2 footprint")
 
 if "ACTION_EDIT_AMOUNT" not in kotlin or "ACTION_EDIT_GOAL" not in kotlin:
@@ -63,6 +80,6 @@ if "putFloat(WidgetStore.AMOUNT" not in kotlin or "WidgetStore.DAILY_GOAL" not i
     raise SystemExit("Manual amount and goal values are not persisted")
 if "widget_amount_group" not in kotlin or "widget_goal_text" not in kotlin:
     raise SystemExit("Amount and goal controls are not wired to their editors")
-if info.get(android + "targetCellHeight") != "8" or info.get(android + "targetCellWidth") != "4":
+if info.get(android + "targetCellHeight") != "4" or info.get(android + "targetCellWidth") != "4":
     raise SystemExit("Widget default launcher footprint must reserve 4 columns by 8 rows")
-print(f"Validated full Design B widget: {len(id_set)} unique views, {len(drawable_refs)} drawable references, manual amount + goal controls, all XML well formed.")
+print(f"Validated 4x4 Design B widget: {len(id_set)} unique views, {len(drawable_refs)} drawable references, manual amount + goal controls, all XML well formed.")
