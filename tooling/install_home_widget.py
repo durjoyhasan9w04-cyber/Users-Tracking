@@ -142,18 +142,27 @@ class UserHubWidgetProviderV2 : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        val prefs = context.getSharedPreferences(WidgetStore.PREFS, Context.MODE_PRIVATE)
-        when (intent.action) {
-            WidgetStore.ACTION_MODE_DP -> prefs.edit().putString(WidgetStore.MODE, "DP").apply()
-            WidgetStore.ACTION_MODE_BONUS -> prefs.edit().putString(WidgetStore.MODE, "BONUS").apply()
-            WidgetStore.ACTION_MINUS -> prefs.edit().putFloat(WidgetStore.AMOUNT, (prefs.getFloat(WidgetStore.AMOUNT, 5f) - 1f).coerceAtLeast(0.01f)).apply()
-            WidgetStore.ACTION_PLUS -> prefs.edit().putFloat(WidgetStore.AMOUNT, prefs.getFloat(WidgetStore.AMOUNT, 5f) + 1f).apply()
-            WidgetStore.ACTION_PRESET -> prefs.edit().putFloat(WidgetStore.AMOUNT, intent.getFloatExtra("amount", 5f)).apply()
-            WidgetStore.ACTION_ADD_DP -> addEntry(context, false)
-            WidgetStore.ACTION_ADD_BONUS -> addEntry(context, true)
-            WidgetStore.ACTION_UNDO -> undoLast(context)
-        }
-        if (intent.action == WidgetStore.ACTION_REFRESH || intent.action?.startsWith("com.userhub.widget.") == true) WidgetStore.refresh(context)
+        val action = intent.action ?: return
+        if (!action.startsWith("com.userhub.widget.")) return
+        val pending = goAsync()
+        Thread {
+            try {
+                val prefs = context.getSharedPreferences(WidgetStore.PREFS, Context.MODE_PRIVATE)
+                when (action) {
+                    WidgetStore.ACTION_MODE_DP -> prefs.edit().putString(WidgetStore.MODE, "DP").apply()
+                    WidgetStore.ACTION_MODE_BONUS -> prefs.edit().putString(WidgetStore.MODE, "BONUS").apply()
+                    WidgetStore.ACTION_MINUS -> prefs.edit().putFloat(WidgetStore.AMOUNT, (prefs.getFloat(WidgetStore.AMOUNT, 5f) - 1f).coerceAtLeast(0.01f)).apply()
+                    WidgetStore.ACTION_PLUS -> prefs.edit().putFloat(WidgetStore.AMOUNT, prefs.getFloat(WidgetStore.AMOUNT, 5f) + 1f).apply()
+                    WidgetStore.ACTION_PRESET -> prefs.edit().putFloat(WidgetStore.AMOUNT, intent.getFloatExtra("amount", 5f)).apply()
+                    WidgetStore.ACTION_ADD_DP -> addEntry(context, false)
+                    WidgetStore.ACTION_ADD_BONUS -> addEntry(context, true)
+                    WidgetStore.ACTION_UNDO -> undoLast(context)
+                }
+                WidgetStore.refresh(context)
+            } finally {
+                pending.finish()
+            }
+        }.start()
     }
 
     private fun addEntry(context: Context, isBonus: Boolean) {
@@ -252,7 +261,7 @@ class UserHubWidgetProviderV2 : AppWidgetProvider() {
         val amount = prefs.getFloat(WidgetStore.AMOUNT, 5f)
         val goal = prefs.getFloat(WidgetStore.DAILY_GOAL, 20f).coerceAtLeast(0f)
         views.setTextViewText(R.id.widget_amount, WidgetStore.money(amount.toDouble()))
-        views.setTextViewText(R.id.widget_amount_unit, "coins")
+        views.setTextViewText(R.id.widget_amount_unit, if (amount == 1f) "coin" else "coins")
         views.setTextViewText(R.id.widget_goal_text, "DP today · goal " + WidgetStore.money(goal.toDouble()))
         views.setProgressBar(R.id.widget_goal_ring, 100, if (goal > 0) ((dp / goal) * 100).toInt().coerceIn(0, 100) else 0, false)
         views.setTextViewText(R.id.widget_goal_ring_text, WidgetStore.money(dp))
@@ -772,7 +781,7 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
  <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical" android:orientation="horizontal">
   <TextView android:id="@+id/widget_minus" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="−" android:textColor="@color/widget_text_primary" android:textSize="20sp" android:background="@drawable/widget_metric_background"/>
   <LinearLayout android:id="@+id/widget_amount_group" android:layout_width="0dp" android:layout_height="32dp" android:layout_weight="1" android:gravity="center" android:orientation="horizontal">
-   <TextView android:id="@+id/widget_amount" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center" android:text="5" android:textColor="@color/widget_text_primary" android:textSize="34sp" android:textStyle="bold"/>
+   <TextView android:id="@+id/widget_amount" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center" android:text="5" android:textColor="@color/widget_text_primary" android:textSize="30sp" android:textStyle="bold"/>
    <TextView android:id="@+id/widget_amount_unit" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center_vertical" android:paddingStart="4dp" android:text="coins" android:textColor="@color/widget_text_secondary" android:textSize="11sp"/>
   </LinearLayout>
   <TextView android:id="@+id/widget_plus" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="+" android:textColor="@color/widget_text_primary" android:textSize="20sp" android:background="@drawable/widget_metric_background"/>
