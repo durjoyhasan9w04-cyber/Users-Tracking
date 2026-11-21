@@ -165,23 +165,29 @@ class UserHubWidgetProviderV2 : AppWidgetProvider() {
         }.start()
     }
 
+    private fun showToast(context: Context, message: String, duration: Int) {
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            showToast(context, message, duration).show()
+        }
+    }
+
     private fun addEntry(context: Context, isBonus: Boolean) {
         val prefs = context.getSharedPreferences(WidgetStore.PREFS, Context.MODE_PRIVATE)
         val amount = prefs.getFloat(WidgetStore.AMOUNT, 5f).toDouble()
         val userId = WidgetStore.selectedUserId(context)
         if (!amount.isFinite() || amount <= 0.0 || userId <= 0L) {
-            Toast.makeText(context, "Choose a user and enter a valid amount first", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Choose a user and enter a valid amount first", Toast.LENGTH_LONG)
             return
         }
         val db = WidgetStore.database(context)
         if (db == null) {
-            Toast.makeText(context, "Open UserHub once to initialize its database", Toast.LENGTH_LONG).show()
+            showToast(context, "Open UserHub once to initialize its database", Toast.LENGTH_LONG)
             return
         }
         try {
             val exists = db.rawQuery("SELECT id FROM users WHERE id=? AND archived=0", arrayOf(userId.toString())).use { it.moveToFirst() }
             if (!exists) {
-                Toast.makeText(context, "Selected user is no longer available", Toast.LENGTH_LONG).show()
+                showToast(context, "Selected user is no longer available", Toast.LENGTH_LONG)
                 return
             }
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
@@ -213,10 +219,10 @@ class UserHubWidgetProviderV2 : AppWidgetProvider() {
                 }
             }
             handler.postDelayed(tick, 1000L)
-            Toast.makeText(context, (if (isBonus) "Bonus " else "DP ") + WidgetStore.money(amount) + " coins added", Toast.LENGTH_SHORT).show()
+            showToast(context, (if (isBonus) "Bonus " else "DP ") + WidgetStore.money(amount) + " coins added", Toast.LENGTH_SHORT)
         } catch (_: Exception) {
             try { if (db.inTransaction()) db.endTransaction() } catch (_: Exception) {}
-            Toast.makeText(context, "Could not save entry. Open UserHub and retry.", Toast.LENGTH_LONG).show()
+            showToast(context, "Could not save entry. Open UserHub and retry.", Toast.LENGTH_LONG)
         } finally { db.close() }
     }
 
@@ -225,12 +231,12 @@ class UserHubWidgetProviderV2 : AppWidgetProvider() {
         val table = prefs.getString(WidgetStore.LAST_TABLE, "") ?: ""
         val row = prefs.getLong(WidgetStore.LAST_ROW, -1L)
         if (System.currentTimeMillis() > prefs.getLong(WidgetStore.UNDO_UNTIL, 0L) || row <= 0L || table !in listOf("dp_entries", "bonus_entries")) {
-            Toast.makeText(context, "Undo period expired", Toast.LENGTH_SHORT).show()
+            showToast(context, "Undo period expired", Toast.LENGTH_SHORT)
         } else {
             val db = WidgetStore.database(context)
             if (db != null) {
-                try { db.delete(table, "id=?", arrayOf(row.toString())); Toast.makeText(context, "Entry undone", Toast.LENGTH_SHORT).show() }
-                catch (_: Exception) { Toast.makeText(context, "Could not undo entry", Toast.LENGTH_LONG).show() }
+                try { db.delete(table, "id=?", arrayOf(row.toString())); showToast(context, "Entry undone", Toast.LENGTH_SHORT) }
+                catch (_: Exception) { showToast(context, "Could not undo entry", Toast.LENGTH_LONG) }
                 finally { db.close() }
             }
         }
@@ -259,7 +265,7 @@ class UserHubWidgetProviderV2 : AppWidgetProvider() {
         val prefs = context.getSharedPreferences(WidgetStore.PREFS, Context.MODE_PRIVATE)
         val mode = prefs.getString(WidgetStore.MODE, "DP") ?: "DP"
         val amount = prefs.getFloat(WidgetStore.AMOUNT, 5f)
-        val goal = prefs.getFloat(WidgetStore.DAILY_GOAL, 20f).coerceAtLeast(0f)
+        val goal = prefs.getFloat(WidgetStore.DAILY_GOAL, 50f).coerceAtLeast(0f)
         views.setTextViewText(R.id.widget_amount, WidgetStore.money(amount.toDouble()))
         views.setTextViewText(R.id.widget_amount_unit, if (amount == 1f) "coin" else "coins")
         views.setTextViewText(R.id.widget_goal_text, "DP today · goal " + WidgetStore.money(goal.toDouble()))
