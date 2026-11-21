@@ -167,7 +167,7 @@ class UserHubWidgetProviderV2 : AppWidgetProvider() {
 
     private fun showToast(context: Context, message: String, duration: Int) {
         android.os.Handler(android.os.Looper.getMainLooper()).post {
-            showToast(context, message, duration).show()
+            Toast.makeText(context, message, duration).show()
         }
     }
 
@@ -176,7 +176,7 @@ class UserHubWidgetProviderV2 : AppWidgetProvider() {
         val amount = prefs.getFloat(WidgetStore.AMOUNT, 5f).toDouble()
         val userId = WidgetStore.selectedUserId(context)
         if (!amount.isFinite() || amount <= 0.0 || userId <= 0L) {
-            Toast.makeText(context, "Choose a user and enter a valid amount first", Toast.LENGTH_LONG)
+            showToast(context, "Choose a user and enter a valid amount first", Toast.LENGTH_LONG)
             return
         }
         val db = WidgetStore.database(context)
