@@ -629,8 +629,8 @@ installer_resources = {
     "layout/widget_user_hub.xml": layout,
     "xml/user_hub_widget_info.xml": r'''<?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="250dp" android:minHeight="360dp"
-    android:targetCellWidth="4" android:targetCellHeight="4"
+    android:minWidth="250dp" android:minHeight="440dp"
+    android:targetCellWidth="4" android:targetCellHeight="6"
     android:updatePeriodMillis="0" android:initialLayout="@layout/widget_user_hub"
     android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"
     android:description="@string/user_hub_widget_description" />
@@ -646,9 +646,9 @@ installer_resources = {
 <color name="widget_dp_accent">#FFF36B21</color><color name="widget_bonus_accent">#FFF08A36</color>
 </resources>''',
     "values-night/widget_colors.xml": r'''<resources>
-<color name="widget_background">#FFF4F5F7</color><color name="widget_surface">#FFFFFFFF</color>
-<color name="widget_text_primary">#FF18202B</color><color name="widget_text_secondary">#FF7C8490</color>
-<color name="widget_dp_accent">#FFF36B21</color><color name="widget_bonus_accent">#FFF08A36</color>
+<color name="widget_background">#FF111B30</color><color name="widget_surface">#FF1D2A43</color>
+<color name="widget_text_primary">#FFFFFFFF</color><color name="widget_text_secondary">#FFB7C2D6</color>
+<color name="widget_dp_accent">#FFF36B21</color><color name="widget_bonus_accent">#FF60A5FA</color>
 </resources>''',
 }
 src = base / "kotlin" / package_path / "widget"
