@@ -487,7 +487,27 @@ class WidgetQuickEntryActivity : Activity() {
         header.addView(avatar, LinearLayout.LayoutParams(dp(56), dp(56)))
         val heading = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), 0, dp(6), 0) }
         heading.addView(text(if (isGoal) "Set daily goal" else if (isBonus) "Add Bonus" else "Add DP", 23f, Color.WHITE).apply { setTypeface(null, Typeface.BOLD) })
-        heading.addView(text(if (isGoal) "Daily DP target · UserHub" else "for $userName · enter coins", 13f, secondary))
+        var recentLine = "enter coins"
+        if (selected != null) {
+            val lastDb = WidgetStore.database(this)
+            if (lastDb != null) {
+                try {
+                    lastDb.rawQuery("SELECT total, created_at FROM dp_entries WHERE user_id=? ORDER BY entry_date DESC, created_at DESC LIMIT 1", arrayOf(selected.id.toString())).use { c ->
+                        if (c.moveToFirst()) {
+                            val coins = WidgetStore.money(c.getDouble(0))
+                            val stamp = c.getString(1)
+                            val age = try {
+                                val parsed = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US).parse(stamp)
+                                val mins = ((System.currentTimeMillis() - (parsed?.time ?: System.currentTimeMillis())).coerceAtLeast(0L) / 60000L)
+                                if (mins < 60) mins.toString() + "m ago" else if (mins < 1440) (mins / 60).toString() + "h ago" else (mins / 1440).toString() + "d ago"
+                            } catch (_: Exception) { "" }
+                            recentLine = "last DP $coins coins" + if (age.isNotBlank()) " · $age" else ""
+                        }
+                    }
+                } catch (_: Exception) { } finally { lastDb.close() }
+            }
+        }
+        heading.addView(text(if (isGoal) "Daily DP target · UserHub" else "for $userName · $recentLine", 13f, secondary))
         header.addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
         val close = TextView(this).apply {
             text = "×"; textSize = 30f; gravity = Gravity.CENTER; setTextColor(secondary)
@@ -505,6 +525,7 @@ class WidgetQuickEntryActivity : Activity() {
             gravity = Gravity.CENTER; setSingleLine(true); inputType = 8194
             setPadding(0, 0, 0, 0); background = android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
             setSelectAllOnFocus(true)
+            if (android.os.Build.VERSION.SDK_INT >= 29) textCursorDrawable?.setTint(accent)
             setText(if (current % 1f == 0f) current.toInt().toString() else current.toString())
         }
         amountCard.addView(value, LinearLayout.LayoutParams(0, dp(112), 1f))
