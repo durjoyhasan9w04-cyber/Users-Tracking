@@ -28,7 +28,7 @@ missing_ids = sorted(referenced_ids - id_set)
 if missing_ids:
     raise SystemExit("Kotlin references missing widget views: " + ", ".join(missing_ids))
 
-drawable_refs = set(re.findall(r"R\.drawable\.([A-Za-z0-9_]+)", kotlin))
+drawable_refs = set(re.findall(r"(?<!android\.)R\.drawable\.([A-Za-z0-9_]+)", kotlin))
 drawable_files = {path.stem for path in (root / "res/drawable").glob("*.xml")}
 missing_drawables = sorted(drawable_refs - drawable_files)
 if missing_drawables:

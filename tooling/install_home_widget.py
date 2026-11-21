@@ -262,7 +262,7 @@ class UserHubWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_preset_25, broadcastIntent(WidgetStore.ACTION_PRESET, 48, 25f))
         views.setOnClickPendingIntent(R.id.widget_amount, activityIntent(WidgetStore.ACTION_EDIT_AMOUNT, 49))
         views.setOnClickPendingIntent(R.id.widget_goal_edit, activityIntent(WidgetStore.ACTION_EDIT_GOAL, 50))
-        views.setOnClickPendingIntent(R.id.widget_add, broadcastIntent(if (mode == "BONUS") WidgetStore.ACTION_ADD_BONUS else WidgetStore.ACTION_ADD_DP, 51))
+        views.setOnClickPendingIntent(R.id.widget_add, broadcastIntent(if (canUndo) WidgetStore.ACTION_REFRESH else if (mode == "BONUS") WidgetStore.ACTION_ADD_BONUS else WidgetStore.ACTION_ADD_DP, 51))
         views.setOnClickPendingIntent(R.id.widget_undo, broadcastIntent(WidgetStore.ACTION_UNDO, 52))
         views.setOnClickPendingIntent(R.id.widget_selected_detail, activityIntent(WidgetStore.ACTION_SELECT, 16))
         views.setOnClickPendingIntent(R.id.widget_quick_add_user, activityIntent(WidgetStore.ACTION_ADD_USER, 15))
