@@ -136,6 +136,10 @@ class UserHubWidgetProvider : AppWidgetProvider() {
         ids.forEach { id -> manager.updateAppWidget(id, views(context)) }
     }
 
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, appWidgetId: Int, newOptions: android.os.Bundle) {
+        manager.updateAppWidget(appWidgetId, views(context))
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         val prefs = context.getSharedPreferences(WidgetStore.PREFS, Context.MODE_PRIVATE)
@@ -711,22 +715,22 @@ class WidgetQuickEntryActivity : Activity() {
 '''.replace("__PACKAGE__", package);
 
 layout = r'''<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="12dp" android:background="@drawable/widget_user_hub_background">
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="16dp" android:background="@drawable/widget_user_hub_background">
  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
   <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="horizontal">
    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="User" android:textColor="@color/widget_text_primary" android:textStyle="bold" android:textSize="20sp"/>
    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Hub" android:textColor="#FFFF8745" android:textStyle="bold" android:textSize="20sp"/>
   </LinearLayout>
   <TextView android:id="@+id/widget_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Today" android:textColor="@color/widget_text_secondary" android:textSize="12sp"/>
-  <TextView android:id="@+id/widget_refresh" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="↻" android:textSize="20sp" android:textColor="@color/widget_text_secondary"/>
+  <TextView android:id="@+id/widget_refresh" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="↻" android:textSize="20sp" android:textColor="@color/widget_text_secondary"/>
  </LinearLayout>
  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="8dp">
-  <FrameLayout android:layout_width="76dp" android:layout_height="76dp">
+  <FrameLayout android:layout_width="62dp" android:layout_height="62dp">
    <ProgressBar android:id="@+id/widget_goal_ring" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:indeterminate="false" android:max="100" android:progress="0" android:progressDrawable="@drawable/widget_ring_progress" android:rotation="-90"/>
    <TextView android:id="@+id/widget_goal_ring_text" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="0" android:textColor="@color/widget_text_primary" android:textStyle="bold" android:textSize="16sp"/>
   </FrameLayout>
   <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="10dp">
-   <TextView android:id="@+id/widget_goal_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DP today · goal 20" android:textColor="@color/widget_text_secondary" android:textSize="12sp"/>
+   <TextView android:id="@+id/widget_goal_text" android:layout_width="wrap_content" android:layout_height="48dp" android:gravity="center_vertical" android:text="DP today · goal 20" android:textColor="@color/widget_text_secondary" android:textSize="12sp"/>
    <TextView android:id="@+id/widget_dp_total" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 coins" android:textColor="@color/widget_text_primary" android:textSize="22sp" android:textStyle="bold"/>
 
   </LinearLayout>
@@ -735,13 +739,13 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
    <TextView android:id="@+id/widget_bonus_total" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 coins" android:textColor="#FF60A5FA" android:textSize="22sp" android:textStyle="bold"/>
   </LinearLayout>
  </LinearLayout>
- <LinearLayout android:layout_width="match_parent" android:layout_height="42dp" android:orientation="horizontal" android:background="@drawable/widget_metric_background" android:padding="3dp" android:layout_marginTop="10dp">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:background="@drawable/widget_metric_background" android:padding="3dp" android:layout_marginTop="10dp">
   <TextView android:id="@+id/widget_mode_dp" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="DP" android:textColor="#FFFFFFFF" android:textStyle="bold" android:background="@drawable/widget_dp_button"/>
   <TextView android:id="@+id/widget_mode_bonus" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="Bonus" android:textColor="@color/widget_text_secondary" android:textStyle="bold"/>
  </LinearLayout>
  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingTop="12dp">
   <FrameLayout android:layout_width="0dp" android:layout_height="82dp" android:layout_weight="1">
-   <TextView android:id="@+id/widget_recent_avatar_1" android:layout_width="54dp" android:layout_height="54dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="A" android:textColor="@color/widget_text_primary" android:textSize="20sp" android:background="@drawable/widget_avatar_selected"/>
+   <TextView android:id="@+id/widget_recent_avatar_1" android:layout_width="48dp" android:layout_height="48dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="A" android:textColor="@color/widget_text_primary" android:textSize="20sp" android:background="@drawable/widget_avatar_selected"/>
    <TextView android:id="@+id/widget_recent_badge_1" android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="top|right" android:gravity="center" android:text="2" android:textColor="#FF111B30" android:textSize="10sp" android:textStyle="bold" android:background="@drawable/widget_badge"/>
    <TextView android:id="@+id/widget_recent_name_1" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="bottom" android:gravity="center" android:text="User" android:textColor="@color/widget_text_primary" android:textSize="10sp"/>
   </FrameLayout>
@@ -759,22 +763,22 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
  </LinearLayout>
  <TextView android:id="@+id/widget_selected_detail" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="For selected user · last DP 5 coins · 2h ago" android:textColor="@color/widget_text_secondary" android:textSize="11sp" android:paddingTop="2dp" android:paddingBottom="6dp"/>
  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-  <TextView android:id="@+id/widget_minus" android:layout_width="54dp" android:layout_height="44dp" android:gravity="center" android:text="−" android:textColor="@color/widget_text_primary" android:textSize="24sp" android:background="@drawable/widget_metric_background"/>
+  <TextView android:id="@+id/widget_minus" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="−" android:textColor="@color/widget_text_primary" android:textSize="24sp" android:background="@drawable/widget_metric_background"/>
   <LinearLayout android:id="@+id/widget_amount_group" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:gravity="center" android:orientation="horizontal">
    <TextView android:id="@+id/widget_amount" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center" android:text="5" android:textColor="@color/widget_text_primary" android:textSize="36sp" android:textStyle="bold"/>
    <TextView android:id="@+id/widget_amount_unit" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center_vertical" android:paddingStart="6dp" android:text="coins" android:textColor="@color/widget_text_secondary" android:textSize="14sp"/>
   </LinearLayout>
   <TextView android:id="@+id/widget_plus" android:layout_width="54dp" android:layout_height="44dp" android:gravity="center" android:text="+" android:textColor="@color/widget_text_primary" android:textSize="24sp" android:background="@drawable/widget_metric_background"/>
  </LinearLayout>
- <LinearLayout android:layout_width="match_parent" android:layout_height="42dp" android:orientation="horizontal" android:layout_marginTop="7dp">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:layout_marginTop="8dp">
   <TextView android:id="@+id/widget_preset_1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="1" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
   <TextView android:id="@+id/widget_preset_5" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="6dp" android:gravity="center" android:text="5" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
   <TextView android:id="@+id/widget_preset_10" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="6dp" android:gravity="center" android:text="10" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
   <TextView android:id="@+id/widget_preset_25" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="6dp" android:gravity="center" android:text="25" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
  </LinearLayout>
  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="10dp">
-  <TextView android:id="@+id/widget_add" android:layout_width="0dp" android:layout_weight="1" android:layout_height="50dp" android:gravity="center" android:text="+ Add DP · 5 coins" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="16sp" android:background="@drawable/widget_dp_button"/>
-  <TextView android:id="@+id/widget_undo" android:layout_width="110dp" android:layout_height="50dp" android:layout_marginStart="6dp" android:gravity="center" android:text="Undo · 8s" android:textColor="#FFFFFFFF" android:textStyle="bold" android:background="@drawable/widget_bonus_button" android:visibility="gone"/>
+  <TextView android:id="@+id/widget_add" android:layout_width="0dp" android:layout_weight="1" android:layout_height="54dp" android:gravity="center" android:text="+ Add DP · 5 coins" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="16sp" android:background="@drawable/widget_dp_button"/>
+  <TextView android:id="@+id/widget_undo" android:layout_width="110dp" android:layout_height="54dp" android:layout_marginStart="6dp" android:gravity="center" android:text="Undo · 8s" android:textColor="#FFFFFFFF" android:textStyle="bold" android:background="@drawable/widget_bonus_button" android:visibility="gone"/>
  </LinearLayout>
 </LinearLayout>
 '''
@@ -783,20 +787,21 @@ installer_resources = {
     "layout/widget_user_hub.xml": layout,
     "xml/user_hub_widget_info.xml": r'''<?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="250dp" android:minHeight="500dp"
-    android:minResizeWidth="220dp" android:minResizeHeight="470dp"
+    android:minWidth="250dp" android:minHeight="560dp"
+    android:minResizeWidth="250dp" android:minResizeHeight="520dp"
+    android:targetCellWidth="4" android:targetCellHeight="8"
     android:updatePeriodMillis="0" android:initialLayout="@layout/widget_user_hub"
     android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"
     android:description="@string/user_hub_widget_description" />
 ''',
-    "drawable/widget_user_hub_background.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="@color/widget_background"/><corners android:radius="16dp"/></shape>''',
+    "drawable/widget_user_hub_background.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="@color/widget_background"/><corners android:radius="28dp"/></shape>''',
     "drawable/widget_metric_background.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="@color/widget_surface"/><corners android:radius="10dp"/></shape>''',
-    "drawable/widget_dp_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#F36B21"/><corners android:radius="8dp"/></shape>''',
+    "drawable/widget_dp_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#DE5010"/><corners android:radius="8dp"/></shape>''',
     "drawable/widget_bonus_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#2563EB"/><corners android:radius="8dp"/></shape>''',
     "drawable/widget_success_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#15803D"/><corners android:radius="8dp"/></shape>''',
-    "drawable/widget_ring_progress.xml": r'''<layer-list xmlns:android="http://schemas.android.com/apk/res/android"><item android:id="@android:id/background"><shape android:shape="ring" android:innerRadiusRatio="3" android:thickness="5dp" android:useLevel="false"><solid android:color="#FF293650"/></shape></item><item android:id="@android:id/progress"><shape android:shape="ring" android:innerRadiusRatio="3" android:thickness="5dp" android:useLevel="true"><solid android:color="#FFF36B21"/></shape></item></layer-list>''',
-    "drawable/widget_avatar.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval"><solid android:color="#FF202D46"/></shape>''',
-    "drawable/widget_avatar_selected.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval"><solid android:color="#FF263550"/><stroke android:width="2dp" android:color="#FFF36B21"/></shape>''',
+    "drawable/widget_ring_progress.xml": r'''<layer-list xmlns:android="http://schemas.android.com/apk/res/android"><item android:id="@android:id/background"><shape android:shape="ring" android:innerRadiusRatio="3" android:thickness="5dp" android:useLevel="false"><solid android:color="#FF25324A"/></shape></item><item android:id="@android:id/progress"><shape android:shape="ring" android:innerRadiusRatio="3" android:thickness="5dp" android:useLevel="true"><solid android:color="#FFFF8A4C"/></shape></item></layer-list>''',
+    "drawable/widget_avatar.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval"><solid android:color="#FF25324A"/></shape>''',
+    "drawable/widget_avatar_selected.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval"><solid android:color="#FF25324A"/><stroke android:width="2dp" android:color="#FFFF8A4C"/></shape>''',
     "drawable/widget_badge.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval"><solid android:color="#FFFFFFFF"/></shape>''',
     "drawable/widget_add_user_outline.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval"><solid android:color="#00111B30"/><stroke android:width="1dp" android:color="#FF8994A8" android:dashWidth="3dp" android:dashGap="2dp"/></shape>''',
     "drawable/widget_success_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#15803D"/><corners android:radius="8dp"/></shape>''',
@@ -807,14 +812,14 @@ installer_resources = {
     "drawable/widget_add_user_outline.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval"><solid android:color="#00111B30"/><stroke android:width="1dp" android:color="#FF8994A8" android:dashWidth="3dp" android:dashGap="2dp"/></shape>''',
     "values/widget_strings.xml": r'''<resources><string name="user_hub_widget_description">Quick DP and bonus entry</string></resources>''',
     "values/widget_colors.xml": r'''<resources>
-<color name="widget_background">#FF111B30</color><color name="widget_surface">#FF1D2A43</color>
-<color name="widget_text_primary">#FFFFFFFF</color><color name="widget_text_secondary">#FFB7C2D6</color>
-<color name="widget_dp_accent">#FFF36B21</color><color name="widget_bonus_accent">#FFF08A36</color>
+<color name="widget_background">#FF111B2D</color><color name="widget_surface">#FF1A2538</color>
+<color name="widget_text_primary">#FFFFFFFF</color><color name="widget_text_secondary">#FFA3ACBF</color>
+<color name="widget_dp_accent">#FFDE5010</color><color name="widget_bonus_accent">#FF60A5FA</color>
 </resources>''',
     "values-night/widget_colors.xml": r'''<resources>
-<color name="widget_background">#FF111B30</color><color name="widget_surface">#FF1D2A43</color>
-<color name="widget_text_primary">#FFFFFFFF</color><color name="widget_text_secondary">#FFB7C2D6</color>
-<color name="widget_dp_accent">#FFF36B21</color><color name="widget_bonus_accent">#FF60A5FA</color>
+<color name="widget_background">#FF111B2D</color><color name="widget_surface">#FF1A2538</color>
+<color name="widget_text_primary">#FFFFFFFF</color><color name="widget_text_secondary">#FFA3ACBF</color>
+<color name="widget_dp_accent">#FFDE5010</color><color name="widget_bonus_accent">#FF60A5FA</color>
 </resources>''',
 }
 src = base / "kotlin" / package_path / "widget"

@@ -52,9 +52,9 @@ for path in (root / "res").rglob("*.xml"):
 provider_info = root / "res/xml/user_hub_widget_info.xml"
 info = ET.parse(provider_info).getroot()
 android = "{http://schemas.android.com/apk/res/android}"
-if info.get(android + "minHeight") != "500dp":
+if info.get(android + "minHeight") != "560dp":
     raise SystemExit("Widget minimum height is not the full Design B height")
-if info.get(android + "minResizeHeight") != "470dp":
+if info.get(android + "minResizeHeight") != "520dp":
     raise SystemExit("Widget minimum resize height is not tall enough for Design B")
 
 if "ACTION_EDIT_AMOUNT" not in kotlin or "ACTION_EDIT_GOAL" not in kotlin:
@@ -63,4 +63,6 @@ if "putFloat(WidgetStore.AMOUNT" not in kotlin or "WidgetStore.DAILY_GOAL" not i
     raise SystemExit("Manual amount and goal values are not persisted")
 if "widget_amount_group" not in kotlin or "widget_goal_text" not in kotlin:
     raise SystemExit("Amount and goal controls are not wired to their editors")
+if info.get(android + "targetCellHeight") != "8" or info.get(android + "targetCellWidth") != "4":
+    raise SystemExit("Widget default launcher footprint must reserve 4 columns by 8 rows")
 print(f"Validated full Design B widget: {len(id_set)} unique views, {len(drawable_refs)} drawable references, manual amount + goal controls, all XML well formed.")
