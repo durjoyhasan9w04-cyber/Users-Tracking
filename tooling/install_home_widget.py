@@ -91,7 +91,10 @@ object WidgetStore {
     fun recentUsers(context: Context): List<WidgetUser> {
         val ids = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(RECENT_USERS, "")!!.split(",").mapNotNull { it.toLongOrNull() }
         val all = users(context).associateBy { it.id }
-        return ids.mapNotNull { all[it] }.take(3)
+        val ordered = ids.mapNotNull { all[it] }.toMutableList()
+        val selected = all[selectedUserId(context)]
+        if (selected != null && ordered.none { it.id == selected.id }) ordered.add(0, selected)
+        return ordered.take(3)
     }
 
     fun refresh(context: Context) {
@@ -812,4 +815,4 @@ if not any(n.tag == "activity" and n.get(A + "name") == activity_name for n in a
         A+"windowSoftInputMode": "adjustResize"
     })
 tree.write(manifest, encoding="utf-8", xml_declaration=True)
-print("Installed compact 4x2 User Hub home-screen widget for " + package)
+print("Installed full PDF Design B UserHub home-screen widget for " + package)
