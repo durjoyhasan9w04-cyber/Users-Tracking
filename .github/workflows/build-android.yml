@@ -30,8 +30,11 @@ jobs:
       - name: Generate Android project files
         run: flutter create --platforms=android --project-name user_hub .
 
-      - name: Install compact User Hub home-screen widget
+      - name: Install full Design B UserHub home-screen widget
         run: python3 tooling/install_home_widget.py
+
+      - name: Validate generated Android widget resources and click targets
+        run: python3 tooling/validate_home_widget.py
 
       - name: Install monochrome notification outline icon
         run: |
