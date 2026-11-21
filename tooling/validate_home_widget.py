@@ -71,7 +71,7 @@ info = ET.parse(provider_info).getroot()
 android = "{http://schemas.android.com/apk/res/android}"
 if info.get(android + "minHeight") != "350dp":
     raise SystemExit("Widget minimum height is not the requested 4x5 footprint")
-if info.get(android + "minResizeHeight") != "280dp":
+if info.get(android + "minResizeHeight") != "350dp":
     raise SystemExit("Widget minimum resize height must preserve the requested 5-row footprint")
 
 if "ACTION_EDIT_AMOUNT" not in kotlin or "ACTION_EDIT_GOAL" not in kotlin:
