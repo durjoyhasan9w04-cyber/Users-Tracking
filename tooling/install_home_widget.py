@@ -724,7 +724,7 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
   <TextView android:id="@+id/widget_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Today" android:textColor="@color/widget_text_secondary" android:textSize="10sp"/>
   <TextView android:id="@+id/widget_refresh" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="↻" android:textSize="16sp" android:textColor="@color/widget_text_secondary"/>
  </LinearLayout>
- <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+ <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
  <LinearLayout android:layout_width="match_parent" android:layout_height="38dp" android:orientation="horizontal" android:gravity="center_vertical">
   <FrameLayout android:layout_width="32dp" android:layout_height="32dp">
    <ProgressBar android:id="@+id/widget_goal_ring" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="match_parent" android:indeterminate="false" android:max="100" android:progress="0" android:progressDrawable="@drawable/widget_ring_progress" android:rotation="-90"/>
@@ -739,12 +739,12 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
    <TextView android:id="@+id/widget_bonus_total" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 coins" android:textColor="#FF60A5FA" android:textSize="16sp" android:textStyle="bold"/>
   </LinearLayout>
  </LinearLayout>
- <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+ <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
  <LinearLayout android:layout_width="match_parent" android:layout_height="30dp" android:orientation="horizontal" android:background="@drawable/widget_metric_background" android:padding="2dp">
   <TextView android:id="@+id/widget_mode_dp" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="DP" android:textSize="12sp" android:textColor="#FFFFFFFF" android:textStyle="bold" android:background="@drawable/widget_dp_button"/>
   <TextView android:id="@+id/widget_mode_bonus" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="Bonus" android:textSize="12sp" android:textColor="@color/widget_text_secondary" android:textStyle="bold"/>
  </LinearLayout>
- <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+ <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
  <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:gravity="center_vertical" android:orientation="horizontal">
   <FrameLayout android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1">
    <TextView android:id="@+id/widget_recent_avatar_1" android:layout_width="30dp" android:layout_height="30dp" android:layout_gravity="center_horizontal" android:gravity="center" android:text="A" android:textColor="@color/widget_text_primary" android:textSize="15sp" android:background="@drawable/widget_avatar_selected"/>
@@ -766,9 +766,9 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
    <TextView android:layout_width="match_parent" android:layout_height="12dp" android:layout_gravity="bottom" android:gravity="center" android:text="User" android:textColor="@color/widget_text_secondary" android:textSize="9sp"/>
   </FrameLayout>
  </LinearLayout>
- <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+ <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
  <TextView android:id="@+id/widget_selected_detail" android:layout_width="match_parent" android:layout_height="14dp" android:gravity="center" android:text="For selected user · last DP 5 coins · 2h ago" android:textColor="@color/widget_text_secondary" android:textSize="9sp" android:singleLine="true" android:ellipsize="end"/>
- <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+ <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
  <LinearLayout android:layout_width="match_parent" android:layout_height="34dp" android:gravity="center_vertical" android:orientation="horizontal">
   <TextView android:id="@+id/widget_minus" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="−" android:textColor="@color/widget_text_primary" android:textSize="20sp" android:background="@drawable/widget_metric_background"/>
   <LinearLayout android:id="@+id/widget_amount_group" android:layout_width="0dp" android:layout_height="32dp" android:layout_weight="1" android:gravity="center" android:orientation="horizontal">
@@ -777,14 +777,14 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
   </LinearLayout>
   <TextView android:id="@+id/widget_plus" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="+" android:textColor="@color/widget_text_primary" android:textSize="20sp" android:background="@drawable/widget_metric_background"/>
  </LinearLayout>
- <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+ <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
  <LinearLayout android:layout_width="match_parent" android:layout_height="24dp" android:orientation="horizontal">
   <TextView android:id="@+id/widget_preset_1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="1" android:textSize="11sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
   <TextView android:id="@+id/widget_preset_5" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="4dp" android:gravity="center" android:text="5" android:textSize="11sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
   <TextView android:id="@+id/widget_preset_10" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="4dp" android:gravity="center" android:text="10" android:textSize="11sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
   <TextView android:id="@+id/widget_preset_25" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="4dp" android:gravity="center" android:text="25" android:textSize="11sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
  </LinearLayout>
- <View android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+ <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
  <LinearLayout android:layout_width="match_parent" android:layout_height="36dp" android:orientation="horizontal">
   <TextView android:id="@+id/widget_add" android:layout_width="0dp" android:layout_weight="1" android:layout_height="36dp" android:gravity="center" android:text="+ Add DP · 5 coins" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="13sp" android:background="@drawable/widget_dp_button"/>
   <TextView android:id="@+id/widget_undo" android:layout_width="74dp" android:layout_height="36dp" android:layout_marginStart="4dp" android:gravity="center" android:text="Undo · 8s" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="11sp" android:background="@drawable/widget_bonus_button" android:visibility="gone"/>
