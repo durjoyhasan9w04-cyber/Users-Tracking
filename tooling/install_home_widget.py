@@ -89,12 +89,34 @@ object WidgetStore {
         prefs.edit().putLong(SELECTED_USER, id).putString(RECENT_USERS, (listOf(id) + recent).take(3).joinToString(",")).apply()
     }
     fun recentUsers(context: Context): List<WidgetUser> {
-        val ids = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(RECENT_USERS, "")!!.split(",").mapNotNull { it.toLongOrNull() }
+        // Prefer users with the latest real DP/bonus activity, including entries made inside the app.
+        val fromEntries = database(context)?.let { db ->
+            try {
+                db.rawQuery("""
+                    SELECT u.id, u.name, u.phone, MAX(a.created_at) AS last_at
+                    FROM users u
+                    JOIN (
+                        SELECT user_id, created_at FROM dp_entries
+                        UNION ALL
+                        SELECT user_id, created_at FROM bonus_entries
+                    ) a ON a.user_id = u.id
+                    WHERE u.archived = 0
+                    GROUP BY u.id, u.name, u.phone
+                    ORDER BY last_at DESC
+                    LIMIT 3
+                """.trimIndent(), null).use { c ->
+                    buildList {
+                        while (c.moveToNext()) add(WidgetUser(c.getLong(0), c.getString(1), c.getString(2)))
+                    }
+                }
+            } catch (_: Exception) { emptyList() } finally { db.close() }
+        } ?: emptyList()
+        val ids = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(RECENT_USERS, "")!!.split(",").mapNotNull { it.toLongOrNull() }
         val all = users(context).associateBy { it.id }
-        val ordered = ids.mapNotNull { all[it] }.toMutableList()
+        val fallback = ids.mapNotNull { all[it] }
         val selected = all[selectedUserId(context)]
-        if (selected != null && ordered.none { it.id == selected.id }) ordered.add(0, selected)
-        return ordered.take(3)
+        return (fromEntries + fallback + listOfNotNull(selected)).distinctBy { it.id }.take(3)
     }
 
     fun refresh(context: Context) {
