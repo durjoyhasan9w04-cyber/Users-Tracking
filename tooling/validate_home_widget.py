@@ -19,7 +19,7 @@ if duplicates:
     raise SystemExit("Duplicate widget view IDs: " + ", ".join(duplicates))
 id_set = set(ids)
 
-kotlin_files = list(provider_path.rglob("UserHubWidgetProvider.kt")) + list(provider_path.rglob("WidgetQuickEntryActivity.kt"))
+kotlin_files = list(provider_path.rglob("UserHubWidgetProviderV2.kt")) + list(provider_path.rglob("WidgetQuickEntryActivity.kt"))
 if len(kotlin_files) != 2:
     raise SystemExit("Expected both native widget Kotlin source files")
 kotlin = "\n".join(path.read_text() for path in kotlin_files)
@@ -54,8 +54,8 @@ info = ET.parse(provider_info).getroot()
 android = "{http://schemas.android.com/apk/res/android}"
 if info.get(android + "minHeight") != "560dp":
     raise SystemExit("Widget minimum height is not the full Design B height")
-if info.get(android + "minResizeHeight") != "520dp":
-    raise SystemExit("Widget minimum resize height is not tall enough for Design B")
+if info.get(android + "minResizeHeight") != "560dp":
+    raise SystemExit("Widget minimum resize height must prevent the compact 4x2 footprint")
 
 if "ACTION_EDIT_AMOUNT" not in kotlin or "ACTION_EDIT_GOAL" not in kotlin:
     raise SystemExit("Manual coin entry and daily DP goal editors must both be implemented")

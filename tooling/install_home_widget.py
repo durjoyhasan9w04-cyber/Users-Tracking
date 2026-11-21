@@ -121,8 +121,8 @@ object WidgetStore {
 
     fun refresh(context: Context) {
         val manager = AppWidgetManager.getInstance(context)
-        val ids = manager.getAppWidgetIds(ComponentName(context, UserHubWidgetProvider::class.java))
-        if (ids.isNotEmpty()) UserHubWidgetProvider().onUpdate(context, manager, ids)
+        val ids = manager.getAppWidgetIds(ComponentName(context, UserHubWidgetProviderV2::class.java))
+        if (ids.isNotEmpty()) UserHubWidgetProviderV2().onUpdate(context, manager, ids)
     }
 
     fun money(value: Double): String {
@@ -131,7 +131,7 @@ object WidgetStore {
     }
 }
 
-class UserHubWidgetProvider : AppWidgetProvider() {
+class UserHubWidgetProviderV2 : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         ids.forEach { id -> manager.updateAppWidget(id, views(context)) }
     }
@@ -280,7 +280,7 @@ class UserHubWidgetProvider : AppWidgetProvider() {
             return PendingIntent.getActivity(context, request, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
         fun broadcastIntent(action: String, request: Int, value: Float? = null): PendingIntent {
-            val i = Intent(context, UserHubWidgetProvider::class.java).setAction(action)
+            val i = Intent(context, UserHubWidgetProviderV2::class.java).setAction(action)
             if (value != null) i.putExtra("amount", value)
             return PendingIntent.getBroadcast(context, request, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
@@ -351,7 +351,7 @@ class UserHubWidgetProvider : AppWidgetProvider() {
             } catch (_: Exception) { } finally { detailDb.close() }
         }
         views.setTextViewText(R.id.widget_selected_detail, lastDetail)
-        val refresh = Intent(context, UserHubWidgetProvider::class.java).setAction(WidgetStore.ACTION_REFRESH)
+        val refresh = Intent(context, UserHubWidgetProviderV2::class.java).setAction(WidgetStore.ACTION_REFRESH)
         val refreshPending = PendingIntent.getBroadcast(context, 14, refresh, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         views.setOnClickPendingIntent(R.id.widget_refresh, refreshPending)
         return views
@@ -788,7 +788,7 @@ installer_resources = {
     "xml/user_hub_widget_info.xml": r'''<?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="250dp" android:minHeight="560dp"
-    android:minResizeWidth="250dp" android:minResizeHeight="520dp"
+    android:minResizeWidth="250dp" android:minResizeHeight="560dp"
     android:targetCellWidth="4" android:targetCellHeight="8"
     android:updatePeriodMillis="0" android:initialLayout="@layout/widget_user_hub"
     android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"
@@ -824,7 +824,7 @@ installer_resources = {
 }
 src = base / "kotlin" / package_path / "widget"
 src.mkdir(parents=True, exist_ok=True)
-(src / "UserHubWidgetProvider.kt").write_text(provider)
+(src / "UserHubWidgetProviderV2.kt").write_text(provider)
 (src / "WidgetQuickEntryActivity.kt").write_text(activity)
 for relative, content in installer_resources.items():
     path = base / "res" / relative
@@ -836,13 +836,19 @@ tree = ET.parse(manifest)
 app = tree.getroot().find("application")
 if app is None:
     raise SystemExit("Android application element missing")
-receiver_name = package + ".widget.UserHubWidgetProvider"
+receiver_name = package + ".widget.UserHubWidgetProviderV2"
 activity_name = package + ".widget.WidgetQuickEntryActivity"
-if not any(n.tag == "receiver" and n.get(A + "name") == receiver_name for n in app):
-    receiver = ET.SubElement(app, "receiver", {A+"name": receiver_name, A+"exported": "true", A+"label": "User Hub"})
-    filt = ET.SubElement(receiver, "intent-filter")
-    ET.SubElement(filt, "action", {A+"name": "android.appwidget.action.APPWIDGET_UPDATE"})
-    ET.SubElement(receiver, "meta-data", {A+"name": "android.appwidget.provider", A+"resource": "@xml/user_hub_widget_info"})
+# Retire the previous compact provider so the launcher cannot keep offering its 4x2 definition.
+for node in list(app):
+    if node.tag == "receiver" and node.get(A + "name") in {
+        package + ".widget.UserHubWidgetProvider",
+        receiver_name,
+    }:
+        app.remove(node)
+receiver = ET.SubElement(app, "receiver", {A+"name": receiver_name, A+"exported": "true", A+"label": "User Hub"})
+filt = ET.SubElement(receiver, "intent-filter")
+ET.SubElement(filt, "action", {A+"name": "android.appwidget.action.APPWIDGET_UPDATE"})
+ET.SubElement(receiver, "meta-data", {A+"name": "android.appwidget.provider", A+"resource": "@xml/user_hub_widget_info"})
 if not any(n.tag == "activity" and n.get(A + "name") == activity_name for n in app):
     ET.SubElement(app, "activity", {
         A+"name": activity_name, A+"exported": "false",
