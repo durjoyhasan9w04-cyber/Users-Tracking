@@ -35,11 +35,12 @@ if missing_drawables:
     raise SystemExit("Kotlin references missing widget drawables: " + ", ".join(missing_drawables))
 
 required = {
-    "widget_goal_ring", "widget_goal_ring_text", "widget_mode_dp", "widget_mode_bonus",
+    "widget_goal_ring", "widget_goal_ring_text", "widget_goal_text", "widget_mode_dp", "widget_mode_bonus",
     "widget_recent_avatar_1", "widget_recent_avatar_2", "widget_recent_avatar_3",
-    "widget_quick_add_user", "widget_selected_detail", "widget_amount", "widget_minus",
-    "widget_plus", "widget_preset_1", "widget_preset_5", "widget_preset_10",
-    "widget_preset_25", "widget_add", "widget_undo",
+    "widget_recent_name_1", "widget_recent_name_2", "widget_recent_name_3",
+    "widget_quick_add_user", "widget_selected_detail", "widget_amount_group", "widget_amount",
+    "widget_amount_unit", "widget_minus", "widget_plus", "widget_preset_1", "widget_preset_5",
+    "widget_preset_10", "widget_preset_25", "widget_add", "widget_undo", "widget_refresh",
 }
 missing_required = sorted(required - id_set)
 if missing_required:
@@ -56,4 +57,10 @@ if info.get(android + "minHeight") != "500dp":
 if info.get(android + "minResizeHeight") != "470dp":
     raise SystemExit("Widget minimum resize height is not tall enough for Design B")
 
-print(f"Validated Design B widget: {len(id_set)} unique views, {len(drawable_refs)} drawable references, all XML well formed.")
+if "ACTION_EDIT_AMOUNT" not in kotlin or "ACTION_EDIT_GOAL" not in kotlin:
+    raise SystemExit("Manual coin entry and daily DP goal editors must both be implemented")
+if "putFloat(WidgetStore.AMOUNT" not in kotlin or "putFloat(WidgetStore.DAILY_GOAL" not in kotlin:
+    raise SystemExit("Manual amount and goal values are not persisted")
+if "widget_amount_group" not in kotlin or "widget_goal_text" not in kotlin:
+    raise SystemExit("Amount and goal controls are not wired to their editors")
+print(f"Validated full Design B widget: {len(id_set)} unique views, {len(drawable_refs)} drawable references, manual amount + goal controls, all XML well formed.")

@@ -225,7 +225,8 @@ class UserHubWidgetProvider : AppWidgetProvider() {
         val mode = prefs.getString(WidgetStore.MODE, "DP") ?: "DP"
         val amount = prefs.getFloat(WidgetStore.AMOUNT, 5f)
         val goal = prefs.getFloat(WidgetStore.DAILY_GOAL, 20f).coerceAtLeast(0f)
-        views.setTextViewText(R.id.widget_amount, WidgetStore.money(amount.toDouble()) + " coins")
+        views.setTextViewText(R.id.widget_amount, WidgetStore.money(amount.toDouble()))
+        views.setTextViewText(R.id.widget_amount_unit, "coins")
         views.setTextViewText(R.id.widget_goal_text, "DP today · goal " + WidgetStore.money(goal.toDouble()))
         views.setProgressBar(R.id.widget_goal_ring, 100, if (goal > 0) ((dp / goal) * 100).toInt().coerceIn(0, 100) else 0, false)
         views.setTextViewText(R.id.widget_goal_ring_text, WidgetStore.money(dp))
@@ -265,8 +266,8 @@ class UserHubWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_preset_5, broadcastIntent(WidgetStore.ACTION_PRESET, 46, 5f))
         views.setOnClickPendingIntent(R.id.widget_preset_10, broadcastIntent(WidgetStore.ACTION_PRESET, 47, 10f))
         views.setOnClickPendingIntent(R.id.widget_preset_25, broadcastIntent(WidgetStore.ACTION_PRESET, 48, 25f))
-        views.setOnClickPendingIntent(R.id.widget_amount, activityIntent(WidgetStore.ACTION_EDIT_AMOUNT, 49))
-        views.setOnClickPendingIntent(R.id.widget_goal_edit, activityIntent(WidgetStore.ACTION_EDIT_GOAL, 50))
+        views.setOnClickPendingIntent(R.id.widget_amount_group, activityIntent(WidgetStore.ACTION_EDIT_AMOUNT, 49))
+        views.setOnClickPendingIntent(R.id.widget_goal_text, activityIntent(WidgetStore.ACTION_EDIT_GOAL, 50))
         views.setOnClickPendingIntent(R.id.widget_add, broadcastIntent(if (canUndo) WidgetStore.ACTION_REFRESH else if (mode == "BONUS") WidgetStore.ACTION_ADD_BONUS else WidgetStore.ACTION_ADD_DP, 51))
         views.setOnClickPendingIntent(R.id.widget_undo, broadcastIntent(WidgetStore.ACTION_UNDO, 52))
         views.setOnClickPendingIntent(R.id.widget_selected_detail, activityIntent(WidgetStore.ACTION_SELECT, 16))
@@ -690,7 +691,10 @@ class WidgetQuickEntryActivity : Activity() {
 layout = r'''<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="12dp" android:background="@drawable/widget_user_hub_background">
  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
-  <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="UserHub" android:textColor="@color/widget_text_primary" android:textStyle="bold" android:textSize="20sp"/>
+  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="horizontal">
+   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="User" android:textColor="@color/widget_text_primary" android:textStyle="bold" android:textSize="20sp"/>
+   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Hub" android:textColor="#FFFF8745" android:textStyle="bold" android:textSize="20sp"/>
+  </LinearLayout>
   <TextView android:id="@+id/widget_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Today" android:textColor="@color/widget_text_secondary" android:textSize="12sp"/>
   <TextView android:id="@+id/widget_refresh" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="↻" android:textSize="20sp" android:textColor="@color/widget_text_secondary"/>
  </LinearLayout>
@@ -702,7 +706,7 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
   <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="10dp">
    <TextView android:id="@+id/widget_goal_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DP today · goal 20" android:textColor="@color/widget_text_secondary" android:textSize="12sp"/>
    <TextView android:id="@+id/widget_dp_total" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 coins" android:textColor="@color/widget_text_primary" android:textSize="22sp" android:textStyle="bold"/>
-   <TextView android:id="@+id/widget_goal_edit" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Edit goal" android:textColor="#FFFF9A5B" android:textSize="10sp"/>
+
   </LinearLayout>
   <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="6dp">
    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Bonus today" android:textColor="@color/widget_text_secondary" android:textSize="12sp"/>
@@ -734,7 +738,10 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
  <TextView android:id="@+id/widget_selected_detail" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="For selected user · last DP 5 coins · 2h ago" android:textColor="@color/widget_text_secondary" android:textSize="11sp" android:paddingTop="2dp" android:paddingBottom="6dp"/>
  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
   <TextView android:id="@+id/widget_minus" android:layout_width="54dp" android:layout_height="44dp" android:gravity="center" android:text="−" android:textColor="@color/widget_text_primary" android:textSize="24sp" android:background="@drawable/widget_metric_background"/>
-  <TextView android:id="@+id/widget_amount" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:gravity="center" android:text="5 coins" android:textColor="@color/widget_text_primary" android:textSize="26sp" android:textStyle="bold"/>
+  <LinearLayout android:id="@+id/widget_amount_group" android:layout_width="0dp" android:layout_height="54dp" android:layout_weight="1" android:gravity="center" android:orientation="horizontal">
+   <TextView android:id="@+id/widget_amount" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center" android:text="5" android:textColor="@color/widget_text_primary" android:textSize="36sp" android:textStyle="bold"/>
+   <TextView android:id="@+id/widget_amount_unit" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center_vertical" android:paddingStart="6dp" android:text="coins" android:textColor="@color/widget_text_secondary" android:textSize="14sp"/>
+  </LinearLayout>
   <TextView android:id="@+id/widget_plus" android:layout_width="54dp" android:layout_height="44dp" android:gravity="center" android:text="+" android:textColor="@color/widget_text_primary" android:textSize="24sp" android:background="@drawable/widget_metric_background"/>
  </LinearLayout>
  <LinearLayout android:layout_width="match_parent" android:layout_height="42dp" android:orientation="horizontal" android:layout_marginTop="7dp">
