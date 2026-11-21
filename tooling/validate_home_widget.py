@@ -13,7 +13,7 @@ if not layout_path.exists():
 
 ET.parse(layout_path)
 layout = layout_path.read_text()
-ids = re.findall(r"@\\+id/([A-Za-z0-9_]+)", layout)
+ids = re.findall(r"@\+id/([A-Za-z0-9_]+)", layout)
 duplicates = sorted(name for name, count in Counter(ids).items() if count > 1)
 if duplicates:
     raise SystemExit("Duplicate widget view IDs: " + ", ".join(duplicates))
@@ -22,13 +22,13 @@ id_set = set(ids)
 kotlin_files = list(provider_path.rglob("UserHubWidgetProvider.kt")) + list(provider_path.rglob("WidgetQuickEntryActivity.kt"))
 if len(kotlin_files) != 2:
     raise SystemExit("Expected both native widget Kotlin source files")
-kotlin = "\\n".join(path.read_text() for path in kotlin_files)
-referenced_ids = set(re.findall(r"R\\.id\\.([A-Za-z0-9_]+)", kotlin))
+kotlin = "\n".join(path.read_text() for path in kotlin_files)
+referenced_ids = set(re.findall(r"R\.id\.([A-Za-z0-9_]+)", kotlin))
 missing_ids = sorted(referenced_ids - id_set)
 if missing_ids:
     raise SystemExit("Kotlin references missing widget views: " + ", ".join(missing_ids))
 
-drawable_refs = set(re.findall(r"R\\.drawable\\.([A-Za-z0-9_]+)", kotlin))
+drawable_refs = set(re.findall(r"R\.drawable\.([A-Za-z0-9_]+)", kotlin))
 drawable_files = {path.stem for path in (root / "res/drawable").glob("*.xml")}
 missing_drawables = sorted(drawable_refs - drawable_files)
 if missing_drawables:

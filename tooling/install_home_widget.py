@@ -749,8 +749,9 @@ installer_resources = {
     "layout/widget_user_hub.xml": layout,
     "xml/user_hub_widget_info.xml": r'''<?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="250dp" android:minHeight="440dp"
-    android:targetCellWidth="4" android:targetCellHeight="6"
+    android:minWidth="250dp" android:minHeight="500dp"
+    android:minResizeWidth="220dp" android:minResizeHeight="470dp"
+    android:targetCellWidth="4" android:targetCellHeight="7"
     android:updatePeriodMillis="0" android:initialLayout="@layout/widget_user_hub"
     android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"
     android:description="@string/user_hub_widget_description" />
