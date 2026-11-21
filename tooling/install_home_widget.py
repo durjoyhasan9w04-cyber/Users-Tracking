@@ -32,6 +32,7 @@ import android.content.Context
 import android.content.Intent
 import android.database.sqlite.SQLiteDatabase
 import android.widget.RemoteViews
+import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -45,6 +46,20 @@ object WidgetStore {
     const val ACTION_SELECT = "com.userhub.widget.SELECT_USER"
     const val ACTION_ADD_USER = "com.userhub.widget.ADD_USER"
     const val RECENT_USERS = "recent_user_ids"
+    const val MODE = "entry_mode"
+    const val AMOUNT = "entry_amount"
+    const val DAILY_GOAL = "daily_dp_goal"
+    const val ACTION_MODE_DP = "com.userhub.widget.MODE_DP"
+    const val ACTION_MODE_BONUS = "com.userhub.widget.MODE_BONUS"
+    const val ACTION_MINUS = "com.userhub.widget.MINUS"
+    const val ACTION_PLUS = "com.userhub.widget.PLUS"
+    const val ACTION_PRESET = "com.userhub.widget.PRESET"
+    const val ACTION_EDIT_AMOUNT = "com.userhub.widget.EDIT_AMOUNT"
+    const val ACTION_EDIT_GOAL = "com.userhub.widget.EDIT_GOAL"
+    const val ACTION_UNDO = "com.userhub.widget.UNDO"
+    const val LAST_TABLE = "undo_table"
+    const val LAST_ROW = "undo_row"
+    const val UNDO_UNTIL = "undo_until"
 
     fun database(context: Context): SQLiteDatabase? {
         val file = context.getDatabasePath("user_hub.db")
@@ -98,9 +113,34 @@ class UserHubWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        if (intent.action == WidgetStore.ACTION_REFRESH) WidgetStore.refresh(context)
+        val prefs = context.getSharedPreferences(WidgetStore.PREFS, Context.MODE_PRIVATE)
+        when (intent.action) {
+            WidgetStore.ACTION_MODE_DP -> prefs.edit().putString(WidgetStore.MODE, "DP").apply()
+            WidgetStore.ACTION_MODE_BONUS -> prefs.edit().putString(WidgetStore.MODE, "BONUS").apply()
+            WidgetStore.ACTION_MINUS -> prefs.edit().putFloat(WidgetStore.AMOUNT, (prefs.getFloat(WidgetStore.AMOUNT, 5f) - 1f).coerceAtLeast(0.01f)).apply()
+            WidgetStore.ACTION_PLUS -> prefs.edit().putFloat(WidgetStore.AMOUNT, prefs.getFloat(WidgetStore.AMOUNT, 5f) + 1f).apply()
+            WidgetStore.ACTION_PRESET -> prefs.edit().putFloat(WidgetStore.AMOUNT, intent.getFloatExtra("amount", 5f)).apply()
+            WidgetStore.ACTION_UNDO -> undoLast(context)
+        }
+        if (intent.action == WidgetStore.ACTION_REFRESH || intent.action?.startsWith("com.userhub.widget.") == true) WidgetStore.refresh(context)
     }
 
+    private fun undoLast(context: Context) {
+        val prefs = context.getSharedPreferences(WidgetStore.PREFS, Context.MODE_PRIVATE)
+        val table = prefs.getString(WidgetStore.LAST_TABLE, "") ?: ""
+        val row = prefs.getLong(WidgetStore.LAST_ROW, -1L)
+        if (System.currentTimeMillis() > prefs.getLong(WidgetStore.UNDO_UNTIL, 0L) || row <= 0L || table !in listOf("dp_entries", "bonus_entries")) {
+            Toast.makeText(context, "Undo period expired", Toast.LENGTH_SHORT).show()
+        } else {
+            val db = WidgetStore.database(context)
+            if (db != null) {
+                try { db.delete(table, "id=?", arrayOf(row.toString())); Toast.makeText(context, "Entry undone", Toast.LENGTH_SHORT).show() }
+                catch (_: Exception) { Toast.makeText(context, "Could not undo entry", Toast.LENGTH_LONG).show() }
+                finally { db.close() }
+            }
+        }
+        prefs.edit().remove(WidgetStore.LAST_TABLE).remove(WidgetStore.LAST_ROW).remove(WidgetStore.UNDO_UNTIL).apply()
+    }
     private fun views(context: Context): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_user_hub)
         var dp = 0.0
@@ -121,12 +161,44 @@ class UserHubWidgetProvider : AppWidgetProvider() {
         views.setTextViewText(R.id.widget_dp_total, WidgetStore.money(dp) + " coins")
         views.setTextViewText(R.id.widget_bonus_total, WidgetStore.money(bonus) + " coins")
         views.setTextViewText(R.id.widget_user_name, name)
-        views.setTextViewText(R.id.widget_status, if (users.isEmpty()) "Add a user in User Hub" else "Today")
+        views.setTextViewText(R.id.widget_status, SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(Date()))
+        val prefs = context.getSharedPreferences(WidgetStore.PREFS, Context.MODE_PRIVATE)
+        val mode = prefs.getString(WidgetStore.MODE, "DP") ?: "DP"
+        val amount = prefs.getFloat(WidgetStore.AMOUNT, 5f)
+        val goal = prefs.getFloat(WidgetStore.DAILY_GOAL, 20f).coerceAtLeast(0f)
+        views.setTextViewText(R.id.widget_amount, WidgetStore.money(amount.toDouble()) + " coins")
+        views.setTextViewText(R.id.widget_goal_text, "Goal " + WidgetStore.money(goal.toDouble()))
+        views.setProgressBar(R.id.widget_goal_progress, 100, if (goal > 0) ((dp / goal) * 100).toInt().coerceIn(0, 100) else 0, false)
+        views.setTextViewText(R.id.widget_add, if (mode == "BONUS") "+ Add Bonus · " + WidgetStore.money(amount.toDouble()) else "+ Add DP · " + WidgetStore.money(amount.toDouble()))
+        views.setInt(R.id.widget_add, "setBackgroundResource", if (mode == "BONUS") R.drawable.widget_bonus_button else R.drawable.widget_dp_button)
+        views.setInt(R.id.widget_mode_dp, "setBackgroundResource", if (mode == "DP") R.drawable.widget_dp_button else R.drawable.widget_metric_background)
+        views.setInt(R.id.widget_mode_bonus, "setBackgroundResource", if (mode == "BONUS") R.drawable.widget_bonus_button else R.drawable.widget_metric_background)
+        val undoUntil = prefs.getLong(WidgetStore.UNDO_UNTIL, 0L)
+        val canUndo = prefs.getLong(WidgetStore.LAST_ROW, -1L) > 0L && System.currentTimeMillis() <= undoUntil
+        views.setViewVisibility(R.id.widget_undo, if (canUndo) android.view.View.VISIBLE else android.view.View.GONE)
+        if (canUndo) views.setTextViewText(R.id.widget_undo, "Undo · " + (((undoUntil-System.currentTimeMillis()).coerceAtLeast(0)+999)/1000) + "s")
 
         fun activityIntent(action: String, request: Int): PendingIntent {
             val i = Intent(context, WidgetQuickEntryActivity::class.java).setAction(action)
             return PendingIntent.getActivity(context, request, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
+        fun broadcastIntent(action: String, request: Int, value: Float? = null): PendingIntent {
+            val i = Intent(context, UserHubWidgetProvider::class.java).setAction(action)
+            if (value != null) i.putExtra("amount", value)
+            return PendingIntent.getBroadcast(context, request, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        }
+        views.setOnClickPendingIntent(R.id.widget_mode_dp, broadcastIntent(WidgetStore.ACTION_MODE_DP, 41))
+        views.setOnClickPendingIntent(R.id.widget_mode_bonus, broadcastIntent(WidgetStore.ACTION_MODE_BONUS, 42))
+        views.setOnClickPendingIntent(R.id.widget_minus, broadcastIntent(WidgetStore.ACTION_MINUS, 43))
+        views.setOnClickPendingIntent(R.id.widget_plus, broadcastIntent(WidgetStore.ACTION_PLUS, 44))
+        views.setOnClickPendingIntent(R.id.widget_preset_1, broadcastIntent(WidgetStore.ACTION_PRESET, 45, 1f))
+        views.setOnClickPendingIntent(R.id.widget_preset_5, broadcastIntent(WidgetStore.ACTION_PRESET, 46, 5f))
+        views.setOnClickPendingIntent(R.id.widget_preset_10, broadcastIntent(WidgetStore.ACTION_PRESET, 47, 10f))
+        views.setOnClickPendingIntent(R.id.widget_preset_25, broadcastIntent(WidgetStore.ACTION_PRESET, 48, 25f))
+        views.setOnClickPendingIntent(R.id.widget_amount, activityIntent(WidgetStore.ACTION_EDIT_AMOUNT, 49))
+        views.setOnClickPendingIntent(R.id.widget_goal_edit, activityIntent(WidgetStore.ACTION_EDIT_GOAL, 50))
+        views.setOnClickPendingIntent(R.id.widget_add, activityIntent(if (mode == "BONUS") WidgetStore.ACTION_ADD_BONUS else WidgetStore.ACTION_ADD_DP, 51))
+        views.setOnClickPendingIntent(R.id.widget_undo, broadcastIntent(WidgetStore.ACTION_UNDO, 52))
         views.setOnClickPendingIntent(R.id.widget_add_dp, activityIntent(WidgetStore.ACTION_ADD_DP, 11))
         views.setOnClickPendingIntent(R.id.widget_add_bonus, activityIntent(WidgetStore.ACTION_ADD_BONUS, 12))
         views.setOnClickPendingIntent(R.id.widget_user_name, activityIntent(WidgetStore.ACTION_SELECT, 13))
@@ -197,6 +269,7 @@ class WidgetQuickEntryActivity : Activity() {
         super.onCreate(savedInstanceState)
         action = intent.action ?: WidgetStore.ACTION_ADD_DP
         users = WidgetStore.users(this)
+        if (action == WidgetStore.ACTION_EDIT_AMOUNT || action == WidgetStore.ACTION_EDIT_GOAL) { showSettingForm(); return }
         selectedId = WidgetStore.selectedUserId(this)
         window.setBackgroundDrawableResource(android.R.color.transparent)
         window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
@@ -230,6 +303,30 @@ class WidgetQuickEntryActivity : Activity() {
         hint = hintText; textSize = 15f; setTextColor(ink); setHintTextColor(muted)
         setSingleLine(true); setPadding(dp(15), 0, dp(15), 0); background = shape(Color.WHITE, 15, border)
         if (numeric) inputType = 8194
+    }
+
+    private fun showSettingForm() {
+        val isGoal = action == WidgetStore.ACTION_EDIT_GOAL
+        val prefs = getSharedPreferences(WidgetStore.PREFS, MODE_PRIVATE)
+        val current = if (isGoal) prefs.getFloat(WidgetStore.DAILY_GOAL, 20f) else prefs.getFloat(WidgetStore.AMOUNT, 5f)
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(20), dp(20), dp(18)); background = shape(Color.WHITE, 24) }
+        panel.addView(text(if (isGoal) "Set daily DP goal" else "Enter amount", 19f).apply { setTypeface(null, Typeface.BOLD) })
+        panel.addView(text(if (isGoal) "Your daily target in coins" else "Enter any amount in coins", 12f, muted).apply { setPadding(0, dp(6), 0, dp(12)) })
+        val value = field("Coins", true)
+        value.setText(if (current % 1f == 0f) current.toInt().toString() else current.toString())
+        panel.addView(value, LinearLayout.LayoutParams(-1, dp(52)))
+        panel.addView(TextView(this).apply {
+            text = "Save"; gravity = Gravity.CENTER; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD)
+            background = shape(orange, 26); setPadding(dp(20), dp(14), dp(20), dp(14))
+            setOnClickListener {
+                val parsed = value.text.toString().trim().replace(",", "").toFloatOrNull()
+                if (parsed == null || !parsed.isFinite() || parsed < 0f || (!isGoal && parsed <= 0f)) { value.error = "Enter a valid amount"; return@setOnClickListener }
+                prefs.edit().putFloat(if (isGoal) WidgetStore.DAILY_GOAL else WidgetStore.AMOUNT, parsed).apply()
+                WidgetStore.refresh(this@WidgetQuickEntryActivity); finish()
+            }
+        }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(14) })
+        setContentView(panel)
+        window.setLayout((resources.displayMetrics.widthPixels * .9f).toInt(), WindowManager.LayoutParams.WRAP_CONTENT)
     }
 
     private fun buildForm() {
@@ -452,17 +549,23 @@ class WidgetQuickEntryActivity : Activity() {
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
             val now = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US).format(Date())
             val values = ContentValues().apply { put("user_id", selectedId); put("entry_date", today); put("created_at", now) }
+            var insertedId = -1L
             if (isBonus) {
                 values.put("amount", value)
                 values.put("reason", listOf("Other", "Deposit", "Special", "Promotional")[reason.selectedItemPosition])
                 values.putNull("related_dp"); values.put("notes", "")
-                db.insertOrThrow("bonus_entries", null, values)
+                insertedId = db.insertOrThrow("bonus_entries", null, values)
             } else {
                 values.put("dp1", value); values.put("dp2", 0); values.put("dp3", 0); values.put("dp4", 0); values.put("dp5", 0)
                 values.put("total", value); values.put("dp_count", 1); values.put("contacted", 0); values.put("notes", "")
-                db.insertOrThrow("dp_entries", null, values)
+                insertedId = db.insertOrThrow("dp_entries", null, values)
             }
+            getSharedPreferences(WidgetStore.PREFS, MODE_PRIVATE).edit()
+                .putString(WidgetStore.LAST_TABLE, if (isBonus) "bonus_entries" else "dp_entries")
+                .putLong(WidgetStore.LAST_ROW, insertedId)
+                .putLong(WidgetStore.UNDO_UNTIL, System.currentTimeMillis() + 8000L).apply()
             WidgetStore.setSelectedUser(this, selectedId); WidgetStore.refresh(this)
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ WidgetStore.refresh(this) }, 8000L)
             Toast.makeText(this, if (isBonus) "Bonus saved" else "DP saved", Toast.LENGTH_SHORT).show()
             finish()
         } catch (_: Exception) {
@@ -473,55 +576,52 @@ class WidgetQuickEntryActivity : Activity() {
 '''.replace("__PACKAGE__", package);
 
 layout = r'''<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="10dp"
-    android:background="@drawable/widget_user_hub_background">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:gravity="center_vertical" android:orientation="horizontal">
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-            android:text="UserHub" android:textColor="@color/widget_text_primary" android:textStyle="bold" android:textSize="14sp"/>
-        <TextView android:id="@+id/widget_status" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Today" android:textColor="@color/widget_text_secondary" android:textSize="10sp"/>
-        <TextView android:id="@+id/widget_refresh" android:layout_width="28dp" android:layout_height="28dp"
-            android:gravity="center" android:text="↻" android:textSize="19sp" android:textColor="@color/widget_text_secondary"/>
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
-        android:orientation="horizontal" android:paddingTop="5dp">
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-            android:orientation="vertical" android:padding="7dp" android:layout_marginEnd="7dp" android:background="@drawable/widget_metric_background">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DP TODAY"
-                android:textColor="@color/widget_text_secondary" android:textSize="9sp" android:textStyle="bold"/>
-            <TextView android:id="@+id/widget_dp_total" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="0 coins" android:textColor="@color/widget_dp_accent" android:textSize="18sp" android:textStyle="bold" android:maxLines="1"/>
-        </LinearLayout>
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-            android:orientation="vertical" android:padding="7dp" android:background="@drawable/widget_metric_background">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="BONUS TODAY"
-                android:textColor="@color/widget_text_secondary" android:textSize="9sp" android:textStyle="bold"/>
-            <TextView android:id="@+id/widget_bonus_total" android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="0 coins" android:textColor="@color/widget_bonus_accent" android:textSize="18sp" android:textStyle="bold" android:maxLines="1"/>
-        </LinearLayout>
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical"
-        android:orientation="horizontal" android:paddingTop="5dp">
-        <TextView android:id="@+id/widget_user_name" android:layout_width="0dp" android:layout_height="wrap_content"
-            android:layout_weight="1" android:text="Select user" android:textColor="@color/widget_text_primary"
-            android:textSize="11sp" android:textStyle="bold" android:maxLines="1"/>
-        <TextView android:id="@+id/widget_add_dp" android:layout_width="wrap_content" android:layout_height="30dp"
-            android:gravity="center" android:paddingLeft="9dp" android:paddingRight="9dp" android:layout_marginEnd="5dp" android:text="+ Add DP"
-            android:textColor="#FFFFFFFF" android:textSize="10sp" android:textStyle="bold" android:background="@drawable/widget_dp_button"/>
-        <TextView android:id="@+id/widget_add_bonus" android:layout_width="wrap_content" android:layout_height="30dp"
-            android:gravity="center" android:paddingLeft="9dp" android:paddingRight="9dp" android:text="+ Bonus"
-            android:textColor="#FFFFFFFF" android:textSize="10sp" android:textStyle="bold" android:background="@drawable/widget_bonus_button"/>
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingTop="3dp">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Recent" android:textSize="9sp" android:textColor="@color/widget_text_secondary" android:layout_marginEnd="5dp"/>
-        <TextView android:id="@+id/widget_recent_1" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:gravity="center" android:textSize="9sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background" android:maxLines="1"/>
-        <TextView android:id="@+id/widget_recent_2" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:layout_marginStart="4dp" android:gravity="center" android:textSize="9sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background" android:maxLines="1"/>
-        <TextView android:id="@+id/widget_recent_3" android:layout_width="0dp" android:layout_height="24dp" android:layout_weight="1" android:layout_marginStart="4dp" android:gravity="center" android:textSize="9sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background" android:maxLines="1"/>
-        <TextView android:id="@+id/widget_quick_add_user" android:layout_width="wrap_content" android:layout_height="24dp" android:layout_marginStart="5dp" android:gravity="center" android:text="+ User" android:textSize="9sp" android:textStyle="bold" android:textColor="#FFFFFFFF" android:paddingLeft="7dp" android:paddingRight="7dp" android:background="@drawable/widget_dp_button"/>
-    </LinearLayout>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="12dp" android:background="@drawable/widget_user_hub_background">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+  <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="UserHub" android:textColor="@color/widget_text_primary" android:textStyle="bold" android:textSize="18sp"/>
+  <TextView android:id="@+id/widget_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Today" android:textColor="@color/widget_text_secondary" android:textSize="11sp"/>
+  <TextView android:id="@+id/widget_refresh" android:layout_width="28dp" android:layout_height="28dp" android:gravity="center" android:text="↻" android:textSize="19sp" android:textColor="@color/widget_text_secondary"/>
+ </LinearLayout>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingTop="8dp">
+  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DP today" android:textColor="@color/widget_text_secondary" android:textSize="11sp"/>
+   <TextView android:id="@+id/widget_dp_total" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 coins" android:textColor="@color/widget_dp_accent" android:textSize="20sp" android:textStyle="bold"/>
+   <TextView android:id="@+id/widget_goal_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Goal 20" android:textColor="@color/widget_text_secondary" android:textSize="10sp"/>
+   <ProgressBar android:id="@+id/widget_goal_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="5dp" android:max="100" android:progress="0"/>
+   <TextView android:id="@+id/widget_goal_edit" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Edit goal" android:textColor="#FF9A5B" android:textSize="10sp"/>
+  </LinearLayout>
+  <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="12dp">
+   <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Bonus today" android:textColor="@color/widget_text_secondary" android:textSize="11sp"/>
+   <TextView android:id="@+id/widget_bonus_total" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 coins" android:textColor="@color/widget_bonus_accent" android:textSize="20sp" android:textStyle="bold"/>
+  </LinearLayout>
+ </LinearLayout>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="38dp" android:orientation="horizontal" android:background="@drawable/widget_metric_background" android:padding="3dp" android:layout_marginTop="9dp">
+  <TextView android:id="@+id/widget_mode_dp" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="DP" android:textColor="#FFFFFFFF" android:textStyle="bold" android:background="@drawable/widget_dp_button"/>
+  <TextView android:id="@+id/widget_mode_bonus" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="Bonus" android:textColor="@color/widget_text_secondary" android:textStyle="bold"/>
+ </LinearLayout>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingTop="8dp">
+  <TextView android:id="@+id/widget_recent_1" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:gravity="center" android:text="A" android:textColor="@color/widget_text_primary" android:textSize="11sp" android:background="@drawable/widget_metric_background"/>
+  <TextView android:id="@+id/widget_recent_2" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_marginStart="6dp" android:gravity="center" android:text="M" android:textColor="@color/widget_text_primary" android:textSize="11sp" android:background="@drawable/widget_metric_background"/>
+  <TextView android:id="@+id/widget_recent_3" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_marginStart="6dp" android:gravity="center" android:text="A" android:textColor="@color/widget_text_primary" android:textSize="11sp" android:background="@drawable/widget_metric_background"/>
+  <TextView android:id="@+id/widget_quick_add_user" android:layout_width="0dp" android:layout_height="38dp" android:layout_weight="1" android:layout_marginStart="6dp" android:gravity="center" android:text="+ User" android:textColor="@color/widget_text_secondary" android:textSize="10sp"/>
+ </LinearLayout>
+ <TextView android:id="@+id/widget_user_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="Select user" android:textColor="@color/widget_text_primary" android:textSize="11sp" android:paddingTop="5dp"/>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingTop="5dp">
+  <TextView android:id="@+id/widget_minus" android:layout_width="48dp" android:layout_height="40dp" android:gravity="center" android:text="−" android:textColor="@color/widget_text_primary" android:textSize="24sp" android:background="@drawable/widget_metric_background"/>
+  <TextView android:id="@+id/widget_amount" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:gravity="center" android:text="5 coins" android:textColor="@color/widget_text_primary" android:textSize="22sp" android:textStyle="bold"/>
+  <TextView android:id="@+id/widget_plus" android:layout_width="48dp" android:layout_height="40dp" android:gravity="center" android:text="+" android:textColor="@color/widget_text_primary" android:textSize="24sp" android:background="@drawable/widget_metric_background"/>
+ </LinearLayout>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="36dp" android:orientation="horizontal" android:layout_marginTop="5dp">
+  <TextView android:id="@+id/widget_preset_1" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:text="1" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
+  <TextView android:id="@+id/widget_preset_5" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="5dp" android:gravity="center" android:text="5" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
+  <TextView android:id="@+id/widget_preset_10" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="5dp" android:gravity="center" android:text="10" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
+  <TextView android:id="@+id/widget_preset_25" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="5dp" android:gravity="center" android:text="25" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
+ </LinearLayout>
+ <TextView android:id="@+id/widget_add" android:layout_width="match_parent" android:layout_height="46dp" android:layout_marginTop="8dp" android:gravity="center" android:text="+ Add DP · 5 coins" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="15sp" android:background="@drawable/widget_dp_button"/>
+ <TextView android:id="@+id/widget_undo" android:layout_width="match_parent" android:layout_height="38dp" android:layout_marginTop="5dp" android:gravity="center" android:text="Undo · 8s" android:textColor="#FFFFFFFF" android:textStyle="bold" android:background="@drawable/widget_bonus_button" android:visibility="gone"/>
+ <TextView android:id="@+id/widget_add_dp" android:visibility="gone" android:layout_width="1dp" android:layout_height="1dp" android:text=""/>
+ <TextView android:id="@+id/widget_add_bonus" android:visibility="gone" android:layout_width="1dp" android:layout_height="1dp" android:text=""/>
+ <TextView android:id="@+id/widget_quick_add_user" android:visibility="gone" android:layout_width="1dp" android:layout_height="1dp" android:text=""/>
 </LinearLayout>
 '''
 
@@ -529,8 +629,8 @@ installer_resources = {
     "layout/widget_user_hub.xml": layout,
     "xml/user_hub_widget_info.xml": r'''<?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="250dp" android:minHeight="110dp"
-    android:targetCellWidth="4" android:targetCellHeight="2"
+    android:minWidth="250dp" android:minHeight="360dp"
+    android:targetCellWidth="4" android:targetCellHeight="4"
     android:updatePeriodMillis="0" android:initialLayout="@layout/widget_user_hub"
     android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"
     android:description="@string/user_hub_widget_description" />
@@ -538,11 +638,11 @@ installer_resources = {
     "drawable/widget_user_hub_background.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="@color/widget_background"/><corners android:radius="16dp"/></shape>''',
     "drawable/widget_metric_background.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="@color/widget_surface"/><corners android:radius="10dp"/></shape>''',
     "drawable/widget_dp_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#F36B21"/><corners android:radius="8dp"/></shape>''',
-    "drawable/widget_bonus_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#F08A36"/><corners android:radius="8dp"/></shape>''',
+    "drawable/widget_bonus_button.xml": r'''<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#2563EB"/><corners android:radius="8dp"/></shape>''',
     "values/widget_strings.xml": r'''<resources><string name="user_hub_widget_description">Quick DP and bonus entry</string></resources>''',
     "values/widget_colors.xml": r'''<resources>
-<color name="widget_background">#FFF4F5F7</color><color name="widget_surface">#FFFFFFFF</color>
-<color name="widget_text_primary">#FF18202B</color><color name="widget_text_secondary">#FF7C8490</color>
+<color name="widget_background">#FF111B30</color><color name="widget_surface">#FF1D2A43</color>
+<color name="widget_text_primary">#FFFFFFFF</color><color name="widget_text_secondary">#FFB7C2D6</color>
 <color name="widget_dp_accent">#FFF36B21</color><color name="widget_bonus_accent">#FFF08A36</color>
 </resources>''',
     "values-night/widget_colors.xml": r'''<resources>
