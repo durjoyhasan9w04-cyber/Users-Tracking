@@ -53,7 +53,7 @@ info = ET.parse(provider_info).getroot()
 android = "{http://schemas.android.com/apk/res/android}"
 if info.get(android + "minHeight") != "500dp":
     raise SystemExit("Widget minimum height is not the full Design B height")
-if info.get(android + "targetCellHeight") != "7":
-    raise SystemExit("Widget target height is not seven launcher rows")
+if info.get(android + "minResizeHeight") != "470dp":
+    raise SystemExit("Widget minimum resize height is not tall enough for Design B")
 
 print(f"Validated Design B widget: {len(id_set)} unique views, {len(drawable_refs)} drawable references, all XML well formed.")

@@ -233,6 +233,8 @@ class UserHubWidgetProvider : AppWidgetProvider() {
         views.setInt(R.id.widget_add, "setBackgroundResource", if (mode == "BONUS") R.drawable.widget_bonus_button else R.drawable.widget_dp_button)
         views.setInt(R.id.widget_mode_dp, "setBackgroundResource", if (mode == "DP") R.drawable.widget_dp_button else R.drawable.widget_metric_background)
         views.setInt(R.id.widget_mode_bonus, "setBackgroundResource", if (mode == "BONUS") R.drawable.widget_bonus_button else R.drawable.widget_metric_background)
+        views.setTextColor(R.id.widget_mode_dp, if (mode == "DP") android.graphics.Color.WHITE else android.graphics.Color.rgb(147, 160, 180))
+        views.setTextColor(R.id.widget_mode_bonus, if (mode == "BONUS") android.graphics.Color.WHITE else android.graphics.Color.rgb(147, 160, 180))
         val undoUntil = prefs.getLong(WidgetStore.UNDO_UNTIL, 0L)
         val canUndo = prefs.getLong(WidgetStore.LAST_ROW, -1L) > 0L && System.currentTimeMillis() <= undoUntil
         views.setViewVisibility(R.id.widget_undo, if (canUndo) android.view.View.VISIBLE else android.view.View.GONE)
@@ -268,7 +270,7 @@ class UserHubWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_add, broadcastIntent(if (canUndo) WidgetStore.ACTION_REFRESH else if (mode == "BONUS") WidgetStore.ACTION_ADD_BONUS else WidgetStore.ACTION_ADD_DP, 51))
         views.setOnClickPendingIntent(R.id.widget_undo, broadcastIntent(WidgetStore.ACTION_UNDO, 52))
         views.setOnClickPendingIntent(R.id.widget_selected_detail, activityIntent(WidgetStore.ACTION_SELECT, 16))
-        views.setOnClickPendingIntent(R.id.widget_quick_add_user, activityIntent(WidgetStore.ACTION_ADD_USER, 15))
+        views.setOnClickPendingIntent(R.id.widget_quick_add_user, activityIntent(WidgetStore.ACTION_SELECT, 15))
         val recent = WidgetStore.recentUsers(context)
         val avatarIds = intArrayOf(R.id.widget_recent_avatar_1, R.id.widget_recent_avatar_2, R.id.widget_recent_avatar_3)
         val nameIds = intArrayOf(R.id.widget_recent_name_1, R.id.widget_recent_name_2, R.id.widget_recent_name_3)
@@ -754,7 +756,6 @@ installer_resources = {
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="250dp" android:minHeight="500dp"
     android:minResizeWidth="220dp" android:minResizeHeight="470dp"
-    android:targetCellWidth="4" android:targetCellHeight="7"
     android:updatePeriodMillis="0" android:initialLayout="@layout/widget_user_hub"
     android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"
     android:description="@string/user_hub_widget_description" />
