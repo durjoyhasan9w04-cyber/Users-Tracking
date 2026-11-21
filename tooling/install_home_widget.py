@@ -454,23 +454,133 @@ class WidgetQuickEntryActivity : Activity() {
     private fun showSettingForm() {
         val isGoal = action == WidgetStore.ACTION_EDIT_GOAL
         val prefs = getSharedPreferences(WidgetStore.PREFS, MODE_PRIVATE)
-        val current = if (isGoal) prefs.getFloat(WidgetStore.DAILY_GOAL, 20f) else prefs.getFloat(WidgetStore.AMOUNT, 5f)
-        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(20), dp(20), dp(18)); background = shape(Color.WHITE, 24) }
-        panel.addView(text(if (isGoal) "Set daily DP goal" else "Enter amount", 19f).apply { setTypeface(null, Typeface.BOLD) })
-        panel.addView(text(if (isGoal) "Your daily target in coins" else "Enter any amount in coins", 12f, muted).apply { setPadding(0, dp(6), 0, dp(12)) })
-        val value = field("Coins", true)
-        value.setText(if (current % 1f == 0f) current.toInt().toString() else current.toString())
-        panel.addView(value, LinearLayout.LayoutParams(-1, dp(52)))
-        panel.addView(TextView(this).apply {
-            text = "Save"; gravity = Gravity.CENTER; setTextColor(Color.WHITE); setTypeface(null, Typeface.BOLD)
-            background = shape(orange, 26); setPadding(dp(20), dp(14), dp(20), dp(14))
+        val mode = prefs.getString(WidgetStore.MODE, "DP") ?: "DP"
+        val isBonus = !isGoal && mode == "BONUS"
+        val current = if (isGoal) prefs.getFloat(WidgetStore.DAILY_GOAL, 50f) else prefs.getFloat(WidgetStore.AMOUNT, 5f)
+        val selected = users.firstOrNull { it.id == WidgetStore.selectedUserId(this) }
+        val userName = selected?.name ?: "Select a user"
+        val accent = if (isBonus) Color.rgb(96, 165, 250) else Color.rgb(243, 107, 33)
+        val navy = Color.rgb(17, 27, 48)
+        val surface = Color.rgb(28, 40, 61)
+        val secondary = Color.rgb(163, 172, 191)
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(20), dp(20), dp(20))
+            background = shape(navy, 34)
+        }
+        window.setBackgroundDrawableResource(android.R.color.transparent)
+        window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        window.setDimAmount(0.62f)
+
+        val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val avatar = TextView(this).apply {
+            text = if (isGoal) "◎" else userName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+            textSize = 25f; gravity = Gravity.CENTER; setTextColor(accent)
+            background = shape(Color.rgb(36, 50, 75), 60)
+        }
+        header.addView(avatar, LinearLayout.LayoutParams(dp(56), dp(56)))
+        val heading = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), 0, dp(6), 0) }
+        heading.addView(text(if (isGoal) "Set daily goal" else if (isBonus) "Add Bonus" else "Add DP", 23f, Color.WHITE).apply { setTypeface(null, Typeface.BOLD) })
+        heading.addView(text(if (isGoal) "Daily DP target · UserHub" else "for $userName · enter coins", 13f, secondary))
+        header.addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
+        val close = TextView(this).apply {
+            text = "×"; textSize = 30f; gravity = Gravity.CENTER; setTextColor(secondary)
+            background = shape(surface, 50); setOnClickListener { finish() }
+        }
+        header.addView(close, LinearLayout.LayoutParams(dp(52), dp(52)))
+        panel.addView(header)
+
+        val amountCard = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            background = shape(surface, 30); setPadding(dp(14), dp(8), dp(14), dp(8))
+        }
+        val value = EditText(this).apply {
+            setTextColor(Color.WHITE); setHintTextColor(secondary); textSize = 52f
+            gravity = Gravity.CENTER; setSingleLine(true); inputType = 8194
+            setPadding(0, 0, 0, 0); background = android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+            setSelectAllOnFocus(true)
+            setText(if (current % 1f == 0f) current.toInt().toString() else current.toString())
+        }
+        amountCard.addView(value, LinearLayout.LayoutParams(0, dp(112), 1f))
+        amountCard.addView(text("coins", 16f, secondary))
+        panel.addView(amountCard, LinearLayout.LayoutParams(-1, dp(132)).apply { topMargin = dp(18) })
+
+        var todayDp = 0.0
+        val db = WidgetStore.database(this)
+        if (db != null) {
+            try {
+                val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                db.rawQuery("SELECT COALESCE(SUM(total),0) FROM dp_entries WHERE entry_date=?", arrayOf(today)).use { if (it.moveToFirst()) todayDp = it.getDouble(0) }
+            } catch (_: Exception) { } finally { db.close() }
+        }
+        val status = text("", 13f, secondary).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(12)) }
+        panel.addView(status)
+        val presets = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        val presetValues = if (isGoal) listOf(10f, 25f, 50f, 100f) else listOf(1f, 5f, 10f, 25f)
+        presetValues.forEachIndexed { index, step ->
+            val chip = TextView(this).apply {
+                text = "+" + WidgetStore.money(step.toDouble()); textSize = 14f
+                gravity = Gravity.CENTER; setTypeface(null, Typeface.BOLD); setTextColor(accent)
+                background = shape(surface, 40)
+                setOnClickListener {
+                    val old = value.text.toString().trim().toFloatOrNull() ?: 0f
+                    value.setText(WidgetStore.money((old + step).toDouble()))
+                    value.setSelection(value.text.length)
+                }
+            }
+            presets.addView(chip, LinearLayout.LayoutParams(0, dp(52), 1f).apply {
+                if (index > 0) marginStart = dp(7)
+            })
+        }
+        val clear = TextView(this).apply {
+            text = "Clear"; textSize = 13f; gravity = Gravity.CENTER
+            setTextColor(secondary); background = shape(surface, 40)
+            setOnClickListener { value.setText(""); value.requestFocus() }
+        }
+        presets.addView(clear, LinearLayout.LayoutParams(dp(82), dp(52)).apply { marginStart = dp(7) })
+        panel.addView(presets)
+
+        val save = TextView(this).apply {
+            gravity = Gravity.CENTER; setTextColor(Color.WHITE); textSize = 18f
+            setTypeface(null, Typeface.BOLD); background = shape(accent, 60)
             setOnClickListener {
                 val parsed = value.text.toString().trim().replace(",", "").toFloatOrNull()
-                if (parsed == null || !parsed.isFinite() || parsed < 0f || (!isGoal && parsed <= 0f)) { value.error = "Enter a valid amount"; return@setOnClickListener }
+                if (parsed == null || !parsed.isFinite() || parsed < 0f || (!isGoal && parsed <= 0f)) {
+                    value.error = "Enter a valid amount"; return@setOnClickListener
+                }
                 prefs.edit().putFloat(if (isGoal) WidgetStore.DAILY_GOAL else WidgetStore.AMOUNT, parsed).apply()
-                WidgetStore.refresh(this@WidgetQuickEntryActivity); finish()
+                WidgetStore.refresh(this@WidgetQuickEntryActivity)
+                finish()
             }
-        }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(14) })
+        }
+        panel.addView(save, LinearLayout.LayoutParams(-1, dp(58)).apply { topMargin = dp(16) })
+
+        fun updatePreview() {
+            val parsed = value.text.toString().trim().replace(",", "").toFloatOrNull() ?: 0f
+            val amountText = WidgetStore.money(parsed.toDouble())
+            status.text = if (isGoal) {
+                "DP today  " + WidgetStore.money(todayDp) + "  ·  goal " + amountText
+            } else {
+                val label = if (isBonus) "Bonus today" else "DP today"
+                val before = if (isBonus) {
+                    val d = WidgetStore.database(this)
+                    var total = 0.0
+                    if (d != null) try {
+                        val today = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                        d.rawQuery("SELECT COALESCE(SUM(amount),0) FROM bonus_entries WHERE entry_date=?", arrayOf(today)).use { if (it.moveToFirst()) total = it.getDouble(0) }
+                    } catch (_: Exception) { } finally { d.close() }
+                    total
+                } else todayDp
+                "$label  " + WidgetStore.money(before) + "  →  " + amountText + "  ·  goal " + WidgetStore.money(prefs.getFloat(WidgetStore.DAILY_GOAL, 50f).toDouble())
+            }
+            save.text = if (isGoal) "Save goal  $amountText coins" else "Save  $amountText coins"
+        }
+        value.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { updatePreview() }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+        updatePreview()
         setContentView(panel)
         window.setLayout((resources.displayMetrics.widthPixels * .9f).toInt(), WindowManager.LayoutParams.WRAP_CONTENT)
     }
