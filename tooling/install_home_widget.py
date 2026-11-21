@@ -785,9 +785,9 @@ layout = r'''<?xml version="1.0" encoding="utf-8"?>
   <TextView android:id="@+id/widget_preset_25" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="4dp" android:gravity="center" android:text="25" android:textSize="11sp" android:textColor="@color/widget_text_primary" android:background="@drawable/widget_metric_background"/>
  </LinearLayout>
  <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
- <LinearLayout android:layout_width="match_parent" android:layout_height="38dp" android:orientation="horizontal">
-  <TextView android:id="@+id/widget_add" android:layout_width="0dp" android:layout_weight="1" android:layout_height="50dp" android:gravity="center" android:text="+ Add DP · 5 coins" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="13sp" android:background="@drawable/widget_dp_button"/>
-  <TextView android:id="@+id/widget_undo" android:layout_width="110dp" android:layout_height="48dp" android:layout_marginStart="4dp" android:gravity="center" android:text="Undo · 8s" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="11sp" android:background="@drawable/widget_bonus_button" android:visibility="gone"/>
+ <LinearLayout android:layout_width="match_parent" android:layout_height="50dp" android:orientation="horizontal" android:padding="2dp">
+  <TextView android:id="@+id/widget_add" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent" android:layout_margin="2dp" android:gravity="center" android:text="+ Add DP · 5 coins" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="13sp" android:background="@drawable/widget_dp_button"/>
+  <TextView android:id="@+id/widget_undo" android:layout_width="110dp" android:layout_height="match_parent" android:layout_marginStart="4dp" android:layout_marginTop="2dp" android:layout_marginBottom="2dp" android:gravity="center" android:text="Undo · 8s" android:textColor="#FFFFFFFF" android:textStyle="bold" android:textSize="11sp" android:background="@drawable/widget_bonus_button" android:visibility="gone"/>
  </LinearLayout>
 </LinearLayout>
 '''
@@ -796,9 +796,9 @@ installer_resources = {
     "layout/widget_user_hub.xml": layout,
     "xml/user_hub_widget_info.xml": r'''<?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="250dp" android:minHeight="280dp"
-    android:minResizeWidth="250dp" android:minResizeHeight="280dp"
-    android:targetCellWidth="4" android:targetCellHeight="4"
+    android:minWidth="250dp" android:minHeight="350dp"
+    android:minResizeWidth="250dp" android:minResizeHeight="350dp"
+    android:targetCellWidth="4" android:targetCellHeight="5"
     android:updatePeriodMillis="0" android:initialLayout="@layout/widget_user_hub"
     android:resizeMode="horizontal|vertical" android:widgetCategory="home_screen"
     android:description="@string/user_hub_widget_description" />
