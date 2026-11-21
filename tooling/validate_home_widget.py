@@ -59,7 +59,7 @@ if info.get(android + "minResizeHeight") != "470dp":
 
 if "ACTION_EDIT_AMOUNT" not in kotlin or "ACTION_EDIT_GOAL" not in kotlin:
     raise SystemExit("Manual coin entry and daily DP goal editors must both be implemented")
-if "putFloat(WidgetStore.AMOUNT" not in kotlin or "putFloat(WidgetStore.DAILY_GOAL" not in kotlin:
+if "putFloat(WidgetStore.AMOUNT" not in kotlin or "WidgetStore.DAILY_GOAL" not in kotlin or "putFloat(if (isGoal)" not in kotlin:
     raise SystemExit("Manual amount and goal values are not persisted")
 if "widget_amount_group" not in kotlin or "widget_goal_text" not in kotlin:
     raise SystemExit("Amount and goal controls are not wired to their editors")
