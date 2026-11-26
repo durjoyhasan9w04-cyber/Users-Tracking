@@ -131,6 +131,69 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
     name.dispose(); phone.dispose(); notes.dispose();
   }
 
+  Future<void> addExistingParticipant() async {
+    final quizId = selectedQuizId;
+    if (quizId == null) return;
+    final all = await QuizDatabase.instance.getParticipants();
+    final joined = await QuizDatabase.instance.getParticipantsForQuiz(quizId: quizId);
+    final joinedIds = joined.map((p) => p['id']).toSet();
+    final available = all.where((p) => !joinedIds.contains(p['id'])).toList();
+    if (!mounted) return;
+    final query = TextEditingController();
+    final added = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setDialog) {
+        final term = query.text.trim().toLowerCase();
+        final filtered = available.where((p) =>
+          '${p['name']} ${p['phone']}'.toLowerCase().contains(term)).toList();
+        return AlertDialog(
+          title: const Text('Add existing participant'),
+          content: SizedBox(
+            width: 420,
+            height: 360,
+            child: Column(children: [
+              TextField(
+                controller: query,
+                onChanged: (_) => setDialog(() {}),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Search name or phone',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(child: filtered.isEmpty
+                ? const Center(child: Text('No available participants.'))
+                : ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final p = filtered[index];
+                      return ListTile(
+                        leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+                        title: Text(p['name']?.toString() ?? 'Participant'),
+                        subtitle: Text(p['phone']?.toString().isNotEmpty == true
+                          ? p['phone'].toString() : 'No phone number'),
+                        trailing: const Icon(Icons.add_circle_outline),
+                        onTap: () async {
+                          await QuizDatabase.instance.setParticipated(
+                            quizId: quizId,
+                            participantId: p['id'] as int,
+                            participated: true,
+                          );
+                          if (ctx.mounted) Navigator.pop(ctx, true);
+                        },
+                      );
+                    },
+                  )),
+            ]),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Close'))],
+        );
+      }),
+    );
+    query.dispose();
+    if (added == true) await refresh();
+  }
+
   Future<void> editParticipant(Map<String, Object?> participant) async {
     final name = TextEditingController(text: participant['name']?.toString() ?? '');
     final phone = TextEditingController(text: participant['phone']?.toString() ?? '');
@@ -402,6 +465,12 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
       const SizedBox(height: 18),
       Row(children: [
         Expanded(child: Text('Joined participants', style: Theme.of(context).textTheme.titleLarge)),
+        OutlinedButton.icon(
+          onPressed: selectedQuizId == null ? null : addExistingParticipant,
+          icon: const Icon(Icons.person_search_outlined),
+          label: const Text('Existing'),
+        ),
+        const SizedBox(width: 8),
         FilledButton.icon(onPressed: addParticipant, icon: const Icon(Icons.person_add_alt_1), label: const Text('Add')),
       ]),
       const SizedBox(height: 8),
