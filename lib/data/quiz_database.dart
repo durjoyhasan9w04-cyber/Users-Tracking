@@ -155,6 +155,27 @@ class QuizDatabase {
     ''', [quizId, quizId, q, '%$q%', '%$q%']);
   }
 
+  /// Returns only participants who joined the selected quiz, newest join first.
+  Future<List<Map<String, Object?>>> getParticipantsForQuiz({
+    required int quizId,
+    String search = '',
+  }) async {
+    final db = await database;
+    final q = search.trim();
+    return db.rawQuery('''
+      SELECT p.*,
+        (SELECT COUNT(*) FROM quiz_participations all_qp
+          WHERE all_qp.participant_id = p.id) AS quiz_count,
+        qp.participated_at AS joined_at,
+        1 AS joined_selected
+      FROM quiz_participations qp
+      JOIN quiz_participants p ON p.id = qp.participant_id
+      WHERE qp.quiz_id = ?
+        AND (? = '' OR p.name LIKE ? OR p.phone LIKE ?)
+      ORDER BY qp.participated_at DESC, qp.id DESC
+    ''', [quizId, q, '%$q%', '%$q%']);
+  }
+
   Future<int> addParticipant({required String name, String phone = '', String notes = '', int? linkedUserId}) async {
     final db = await database;
     return db.insert('quiz_participants', {

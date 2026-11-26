@@ -26,16 +26,16 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
     final rows = await quizzes;
     if (!mounted) return;
     if (selectedQuizId == null && rows.isNotEmpty) selectedQuizId = rows.first['id'] as int;
-    participants = QuizDatabase.instance.getParticipants(search: search.text, quizId: selectedQuizId);
+    participants = selectedQuizId == null ? Future.value(const <Map<String, Object?>>[]) : QuizDatabase.instance.getParticipantsForQuiz(quizId: selectedQuizId!, search: search.text);
     if (mounted) setState(() {});
   }
   void loadParticipants() {
-    participants = QuizDatabase.instance.getParticipants(search: search.text, quizId: selectedQuizId);
+    participants = selectedQuizId == null ? Future.value(const <Map<String, Object?>>[]) : QuizDatabase.instance.getParticipantsForQuiz(quizId: selectedQuizId!, search: search.text);
     if (mounted) setState(() {});
   }
   Future<void> refresh() async {
     quizzes = QuizDatabase.instance.getQuizzes();
-    participants = QuizDatabase.instance.getParticipants(search: search.text, quizId: selectedQuizId);
+    participants = selectedQuizId == null ? Future.value(const <Map<String, Object?>>[]) : QuizDatabase.instance.getParticipantsForQuiz(quizId: selectedQuizId!, search: search.text);
     if (mounted) setState(() {});
   }
 
@@ -114,13 +114,84 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
           final users = await AppDatabase.instance.getUsers(search: cleanPhone);
           for (final u in users) { if ((u['phone'] as String? ?? '').trim() == cleanPhone) linked = u['id'] as int; }
         }
-        await QuizDatabase.instance.addParticipant(name: name.text, phone: cleanPhone, notes: notes.text, linkedUserId: linked);
+        final participantId = await QuizDatabase.instance.addParticipant(
+          name: name.text, phone: cleanPhone, notes: notes.text, linkedUserId: linked,
+        );
+        final quizId = selectedQuizId;
+        if (quizId != null) {
+          await QuizDatabase.instance.setParticipated(
+            quizId: quizId, participantId: participantId, participated: true,
+          );
+        }
         await refresh();
       } catch (_) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not add participant. This phone may already be in the quiz list.')));
       }
     }
     name.dispose(); phone.dispose(); notes.dispose();
+  }
+
+  Future<void> addExistingParticipant() async {
+    final quizId = selectedQuizId;
+    if (quizId == null) return;
+    final all = await QuizDatabase.instance.getParticipants();
+    final joined = await QuizDatabase.instance.getParticipantsForQuiz(quizId: quizId);
+    final joinedIds = joined.map((p) => p['id']).toSet();
+    final available = all.where((p) => !joinedIds.contains(p['id'])).toList();
+    if (!mounted) return;
+    final query = TextEditingController();
+    final added = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setDialog) {
+        final term = query.text.trim().toLowerCase();
+        final filtered = available.where((p) =>
+          '${p['name']} ${p['phone']}'.toLowerCase().contains(term)).toList();
+        return AlertDialog(
+          title: const Text('Add existing participant'),
+          content: SizedBox(
+            width: 420,
+            height: 360,
+            child: Column(children: [
+              TextField(
+                controller: query,
+                onChanged: (_) => setDialog(() {}),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Search name or phone',
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(child: filtered.isEmpty
+                ? const Center(child: Text('No available participants.'))
+                : ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final p = filtered[index];
+                      return ListTile(
+                        leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+                        title: Text(p['name']?.toString() ?? 'Participant'),
+                        subtitle: Text(p['phone']?.toString().isNotEmpty == true
+                          ? p['phone'].toString() : 'No phone number'),
+                        trailing: const Icon(Icons.add_circle_outline),
+                        onTap: () async {
+                          await QuizDatabase.instance.setParticipated(
+                            quizId: quizId,
+                            participantId: p['id'] as int,
+                            participated: true,
+                          );
+                          if (ctx.mounted) Navigator.pop(ctx, true);
+                        },
+                      );
+                    },
+                  )),
+            ]),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Close'))],
+        );
+      }),
+    );
+    query.dispose();
+    if (added == true) await refresh();
   }
 
   Future<void> editParticipant(Map<String, Object?> participant) async {
@@ -393,7 +464,13 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
       }),
       const SizedBox(height: 18),
       Row(children: [
-        Expanded(child: Text('Participant list', style: Theme.of(context).textTheme.titleLarge)),
+        Expanded(child: Text('Joined participants', style: Theme.of(context).textTheme.titleLarge)),
+        OutlinedButton.icon(
+          onPressed: selectedQuizId == null ? null : addExistingParticipant,
+          icon: const Icon(Icons.person_search_outlined),
+          label: const Text('Existing'),
+        ),
+        const SizedBox(width: 8),
         FilledButton.icon(onPressed: addParticipant, icon: const Icon(Icons.person_add_alt_1), label: const Text('Add')),
       ]),
       const SizedBox(height: 8),
@@ -402,9 +479,8 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
       FutureBuilder<List<Map<String, Object?>>>(future: participants, builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) return const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()));
         final rows = snap.data ?? const [];
-        if (rows.isEmpty) return const Card(child: Padding(padding: EdgeInsets.all(18), child: Text('No participants yet.')));
+        if (rows.isEmpty) return const Card(child: Padding(padding: EdgeInsets.all(18), child: Text('No one has joined this quiz yet. Add a participant to register them for this quiz.')));
         return Column(children: rows.map((p) {
-          final joined = (p['joined_selected'] as int? ?? 0) > 0;
           final linked = p['linked_user_id'] != null;
           return Card(margin: const EdgeInsets.only(bottom: 8), child: Column(children: [
             ListTile(
@@ -412,6 +488,9 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
               title: Text(p['name'] as String? ?? 'Participant', style: const TextStyle(fontWeight: FontWeight.w700)),
               subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${p['phone'] ?? 'No phone'} · ${p['quiz_count'] ?? 0} quizzes · ${linked ? 'Regular user' : 'Quiz-only'}'),
+                if (p['joined_at'] != null)
+                  Text('Joined ${formatQuizJoinedAt(p['joined_at'].toString())}',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF7C8490))),
                 if ((p['phone'] as String? ?? '').trim().isNotEmpty)
                   InkWell(
                     onTap: () async {
@@ -430,10 +509,7 @@ class _QuizParticipantsPageState extends State<QuizParticipantsPage> {
                     ),
                   ),
               ]),
-              trailing: selectedQuizId == null ? null : Checkbox(value: joined, onChanged: (v) async {
-                await QuizDatabase.instance.setParticipated(quizId: selectedQuizId!, participantId: p['id'] as int, participated: v ?? false);
-                await refresh();
-              }),
+              trailing: const Icon(Icons.check_circle, color: Color(0xFF3DDC97)),
             ),
             Padding(
               padding: const EdgeInsets.only(right: 8, bottom: 4),
@@ -480,4 +556,15 @@ String formatQuizDate(DateTime d) {
   final day = d.day.toString().padLeft(2, '0');
   final month = d.month.toString().padLeft(2, '0');
   return '$day/$month/${d.year}';
+}
+
+String formatQuizJoinedAt(String value) {
+  final parsed = DateTime.tryParse(value)?.toLocal();
+  if (parsed == null) return value;
+  final day = parsed.day.toString().padLeft(2, '0');
+  final month = parsed.month.toString().padLeft(2, '0');
+  final hour = parsed.hour % 12 == 0 ? 12 : parsed.hour % 12;
+  final minute = parsed.minute.toString().padLeft(2, '0');
+  final period = parsed.hour >= 12 ? 'PM' : 'AM';
+  return '$day/$month/${parsed.year} · $hour:$minute $period';
 }
